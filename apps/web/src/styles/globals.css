@@ -1,0 +1,271 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Design tokens — design/index.html :root vars 1:1
+   변경 시 디자인 충실도가 깨지므로 surgical edit only
+   ============================================================ */
+:root {
+  /* Brand */
+  --red:        #FF3621;   /* Databricks Red Orange */
+  --red-soft:   #ffece9;
+  --green:      #1B3139;   /* Gable Green */
+  --green-2:    #243f48;
+  --green-3:    #2f535e;
+
+  /* Surfaces */
+  --bg:         #FCFCFB;
+  --panel:      #FFFFFF;
+  --line:       #ECECE8;
+  --line-2:     #E2E2DD;
+
+  /* Ink scale */
+  --ink:        #1B3139;
+  --ink-2:      #4A5C63;
+  --ink-3:      #7A8A91;
+  --ink-4:      #A9B4B9;
+
+  /* Status */
+  --ok:         #10B981;
+  --warn:       #F59E0B;
+  --danger:     #FF3621;
+
+  /* Fonts */
+  --mono:       'JetBrains Mono', ui-monospace, monospace;
+  --display:    'Space Grotesk', 'IBM Plex Sans KR', sans-serif;
+  --body:       'IBM Plex Sans', 'IBM Plex Sans KR', system-ui, sans-serif;
+}
+
+/* ============================================================
+   Tailwind v4 theme — semantic tokens for tw classes
+   ============================================================ */
+@theme {
+  --color-brand:        #FF3621;
+  --color-brand-soft:   #ffece9;
+  --color-deep:         #1B3139;
+  --color-deep-2:       #243f48;
+  --color-deep-3:       #2f535e;
+
+  --color-paper:        #FCFCFB;
+  --color-panel:        #FFFFFF;
+  --color-line:         #ECECE8;
+  --color-line-2:       #E2E2DD;
+
+  --color-ink:          #1B3139;
+  --color-ink-2:        #4A5C63;
+  --color-ink-3:        #7A8A91;
+  --color-ink-4:        #A9B4B9;
+
+  --color-ok:           #10B981;
+  --color-warn:         #F59E0B;
+  --color-danger:       #FF3621;
+
+  --font-display:       'Space Grotesk', 'IBM Plex Sans KR', sans-serif;
+  --font-sans:          'IBM Plex Sans', 'IBM Plex Sans KR', system-ui, sans-serif;
+  --font-mono:          'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+body { min-width: 1280px; }  /* desktop-first */
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+::selection { background: var(--red); color: #fff; }
+
+/* ============================================================
+   Utility classes — design/index.html 그대로
+   Tailwind utility로 흡수하기 어색한 brand utilities는 그대로 보존
+   ============================================================ */
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.display {
+  font-family: var(--display);
+  letter-spacing: -0.02em;
+}
+
+.label-mini {
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+
+/* hairline */
+.hl { border: 1px solid var(--line); }
+.hr { height: 1px; background: var(--line); width: 100%; }
+
+/* button system */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 13px;
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.btn-primary { background: var(--red); color: #fff; }
+.btn-primary:hover { background: #ed2e1a; }
+.btn-primary:active { transform: translateY(1px); }
+.btn-primary:disabled { opacity: 0.7; cursor: default; }
+
+.btn-ghost { background: transparent; color: var(--ink); border-color: var(--line-2); }
+.btn-ghost:hover { background: #f4f4ef; border-color: #cfcfc8; }
+
+.btn-dark { background: var(--green); color: #fff; }
+.btn-dark:hover { background: var(--green-2); }
+
+/* pill */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+}
+.pill-danger  { background: var(--red-soft); color: #b81d0a; }
+.pill-warn    { background: #FFF6E5;        color: #8a5a06; }
+.pill-ok      { background: #E5F7EE;        color: #06724a; }
+.pill-neutral { background: #F0F0EB;        color: var(--ink-2); }
+.pill-dark    { background: var(--green);   color: #fff; }
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 99px;
+  display: inline-block;
+}
+
+/* card hover lift */
+.lift {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.lift:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px -10px rgba(27, 49, 57, 0.18);
+  border-color: #d6d6cf;
+}
+
+/* tabs */
+.tab {
+  height: 40px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.tab.active {
+  color: var(--ink);
+  border-bottom-color: var(--red);
+}
+
+/* sidebar nav */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 6px;
+  color: #A9B4B9;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  margin-left: -2px;
+  transition: color 0.15s, background 0.15s;
+}
+.nav-item:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+.nav-item.active {
+  color: #fff;
+  background: rgba(255, 54, 33, 0.08);
+  border-left-color: var(--red);
+}
+.nav-item kbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: #5a6c73;
+  margin-left: auto;
+  padding: 1px 5px;
+  border: 1px solid #2f535e;
+  border-radius: 3px;
+}
+
+/* scrollbar */
+.scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.scrollbar::-webkit-scrollbar-thumb {
+  background: #dcdcd6;
+  border-radius: 10px;
+  border: 2px solid var(--bg);
+}
+.scrollbar::-webkit-scrollbar-thumb:hover { background: #c4c4be; }
+
+/* ============================================================
+   Animations — design/index.html 그대로
+   ============================================================ */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+.blink { animation: blink 1.6s ease-in-out infinite; }
+
+@keyframes fadeup {
+  to { opacity: 1; transform: none; }
+}
+
+.stagger > * {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fadeup 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+.stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.stagger > *:nth-child(2) { animation-delay: 0.10s; }
+.stagger > *:nth-child(3) { animation-delay: 0.16s; }
+.stagger > *:nth-child(4) { animation-delay: 0.22s; }
+.stagger > *:nth-child(5) { animation-delay: 0.28s; }
+.stagger > *:nth-child(6) { animation-delay: 0.34s; }
