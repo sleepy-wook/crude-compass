@@ -1,0 +1,28 @@
+# Node
+node_modules/
+*.log
+.DS_Store
+
+# Vite
+apps/web/dist/
+apps/web/.vite/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.uv-cache/
+*.egg-info/
+
+# Env
+.env
+.env.local
+*.env.local
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# OS
+Thumbs.db

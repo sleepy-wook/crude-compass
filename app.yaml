@@ -1,0 +1,42 @@
+# Databricks Apps deploy spec
+# Deploy: databricks apps deploy crude-compass --source .
+#
+# 빌드 단계 (Apps build hook):
+#   1. apps/web에서 npm install && npm run build → apps/web/dist 생성
+#   2. apps/api uv sync로 Python deps 설치
+#
+# Runtime: 단일 컨테이너 단일 프로세스 (FastAPI가 dist serve + /api/* 처리)
+
+command:
+  - uvicorn
+  - apps.api.main:app
+  - --host
+  - 0.0.0.0
+  - --port
+  - $DATABRICKS_APP_PORT
+  - --workers
+  - "1"
+
+env:
+  - name: CRUDE_COMPASS_ENV
+    value: production
+
+  # Lakebase 자동 주입 (Apps에서 Lakebase 리소스 attach 시):
+  #   PGHOST, PGPORT, PGDATABASE, PGUSER, PGSSLMODE, PGAPPNAME
+  # PGPASSWORD는 OAuth 토큰으로 런타임 발급 (services/lakebase.py)
+  - name: DATABRICKS_LAKEBASE_INSTANCE
+    value: crude-compass-pg
+
+  # Secrets — Apps Secret Manager에서 주입
+  - name: OILPRICEAPI_KEY
+    valueFrom: oilpriceapi-key
+  - name: AISSTREAM_KEY
+    valueFrom: aisstream-key
+  - name: ECOS_KEY
+    valueFrom: ecos-key
+
+  # Genie + AI/BI
+  - name: GENIE_SPACE_ID
+    value: # TODO: Phase 2에서 Genie Space 생성 후 ID 입력
+  - name: AIBI_DASHBOARD_ID
+    value: # TODO: Phase 4에서 AI/BI Dashboard 생성 후 ID 입력
