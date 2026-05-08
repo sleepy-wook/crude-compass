@@ -39,18 +39,18 @@
 
 ## 2. 실현 가능성 — 14일 / 팀 2명
 
-### 2.1 팀 구성·분담 (제안)
+### 2.1 팀 구성·분담 (확정 2026-05-08)
 
-| 멤버 | 강점 | 담당 |
-|---|---|---|
-| **형욱님** (LG Innotek, Gen AI 엔지니어) | Python, Databricks, LLM | Databricks Jobs (1·2·4·5) + Agent Bricks (Mission Plan ⭐) + Lakebase + Backend (FastAPI) + Mock backtest 산출 로직 |
-| **친구분** (LG Electronics) | (가정) Frontend / 일반 SW | Vite+React+Tailwind 3 페이지 + Slack Bolt Bot + WebSocket 동기화 + AI/BI Dashboard embed + 데모 영상 편집 |
+| 멤버 | 담당 |
+|---|---|
+| **형욱님** (LG Innotek, Gen AI 엔지니어) | **코드 전체** — Databricks Jobs / Agent Bricks / Lakebase / FastAPI / Vite+React frontend / Slack Bolt Bot / 통합 / 데모 영상 녹화 |
+| **친구분** (LG Electronics) | **기획 + 디자인** — 시나리오 검수 / 매니저 페르소나 도메인 검수 / design 디테일 (Figma·시각 톤) / 데모 영상 편집 / 데모 narrative 검토 |
 
-> ⚠️ **친구분 강점 미확인**. Frontend 가능 여부, Python 가능 여부에 따라 분담 다시. **Sprint 1 첫날 친구분과 30분 sync 권장**.
+> 친구분 코딩 X. Frontend도 형욱님이 직접 (Claude Code 협업). **Sprint 1 첫날 친구분과 30분 sync** — 데모 영상 분량·style 합의, 시나리오 도메인 검수 schedule.
 
 ### 2.2 14일 안 6 Jobs + 4 Agents + Apps + Slack Bot — 가능?
 
-**현실**: 팀 2명, 14일 = 28 human-day. 모두 만들면 **40-50 human-day 추정**. **20-30% 초과** → MVP scope 칼질 필수.
+**현실**: 형욱님 단독 코드, 14일 = **14 human-day** (팀 2명 가정 깨짐). 모두 만들면 40-50 human-day 추정 = **3배 초과** → MVP scope 적극 칼질 + Claude Code 코드 양산 의존.
 
 **MVP 분류:**
 
@@ -69,7 +69,7 @@
 | **Mock backtest 산출 + AI/BI Dashboard embed** | Wow 7 (78%/71% narrative) | 1.5일 |
 | **데모 영상 (script + 녹화 + 편집)** | 제출물 자체 | 2일 |
 
-**소계: 17 human-day** (팀 2명 × 14일 = 28 human-day → 11 human-day 여유)
+**소계: 17 human-day** (형욱님 단독 14 human-day → **3 human-day 초과**. Claude Code 코드 양산 + shadcn/ui 활용 + design jsx 직접 변환으로 양산 효율 ↑ 필수. Should-have는 시간 남으면)
 
 #### 🟡 Should-have (시간 남으면 추가)
 
