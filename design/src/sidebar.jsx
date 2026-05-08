@@ -14,8 +14,8 @@ function Sidebar({ page, setPage }) {
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 8px 18px" }}>
         <I.Logo size={20}/>
         <div>
-          <div className="display" style={{ fontWeight: 600, fontSize: 14.5, letterSpacing: "-.01em" }}>K-Petroleum</div>
-          <div className="mono" style={{ fontSize: 9.5, color: "#5a6c73", letterSpacing: ".1em", marginTop: 1 }}>의사결정 지원 · v0.4</div>
+          <div className="display" style={{ fontWeight: 600, fontSize: 14.5, letterSpacing: "-.01em" }}>Crude Compass</div>
+          <div className="mono" style={{ fontSize: 9.5, color: "#5a6c73", letterSpacing: ".1em", marginTop: 1 }}>BIDIRECTIONAL · v0.5</div>
         </div>
       </div>
 
@@ -25,10 +25,10 @@ function Sidebar({ page, setPage }) {
         background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)",
         borderRadius: 6, color: "#fff", fontSize: 12, fontWeight: 500, textAlign: "left"
       }}>
-        <div style={{ width: 18, height: 18, background: "#FF3621", borderRadius: 3, display: "grid", placeItems: "center", fontSize: 10, fontWeight: 700 }}>GS</div>
+        <div style={{ width: 18, height: 18, background: "#FF3621", borderRadius: 3, display: "grid", placeItems: "center", fontSize: 9, fontWeight: 700 }}>K</div>
         <div style={{ flex: 1 }}>
-          <div>GS칼텍스</div>
-          <div className="mono" style={{ fontSize: 9.5, color: "#7a8a91" }}>여수 · 정유 #2</div>
+          <div>K-Petroleum <span style={{ color: "#7a8a91", fontSize: 10, fontWeight: 400 }}>가상</span></div>
+          <div className="mono" style={{ fontSize: 9.5, color: "#7a8a91" }}>정제 80만 b/d · 100% open data</div>
         </div>
         <div style={{ color: "#5a6c73" }}>⌄</div>
       </button>
@@ -85,14 +85,23 @@ function Sidebar({ page, setPage }) {
 
       <div style={{ flex: 1 }}/>
 
-      {/* Today summary mini */}
+      {/* Pattern Score — bidirectional */}
       <div style={{ padding: 10, marginBottom: 12, background: "#243f48", borderRadius: 6, border: "1px solid #2f535e" }}>
-        <div className="label-mini" style={{ color: "#7a8a91", marginBottom: 6 }}>오늘 · D+18</div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-          <span className="display" style={{ fontSize: 22, fontWeight: 600 }}>72</span>
-          <span className="mono" style={{ fontSize: 10, color: "#FF3621" }}>+8 ▲</span>
+        <div className="label-mini" style={{ color: "#7a8a91", marginBottom: 6, display: "flex", justifyContent: "space-between" }}>
+          <span>Pattern Score</span><span style={{ color: "#FF3621" }}>HEDGE</span>
         </div>
-        <div className="mono" style={{ fontSize: 9.5, color: "#7a8a91", letterSpacing: ".06em" }}>리스크 · 높음</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 6 }}>
+          <span className="display" style={{ fontSize: 22, fontWeight: 600 }}>82</span>
+          <span className="mono" style={{ fontSize: 10, color: "#FF3621" }}>+11 ▲</span>
+        </div>
+        {/* mini bidirectional bar 0-100, 50=balance */}
+        <div style={{ position: "relative", height: 4, background: "linear-gradient(to right, #0E8F5E 0%, #0E8F5E 30%, #2f535e 30%, #2f535e 70%, #FF3621 70%, #FF3621 100%)", borderRadius: 99 }}>
+          <div style={{ position: "absolute", left: "50%", top: -2, bottom: -2, width: 1, background: "#7a8a91", opacity: .5 }}/>
+          <div style={{ position: "absolute", left: "calc(82% - 4px)", top: -3, width: 8, height: 8, background: "#fff", border: "1px solid #1B3139", borderRadius: 99 }}/>
+        </div>
+        <div className="mono" style={{ fontSize: 9, color: "#5a6c73", display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+          <span>OPP 0</span><span>균형 50</span><span>HEDGE 100</span>
+        </div>
       </div>
 
       {/* User */}
@@ -100,7 +109,7 @@ function Sidebar({ page, setPage }) {
         <div style={{ width: 28, height: 28, borderRadius: 999, background: "linear-gradient(135deg,#FF3621,#1B3139)", display: "grid", placeItems: "center", fontWeight: 600, fontSize: 11 }}>김</div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 12, fontWeight: 500 }}>김지훈</div>
-          <div style={{ fontSize: 10.5, color: "#7a8a91" }}>구매 시니어 매니저</div>
+          <div style={{ fontSize: 10.5, color: "#7a8a91" }}>원유조달 시니어 매니저</div>
         </div>
         <I.Bell size={14} stroke="#7a8a91"/>
       </div>

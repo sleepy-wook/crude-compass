@@ -37,19 +37,24 @@ function PageMission() {
       {/* header */}
       <header style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", padding: "28px 0 18px" }}>
         <div>
-          <div className="label-mini" style={{ color: "var(--ink-3)" }}>진행 중 미션 · Living Mission</div>
-          <h1 className="display" style={{ fontSize: 26, fontWeight: 600, margin: "4px 0 4px", letterSpacing: "-.02em" }}>
-            Term 50% → 70% <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>· Hormuz 봉쇄 헤지</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span className="label-mini" style={{ color: "var(--ink-3)" }}>Living Mission · mission_type</span>
+            <span className="pill pill-danger" style={{ fontWeight: 700 }}>HEDGE</span>
+            <span className="pill pill-warn">at_risk</span>
+          </div>
+          <h1 className="display" style={{ fontSize: 26, fontWeight: 600, margin: "6px 0 4px", letterSpacing: "-.02em" }}>
+            Term 50% → 70% <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>· Pre-emptive Hedge · Pattern 82</span>
           </h1>
           <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 13, color: "var(--ink-2)" }}>
-            <span className="pill pill-danger"><span className="dot blink" style={{ background: "#FF3621" }}/> 진행 중 · D+{today}/28</span>
+            <span className="mono">D+{today}/28</span>
             <span className="mono">시작 4/19</span> · <span className="mono">종료 5/17</span>
-            <span style={{ color: "var(--ink-3)" }}>· 담당 김지훈</span>
+            <span style={{ color: "var(--ink-3)" }}>· 담당 김지훈 · K-Petroleum</span>
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-ghost"><I.Replay size={13}/> 타임라인 다시보기</button>
-          <button className="btn btn-ghost">미션 일시정지</button>
+          <button className="btn btn-ghost">일시정지</button>
+          <button className="btn btn-ghost" style={{ borderColor: "var(--opp)", color: "var(--opp)" }}>↔ Pivot to OPP</button>
           <button className="btn btn-primary"><I.Check size={13}/> D+19 플랜 승인</button>
         </div>
       </header>
@@ -211,6 +216,30 @@ function PageMission() {
             </div>
           </div>
 
+          {/* Pivot watch — bidirectional */}
+          <div className="hl" style={{ background: "#fff", borderRadius: 8, padding: 18, borderLeft: "3px solid var(--ink)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div className="label-mini" style={{ color: "var(--ink-3)" }}>Pivot Watch · bidirectional</div>
+              <span className="pill pill-neutral mono">2 source · 신뢰도 med</span>
+            </div>
+            <div style={{ position: "relative", height: 8, borderRadius: 99, overflow: "hidden", background: "linear-gradient(to right, #0E8F5E 0%, #C8E8DA 30%, #F0F0EB 30% 70%, #FFD0C8 70%, #FF3621 100%)" }}>
+              <div style={{ position: "absolute", left: "82%", top: -3, bottom: -3, width: 2, background: "#1B3139" }}/>
+              <div style={{ position: "absolute", left: "calc(82% - 5px)", top: -2, width: 12, height: 12, borderRadius: 99, background: "#fff", border: "2px solid #1B3139" }}/>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 10, color: "var(--ink-3)" }}>
+              <span className="mono" style={{ color: "#0E8F5E" }}>OPP ≤30</span>
+              <span className="mono">균형 50</span>
+              <span className="mono" style={{ color: "#FF3621" }}>HEDGE ≥70 · 현재 82</span>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 12, padding: "10px 12px", background: "#FCFCFB", borderRadius: 6, border: "1px dashed var(--line-2)", fontSize: 12, color: "var(--ink-2)" }}>
+              <I.Bolt size={12} stroke="#FF3621"/>
+              <div>
+                <span style={{ fontWeight: 500 }}>휴전 임박 시 Pivot 트리거</span>
+                <div style={{ color: "var(--ink-3)", fontSize: 11.5, marginTop: 2 }}>Score 30↓ → Spot 70% Mission으로 5초 안에 자동 재생성</div>
+              </div>
+            </div>
+          </div>
+
           {/* ROI scenarios */}
           <div className="hl" style={{ background: "#fff", borderRadius: 8, padding: 18 }}>
             <div className="label-mini" style={{ color: "var(--ink-3)", marginBottom: 10 }}>시나리오 ROI · 무대응 대비</div>
@@ -243,7 +272,7 @@ function PageMission() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <div>
             <div className="display" style={{ fontSize: 15, fontWeight: 500 }}>선단 위치 · Hormuz 해협</div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>GS칼텍스 VLCC 5척 · 통제구역 내 2척 억류</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>K-Petroleum 익명화 VLCC 5척 · 통제구역 내 2척 억류 · MMSI 가명 처리</div>
           </div>
           <div style={{ display: "flex", gap: 14, fontSize: 11, color: "var(--ink-2)" }}>
             <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span className="dot" style={{ background: "#10B981" }}/> 안전</span>

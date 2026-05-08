@@ -244,6 +244,52 @@ function SensitivityTable() {
 function YesterdayTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      {/* Bidirectional backtest banner */}
+      <div className="hl" style={{ background: "#fff", borderRadius: 10, padding: 22 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+          <div>
+            <div className="label-mini" style={{ color: "var(--ink-3)" }}>Self-Critique · 양방향 backtest · 최근 90일</div>
+            <div className="display" style={{ fontSize: 17, fontWeight: 500, marginTop: 2 }}>
+              Bidirectional Pattern Detection 정확도
+              <span style={{ color: "var(--ink-3)", fontWeight: 400, marginLeft: 8, fontSize: 13 }}>HEDGE + OPPORTUNITY 공통 architecture</span>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <span className="pill pill-neutral mono">90d window</span>
+            <span className="pill pill-neutral mono">MLflow run #142</span>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14 }}>
+          <div className="hl" style={{ padding: 14, borderRadius: 6, background: "var(--red-soft)", borderColor: "#FF3621" }}>
+            <div className="label-mini" style={{ color: "#FF3621" }}>HEDGE 정확도</div>
+            <div className="display mono" style={{ fontSize: 28, fontWeight: 600, color: "#FF3621", marginTop: 4 }}>78<span style={{ fontSize: 14 }}>%</span></div>
+            <div className="mono" style={{ fontSize: 10.5, color: "#b81d0a", marginTop: 2 }}>9/12 신호 적중 · 위기 1–2회/년</div>
+          </div>
+          <div className="hl" style={{ padding: 14, borderRadius: 6, background: "var(--opp-soft)", borderColor: "var(--opp)" }}>
+            <div className="label-mini" style={{ color: "#0E8F5E" }}>OPPORTUNITY 정확도</div>
+            <div className="display mono" style={{ fontSize: 28, fontWeight: 600, color: "#0E8F5E", marginTop: 4 }}>71<span style={{ fontSize: 14 }}>%</span></div>
+            <div className="mono" style={{ fontSize: 10.5, color: "#06724a", marginTop: 2 }}>10/14 신호 적중 · 기회 분기 1–2회</div>
+          </div>
+          <div className="hl" style={{ padding: 14, borderRadius: 6, background: "#FCFCFB" }}>
+            <div className="label-mini" style={{ color: "var(--ink-3)" }}>평균 lead time</div>
+            <div className="display mono" style={{ fontSize: 28, fontWeight: 600, marginTop: 4 }}>12.4<span style={{ fontSize: 14, color: "var(--ink-3)" }}>일</span></div>
+            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 }}>발발 전 Score 70/30 돌파</div>
+          </div>
+          <div className="hl" style={{ padding: 14, borderRadius: 6, background: "#FCFCFB" }}>
+            <div className="label-mini" style={{ color: "var(--ink-3)" }}>Pivot 성공률</div>
+            <div className="display mono" style={{ fontSize: 28, fontWeight: 600, marginTop: 4 }}>4<span style={{ fontSize: 14, color: "var(--ink-3)" }}>/5</span></div>
+            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-3)", marginTop: 2 }}>양방향 반전 제안 수락률</div>
+          </div>
+        </div>
+        <div style={{ marginTop: 14, padding: "12px 14px", background: "#FCFCFB", borderRadius: 6, border: "1px dashed var(--line-2)", display: "flex", gap: 10, alignItems: "center", fontSize: 12, color: "var(--ink-2)" }}>
+          <I.Brain size={13} stroke="#FF3621"/>
+          <span>
+            <span style={{ fontWeight: 500 }}>Calibration:</span> importance score 가중치 재조정 · OPP threshold 30 → 32 완화 권고 (더 시그널 catch).
+            <span className="mono" style={{ color: "var(--ink-3)", marginLeft: 8 }}>MLflow run #142 · next: 2026-05-12</span>
+          </span>
+        </div>
+      </div>
+
       {/* Self-critique */}
       <div className="hl" style={{ background: "#fff", borderRadius: 10, padding: 22 }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
@@ -275,22 +321,35 @@ function YesterdayTab() {
 
       {/* 2x2 grid */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-        {/* Risk timeline */}
-        <ChartCard title="리스크 스코어 · 30일" sub="일별 종가 · 주석 = Hormuz 사건">
-          <LineChart
-            width={560} height={210}
-            yDomain={[20, 100]}
-            xLabels={["Apr 8","Apr 15","Apr 22","Apr 29","May 6"]}
-            annotations={[
-              { i: 7,  label: "GDACS alert" },
-              { i: 14, label: "Tanker boarded" },
-              { i: 22, label: "Blockade decl." },
-            ]}
-            series={[{
-              color: "#FF3621", width: 2,
-              data: [32,30,34,36,38,40,42,46,52,50,48,52,55,58,62,68,64,66,72,70,68,72,82,84,80,78,76,72,70,72]
-            }]}
-          />
+        {/* Pattern Score · bidirectional */}
+        <ChartCard title="Pattern Score · 30일 (bidirectional)" sub="50 = 균형 · ≥70 HEDGE · ≤30 OPPORTUNITY">
+          <div style={{ position: "relative" }}>
+            {/* zone backgrounds */}
+            <div style={{ position: "absolute", inset: "0 0 24px 0", display: "flex", flexDirection: "column", pointerEvents: "none", opacity: .5 }}>
+              <div style={{ flex: "30 1 0", background: "linear-gradient(to bottom, #ffece9, transparent)" }}/>
+              <div style={{ flex: "40 1 0" }}/>
+              <div style={{ flex: "30 1 0", background: "linear-gradient(to top, #E1F4EB, transparent)" }}/>
+            </div>
+            <LineChart
+              width={560} height={210}
+              yDomain={[0, 100]}
+              xLabels={["Apr 8","Apr 15","Apr 22","Apr 29","May 6"]}
+              annotations={[
+                { i: 7,  label: "GDACS alert" },
+                { i: 14, label: "Tanker boarded" },
+                { i: 22, label: "Blockade decl." },
+              ]}
+              series={[{
+                color: "#FF3621", width: 2,
+                data: [48,46,44,42,40,38,36,34,30,28,32,38,46,52,58,64,70,72,76,78,76,80,82,84,82,80,78,82,84,82]
+              }]}
+            />
+          </div>
+          <div style={{ display: "flex", gap: 14, marginTop: 6, fontSize: 11, color: "var(--ink-2)" }}>
+            <span><span className="dot" style={{ background: "#0E8F5E" }}/> 4/15 OPP 신호 · score 28</span>
+            <span><span className="dot" style={{ background: "#FF3621" }}/> 4/22+ HEDGE 신호 · score 70+</span>
+            <span style={{ marginLeft: "auto" }} className="mono">현재 82</span>
+          </div>
         </ChartCard>
 
         {/* Hormuz transit */}
@@ -341,17 +400,22 @@ function YesterdayTab() {
               </thead>
               <tbody>
                 {[
-                  ["4/22","Term +5pt","+₩8억","+₩22억","동의"],
-                  ["4/25","BP 거절","+₩2억","—","동의"],
-                  ["4/28","Spot 최저선 +0.2M","−₩4억","−₩9억","불일치"],
-                  ["5/1","Term +8pt","+₩15억","—","동의"],
-                  ["5/3","주간 플랜 승인","—","—","동의"],
-                  ["5/5","#007 우회","+₩6억","—","동의"],
-                  ["5/6","Term +10pt","측정중","측정중","부분"],
+                  ["4/22","Term +5pt","+₩8억","+₩22억","동의","HEDGE"],
+                  ["4/25","BP 거절","+₩2억","—","동의","HEDGE"],
+                  ["4/28","Spot 최저선 +0.2M","−₩4억","−₩9억","불일치","OPP"],
+                  ["5/1","Term +8pt","+₩15억","—","동의","HEDGE"],
+                  ["5/3","주간 플랜 승인","—","—","동의","—"],
+                  ["5/5","#003 우회","+₩6억","—","동의","HEDGE"],
+                  ["5/6","Term +10pt","측정중","측정중","부분","HEDGE"],
                 ].map((r, i) => (
                   <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
                     <td className="mono" style={{ padding: "8px 8px", color: "var(--ink-2)" }}>{r[0]}</td>
-                    <td style={{ padding: "8px 8px", fontWeight: 500 }}>{r[1]}</td>
+                    <td style={{ padding: "8px 8px", fontWeight: 500 }}>
+                      {r[1]}
+                      {r[5] !== "—" && (
+                        <span className="mono" style={{ marginLeft: 6, fontSize: 9.5, padding: "1px 5px", borderRadius: 3, background: r[5] === "OPP" ? "var(--opp-soft)" : "var(--red-soft)", color: r[5] === "OPP" ? "#0E8F5E" : "#b81d0a" }}>{r[5]}</span>
+                      )}
+                    </td>
                     <td className="mono" style={{ padding: "8px 8px", color: r[2].startsWith("−") ? "#FF3621" : r[2].startsWith("+") ? "#06724a" : "var(--ink-3)" }}>{r[2]}</td>
                     <td className="mono" style={{ padding: "8px 8px", color: r[3].startsWith("−") ? "#FF3621" : r[3].startsWith("+") ? "#06724a" : "var(--ink-3)" }}>{r[3]}</td>
                     <td style={{ padding: "8px 8px" }}>

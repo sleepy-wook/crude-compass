@@ -1,0 +1,1847 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crude Compass — Pre-emptive Bidirectional Decision Support Agent</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+    background: #FAF7F2;
+    color: #1B3139;
+    line-height: 1.65;
+    padding: 24px 16px;
+  }
+  .container { max-width: 820px; margin: 0 auto; }
+  
+  /* HEADER */
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+    padding-bottom: 28px;
+    border-bottom: 2px solid #E8DFD0;
+  }
+  h1 {
+    font-size: 34px;
+    color: #1B3139;
+    margin-bottom: 10px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .tagline {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 8px 0;
+    background: linear-gradient(90deg, #FF3621, #1B3139, #10B981);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .subtitle {
+    color: #5C6F7A;
+    font-size: 14px;
+    margin: 4px 0;
+  }
+  .meta {
+    margin-top: 14px;
+    font-size: 11px;
+    color: #94A3B8;
+  }
+  .badge-orange {
+    display: inline-block;
+    background: #FF3621;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    margin: 0 4px;
+  }
+  
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, #1B3139 0%, #2C4A56 100%);
+    color: white;
+    padding: 32px 28px;
+    border-radius: 14px;
+    margin-bottom: 28px;
+    text-align: center;
+  }
+  .hero .main {
+    font-size: 19px;
+    font-weight: 600;
+    margin-bottom: 14px;
+    line-height: 1.55;
+  }
+  .hero .accent-red { color: #FF8A65; font-weight: 700; }
+  .hero .accent-green { color: #6EE7B7; font-weight: 700; }
+  .hero .sub {
+    font-size: 14px;
+    color: #B8C7D0;
+    line-height: 1.6;
+  }
+
+  /* SECTION */
+  .section {
+    background: white;
+    border-radius: 12px;
+    padding: 26px;
+    margin-bottom: 22px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .section-title {
+    font-size: 19px;
+    font-weight: 700;
+    color: #1B3139;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .section-subtitle {
+    font-size: 13px;
+    color: #5C6F7A;
+    margin-bottom: 22px;
+    font-style: italic;
+  }
+  
+  /* BIDIRECTIONAL SHOWCASE — 핵심 */
+  .bidirectional-showcase {
+    background: linear-gradient(135deg, #FF3621 0%, #1B3139 50%, #10B981 100%);
+    color: white;
+    padding: 32px 28px;
+    border-radius: 14px;
+    margin: 24px 0;
+    text-align: center;
+  }
+  .bidirectional-showcase .badge {
+    background: rgba(255,255,255,0.25);
+    padding: 5px 14px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 800;
+    display: inline-block;
+    margin-bottom: 14px;
+    letter-spacing: 0.5px;
+  }
+  .bidirectional-showcase .title {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 14px;
+    line-height: 1.4;
+  }
+  .arrow-pair {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin: 20px 0;
+    font-size: 14px;
+  }
+  .arrow-side {
+    background: rgba(0,0,0,0.3);
+    padding: 16px 20px;
+    border-radius: 10px;
+    flex: 1;
+    max-width: 280px;
+  }
+  .arrow-side.crisis { border-top: 4px solid #FF8A65; }
+  .arrow-side.opportunity { border-top: 4px solid #6EE7B7; }
+  .arrow-side .arrow-label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .arrow-side.crisis .arrow-label { color: #FF8A65; }
+  .arrow-side.opportunity .arrow-label { color: #6EE7B7; }
+  .arrow-side .arrow-icon { font-size: 28px; margin: 4px 0; }
+  .arrow-side .arrow-text { font-size: 13px; line-height: 1.6; }
+  .arrow-side .arrow-text strong { font-size: 15px; }
+  
+  /* WORKFLOW TABLE */
+  .workflow-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 14px;
+  }
+  .workflow-table th {
+    background: #1B3139;
+    color: white;
+    padding: 10px;
+    font-weight: 700;
+    font-size: 12px;
+    text-align: left;
+  }
+  .workflow-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #E8DFD0;
+    background: white;
+  }
+  .workflow-table tr.crisis td:first-child {
+    border-left: 4px solid #FF3621;
+    background: #FFF4F2;
+  }
+  .workflow-table tr.stable td:first-child {
+    border-left: 4px solid #94A3B8;
+    background: #F8F9FB;
+  }
+  .workflow-table tr.opportunity td:first-child {
+    border-left: 4px solid #10B981;
+    background: #ECFDF5;
+  }
+  .workflow-table .score-cell {
+    font-weight: 800;
+    text-align: center;
+  }
+  .workflow-table .score-cell.crisis { color: #FF3621; }
+  .workflow-table .score-cell.stable { color: #5C6F7A; }
+  .workflow-table .score-cell.opportunity { color: #10B981; }
+  
+  /* SCORE BAR */
+  .score-bar-container {
+    margin: 24px 0;
+    padding: 0 10px;
+  }
+  .score-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .score-bar-labels .left { color: #6EE7B7; }
+  .score-bar-labels .center { color: #B8C7D0; }
+  .score-bar-labels .right { color: #FF8A65; }
+  .score-bar {
+    height: 32px;
+    background: linear-gradient(90deg, 
+      #10B981 0%, #34D399 20%, 
+      #94A3B8 40%, #94A3B8 60%, 
+      #FF6B4A 80%, #FF3621 100%);
+    border-radius: 16px;
+    position: relative;
+  }
+  .score-bar-marker {
+    position: absolute;
+    top: -6px;
+    width: 4px;
+    height: 44px;
+    background: white;
+    border-radius: 2px;
+    box-shadow: 0 0 8px rgba(0,0,0,0.4);
+  }
+  .score-bar-zones {
+    display: flex;
+    margin-top: 10px;
+    font-size: 10px;
+    text-align: center;
+  }
+  .score-zone {
+    flex: 1;
+    padding: 6px 4px;
+    line-height: 1.4;
+  }
+  .score-zone .zone-num { font-weight: 800; font-size: 11px; }
+  
+  /* VALUE COMPARISON */
+  .value-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 16px 0;
+  }
+  .value-card {
+    padding: 18px;
+    border-radius: 10px;
+    border-left: 4px solid;
+  }
+  .value-card.crisis {
+    background: linear-gradient(135deg, #FFF4F2 0%, #FFE5E0 100%);
+    border-color: #FF3621;
+  }
+  .value-card.opportunity {
+    background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+    border-color: #10B981;
+  }
+  .value-card .value-label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .value-card.crisis .value-label { color: #991B1B; }
+  .value-card.opportunity .value-label { color: #065F46; }
+  .value-card .value-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1B3139;
+    margin-bottom: 10px;
+  }
+  .value-card .value-scenario {
+    font-size: 12px;
+    color: #475569;
+    line-height: 1.7;
+    background: rgba(255,255,255,0.7);
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-family: 'SF Mono', Monaco, monospace;
+  }
+  .value-card .value-result {
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    padding: 8px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.05);
+  }
+  .value-card.crisis .value-result { color: #FF3621; }
+  .value-card.opportunity .value-result { color: #10B981; }
+  .value-card .frequency {
+    margin-top: 10px;
+    text-align: center;
+    font-size: 11px;
+    color: #5C6F7A;
+    font-style: italic;
+  }
+  
+  /* CRISIS CATEGORIES */
+  .bidirectional-categories {
+    overflow-x: auto;
+    margin-top: 14px;
+  }
+  .bidirectional-categories table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .bidirectional-categories th {
+    padding: 10px 8px;
+    text-align: left;
+    font-weight: 700;
+  }
+  .bidirectional-categories th.cat { background: #1B3139; color: white; width: 100px; }
+  .bidirectional-categories th.crisis { background: #FF3621; color: white; }
+  .bidirectional-categories th.opportunity { background: #10B981; color: white; }
+  .bidirectional-categories td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #E8DFD0;
+    line-height: 1.6;
+    vertical-align: top;
+  }
+  .bidirectional-categories td.cat-name {
+    font-weight: 700;
+    color: #1B3139;
+    background: #F7F4EE;
+  }
+  .bidirectional-categories td.crisis-cell {
+    background: #FFF4F2;
+    color: #663328;
+  }
+  .bidirectional-categories td.opportunity-cell {
+    background: #ECFDF5;
+    color: #14532D;
+  }
+  
+  /* DEMOCRATIZATION */
+  .democratization-showcase {
+    background: linear-gradient(135deg, #4A154B 0%, #1B3139 100%);
+    color: white;
+    padding: 30px 26px;
+    border-radius: 14px;
+    margin: 24px 0;
+  }
+  .democratization-showcase .badge {
+    background: rgba(255,255,255,0.25);
+    padding: 5px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-block;
+    margin-bottom: 14px;
+    letter-spacing: 0.5px;
+  }
+  .democratization-showcase .title {
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 14px;
+  }
+  .democratization-showcase .question {
+    background: rgba(0,0,0,0.3);
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    font-style: italic;
+    border-left: 3px solid #F59E0B;
+  }
+  .democratization-showcase .answer {
+    font-size: 13px;
+    line-height: 1.7;
+    margin-bottom: 14px;
+  }
+  .democratization-showcase .beneficiaries {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .beneficiary {
+    background: rgba(255,255,255,0.12);
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .beneficiary strong { color: #FF8A65; font-weight: 700; }
+  
+  /* 4-LAYER ARCHITECTURE */
+  .layer-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .layer-card {
+    background: #FAF7F2;
+    padding: 16px;
+    border-radius: 8px;
+    border-left: 4px solid;
+  }
+  .layer-card.l1 { border-color: #0EA5E9; }
+  .layer-card.l2 { border-color: #F59E0B; }
+  .layer-card.l3 { border-color: #FF3621; }
+  .layer-card.l4 { border-color: #10B981; }
+  .layer-card .layer-num {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .layer-card.l1 .layer-num { color: #0C4A6E; }
+  .layer-card.l2 .layer-num { color: #78350F; }
+  .layer-card.l3 .layer-num { color: #7F1D1D; }
+  .layer-card.l4 .layer-num { color: #14532D; }
+  .layer-card .layer-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1B3139;
+    margin-bottom: 6px;
+  }
+  .layer-card .layer-desc {
+    font-size: 12px;
+    color: #5C6F7A;
+    line-height: 1.6;
+  }
+  .layer-card .layer-desc strong { color: #1B3139; }
+  
+  /* AI vs HUMAN */
+  .roles-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .role-card {
+    background: #F7F4EE;
+    padding: 20px;
+    border-radius: 10px;
+    border-top: 4px solid;
+  }
+  .role-card.ai { border-color: #1B3139; }
+  .role-card.human { border-color: #FF3621; }
+  .role-card .role-label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .role-card.ai .role-label { color: #1B3139; }
+  .role-card.human .role-label { color: #FF3621; }
+  .role-card .role-title {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: #1B3139;
+  }
+  .role-card ul { list-style: none; padding: 0; }
+  .role-card ul li {
+    font-size: 13px;
+    padding: 6px 0 6px 22px;
+    position: relative;
+    color: #475569;
+  }
+  .role-card ul li::before {
+    position: absolute;
+    left: 0;
+    font-weight: 700;
+  }
+  .role-card.ai ul li::before { content: '✓'; color: #1B3139; }
+  .role-card.human ul li::before { content: '✓'; color: #FF3621; }
+  
+  /* 3-MODE */
+  .three-mode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+  .mode-card {
+    padding: 16px;
+    border-radius: 10px;
+    border-top: 4px solid;
+  }
+  .mode-card.crisis-mode {
+    background: linear-gradient(135deg, #FFF4F2 0%, #FFE5E0 100%);
+    border-color: #FF3621;
+  }
+  .mode-card.stable-mode {
+    background: linear-gradient(135deg, #F8F9FB 0%, #E8EBF0 100%);
+    border-color: #94A3B8;
+  }
+  .mode-card.opportunity-mode {
+    background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+    border-color: #10B981;
+  }
+  .mode-card .mode-icon { font-size: 22px; margin-bottom: 4px; }
+  .mode-card .mode-name {
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+  .mode-card.crisis-mode .mode-name { color: #991B1B; }
+  .mode-card.stable-mode .mode-name { color: #475569; }
+  .mode-card.opportunity-mode .mode-name { color: #065F46; }
+  .mode-card .mode-score {
+    font-size: 11px;
+    color: #5C6F7A;
+    margin-bottom: 8px;
+    font-family: 'SF Mono', monospace;
+  }
+  .mode-card .mode-action {
+    font-size: 12px;
+    color: #1B3139;
+    line-height: 1.6;
+    margin-bottom: 6px;
+  }
+  .mode-card .mode-action strong { font-weight: 700; }
+  .mode-card .mode-freq {
+    font-size: 10px;
+    color: #5C6F7A;
+    font-style: italic;
+    margin-top: 6px;
+  }
+  
+  /* SLACK MOCK */
+  .slack-mock {
+    background: #1A1D29;
+    border-radius: 10px;
+    padding: 16px;
+    margin: 16px 0;
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+  }
+  .slack-mock .slack-header {
+    color: #94A3B8;
+    font-size: 11px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #2D3142;
+    padding-bottom: 8px;
+  }
+  .slack-msg { margin-bottom: 14px; }
+  .slack-msg .author {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .slack-msg .author.bot { color: #FF8A65; }
+  .slack-msg .author.bot.green { color: #6EE7B7; }
+  .slack-msg .author.user { color: #B8E0D2; }
+  .slack-msg .author.system {
+    color: #94A3B8;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .slack-msg .content {
+    color: #E5E7EB;
+    font-size: 12px;
+    line-height: 1.7;
+    padding-left: 8px;
+  }
+  .slack-msg .content .card {
+    background: #2D3142;
+    padding: 12px 14px;
+    border-left: 3px solid #FF3621;
+    border-radius: 4px;
+    margin-top: 6px;
+  }
+  .slack-msg .content .card.opportunity { border-left-color: #10B981; }
+  .slack-msg .content .card.confirmed { border-left-color: #10B981; }
+  .slack-msg .content .card.pivot { border-left-color: #F59E0B; }
+  .slack-msg .buttons {
+    margin-top: 8px;
+    padding-left: 8px;
+  }
+  .slack-btn {
+    display: inline-block;
+    background: #2D3142;
+    color: #E5E7EB;
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    margin-right: 6px;
+    margin-bottom: 4px;
+    border: 1px solid #4A4F5E;
+  }
+  .slack-btn.primary-red {
+    background: #FF3621;
+    border-color: #FF3621;
+    color: white;
+    font-weight: 600;
+  }
+  .slack-btn.primary-green {
+    background: #10B981;
+    border-color: #10B981;
+    color: white;
+    font-weight: 600;
+  }
+  
+  /* SYNC SHOWCASE */
+  .sync-showcase {
+    background: linear-gradient(135deg, #4A154B 0%, #FF3621 100%);
+    color: white;
+    padding: 28px 24px;
+    border-radius: 12px;
+    margin: 22px 0;
+  }
+  .sync-showcase .badge {
+    background: rgba(255,255,255,0.25);
+    padding: 5px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-block;
+    margin-bottom: 14px;
+    letter-spacing: 0.5px;
+  }
+  .sync-showcase .title {
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+  .sync-flow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .sync-side {
+    background: rgba(255,255,255,0.1);
+    padding: 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .sync-side .side-title {
+    font-weight: 800;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  
+  /* PERSONA */
+  .persona-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .persona-card {
+    background: #F7F4EE;
+    padding: 18px;
+    border-radius: 8px;
+  }
+  .persona-card .label {
+    font-size: 11px;
+    color: #FF3621;
+    font-weight: 800;
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+  .persona-card .name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1B3139;
+    margin-bottom: 8px;
+  }
+  .persona-card .desc {
+    font-size: 13px;
+    color: #5C6F7A;
+    line-height: 1.6;
+  }
+  
+  /* TERM/SPOT */
+  .analogy-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .analogy-card {
+    background: white;
+    padding: 16px;
+    border-radius: 8px;
+    border-top: 3px solid;
+  }
+  .analogy-card.term { border-color: #1B3139; }
+  .analogy-card.spot { border-color: #FF3621; }
+  .analogy-card .a-title { font-weight: 700; margin-bottom: 6px; font-size: 14px; }
+  .analogy-card .a-desc { font-size: 12px; color: #5C6F7A; line-height: 1.6; }
+  
+  /* MISSION LIFECYCLE */
+  .lifecycle-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: 16px 0;
+  }
+  .lifecycle-item {
+    padding: 12px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .lifecycle-item .label { font-weight: 700; }
+  .lifecycle-item .desc { font-size: 11px; opacity: 0.8; }
+  .lc-active { background: #ECFDF5; color: #065F46; }
+  .lc-risk { background: #FEF3C7; color: #92400E; }
+  .lc-paused { background: #F1F5F9; color: #475569; }
+  .lc-pivoted { background: #FFF4F2; color: #FF3621; }
+  .lc-aborted { background: #FEE2E2; color: #991B1B; }
+  .lc-completed { background: #DCFCE7; color: #14532D; }
+  
+  /* DEMO PHASE */
+  .demo-phase {
+    background: white;
+    border-left: 4px solid #FF3621;
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+  }
+  .demo-phase.opportunity-phase {
+    border-left-color: #10B981;
+  }
+  .demo-phase.bidirectional-phase {
+    background: linear-gradient(90deg, #FFF4F2 0%, #ECFDF5 100%);
+    border-left: 4px solid #F59E0B;
+  }
+  .demo-phase .phase-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .demo-phase .phase-num {
+    font-size: 11px;
+    color: #FF3621;
+    font-weight: 800;
+    letter-spacing: 1px;
+  }
+  .demo-phase.opportunity-phase .phase-num {
+    color: #10B981;
+  }
+  .demo-phase.bidirectional-phase .phase-num {
+    color: #F59E0B;
+  }
+  .demo-phase .phase-time {
+    font-size: 11px;
+    color: #94A3B8;
+    font-family: 'SF Mono', Monaco, monospace;
+  }
+  .demo-phase .phase-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1B3139;
+    margin-bottom: 6px;
+  }
+  .demo-phase .phase-desc {
+    font-size: 13px;
+    color: #5C6F7A;
+    line-height: 1.6;
+  }
+  .demo-phase.wow .phase-num::after { content: ' ⭐'; }
+  
+  /* TOOL GRID */
+  .tool-row {
+    display: grid;
+    grid-template-columns: 130px 1fr 100px;
+    gap: 12px;
+    background: #FAF7F2;
+    padding: 12px 14px;
+    border-radius: 8px;
+    align-items: center;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  .tool-name { font-weight: 700; color: #1B3139; }
+  .tool-desc { color: #5C6F7A; font-size: 12px; line-height: 1.5; }
+  .tool-wow { text-align: center; font-size: 11px; color: #FF3621; font-weight: 700; }
+  
+  /* SOURCE */
+  .source-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .source-card {
+    background: #FAF7F2;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+  }
+  .source-card .name { font-weight: 700; color: #1B3139; margin-bottom: 4px; }
+  .source-card .desc { color: #5C6F7A; font-size: 11px; line-height: 1.5; }
+  .source-card .check { color: #10B981; font-weight: 700; margin-left: 4px; }
+  
+  /* DIFF TABLE */
+  .diff-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 12px;
+  }
+  .diff-table th {
+    background: #1B3139;
+    color: white;
+    padding: 10px;
+    font-weight: 700;
+  }
+  .diff-table th.us { background: #FF3621; }
+  .diff-table td {
+    padding: 10px;
+    border-bottom: 1px solid #E8DFD0;
+  }
+  .diff-table td.label { font-weight: 600; }
+  .diff-table td.weak { text-align: center; color: #94A3B8; }
+  .diff-table td.strong { text-align: center; color: #FF3621; font-weight: 700; }
+  .diff-table tr.highlight { background: linear-gradient(90deg, #FFF4F2 0%, #ECFDF5 100%); }
+  
+  /* CLOSING */
+  .closing-box {
+    background: linear-gradient(135deg, #FF3621 0%, #1B3139 50%, #10B981 100%);
+    color: white;
+    padding: 32px 28px;
+    border-radius: 14px;
+    text-align: center;
+    margin-top: 28px;
+  }
+  .closing-box .title {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    line-height: 1.55;
+  }
+  .closing-box .keywords {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+  .closing-box .keyword {
+    background: rgba(255,255,255,0.2);
+    padding: 6px 14px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  
+  footer {
+    text-align: center;
+    color: #94A3B8;
+    font-size: 11px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid #E8DFD0;
+    line-height: 1.7;
+  }
+  
+  @media (max-width: 600px) {
+    .roles-split,
+    .three-mode-grid,
+    .value-comparison,
+    .persona-grid,
+    .analogy-row,
+    .lifecycle-grid,
+    .source-grid,
+    .sync-flow,
+    .arrow-pair,
+    .democratization-showcase .beneficiaries {
+      grid-template-columns: 1fr;
+      flex-direction: column;
+    }
+    .arrow-pair { gap: 12px; }
+    .arrow-side { max-width: 100%; }
+    .tool-row { grid-template-columns: 1fr; }
+    .tool-wow { text-align: left; }
+    .score-bar-zones { font-size: 9px; }
+    .score-zone { padding: 4px 2px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- HEADER -->
+<header>
+  <h1>🧭 Crude Compass</h1>
+  <div class="tagline">Pre-emptive Bidirectional Decision Support Agent</div>
+  <div class="subtitle">한국 정유사 매니저를 위한 위기·기회 양방향 신호 감지 AI</div>
+  <div class="subtitle">Bidirectional Pattern Detection · Slack ↔ Apps 동기화 · 100% Open Data</div>
+  <div class="meta">
+    Databricks APJ Hackathon 2026 · 한국어 트랙
+    <span class="badge-orange">Track 1 Social Impact</span>
+  </div>
+</header>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="main">
+    AI는 매니저의 진짜 일을 한다 — <strong style="color: white;">매월 가장 싸게 사기.</strong><br><br>
+    <span class="accent-red">위기 신호 누적 → Hedge Mission (Term ↑)</span><br>
+    <span class="accent-green">약세 신호 누적 → Opportunity Mission (Spot ↑)</span>
+  </div>
+  <div class="sub">
+    결정은 사람, 자율은 AI<br>
+    Lakebase Single Source of Truth · 100% Open Data
+  </div>
+</div>
+
+<!-- BIDIRECTIONAL SHOWCASE -->
+<div class="bidirectional-showcase">
+  <div class="badge">⭐⭐⭐ 핵심 차별점 — Bidirectional</div>
+  <div class="title">
+    위기만이 아니다.<br>
+    기회도 동일하게 catch.
+  </div>
+  <p style="font-size: 13px; opacity: 0.95; margin: 14px 0;">
+    일반 risk SaaS는 단방향. Crude Compass는 양방향.<br>
+    매니저의 진짜 워크플로우는 매일 최적화 — 위기·평시·기회 모두.
+  </p>
+  
+  <div class="arrow-pair">
+    <div class="arrow-side crisis">
+      <div class="arrow-label">CRISIS DIRECTION</div>
+      <div class="arrow-icon">📈</div>
+      <div class="arrow-text">
+        <strong>위기 신호 누적</strong><br>
+        Pattern Score 70+<br>
+        → HEDGE Mission<br>
+        Term ↑ (가격 폭등 보험)
+      </div>
+    </div>
+    <div class="arrow-side opportunity">
+      <div class="arrow-label">OPPORTUNITY DIRECTION</div>
+      <div class="arrow-icon">📉</div>
+      <div class="arrow-text">
+        <strong>약세 신호 누적</strong><br>
+        Pattern Score 30-<br>
+        → OPPORTUNITY Mission<br>
+        Spot ↑ (싸게 매수 기회)
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 매니저 워크플로우 -->
+<div class="section">
+  <div class="section-title">🎯 매니저의 진짜 워크플로우</div>
+  <div class="section-subtitle">위기 헤지가 전부가 아니다. 매일 양방향 최적화.</div>
+  
+  <table class="workflow-table">
+    <thead>
+      <tr>
+        <th>시장 상황</th>
+        <th>Pattern Score</th>
+        <th>매니저 행동</th>
+        <th>잘못 대응 시 손실</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="crisis">
+        <td><strong>위기 신호 누적</strong></td>
+        <td class="score-cell crisis">70+</td>
+        <td>Term ↑ (가격 폭등 보험)</td>
+        <td>미리 안 락하면 폭등가 매수 → 손실</td>
+      </tr>
+      <tr class="stable">
+        <td>평시</td>
+        <td class="score-cell stable">30-70</td>
+        <td>균형 유지</td>
+        <td>—</td>
+      </tr>
+      <tr class="opportunity">
+        <td><strong>약세 신호 누적</strong></td>
+        <td class="score-cell opportunity">30-</td>
+        <td>Spot ↑ (싸게 매수 기회)</td>
+        <td><strong>Term 묶여 비싸게 매수 → 기회손실</strong></td>
+      </tr>
+    </tbody>
+  </table>
+  
+  <div style="margin-top: 14px; padding: 14px; background: #FAF7F2; border-radius: 8px; font-size: 12px; color: #5C6F7A; line-height: 1.7;">
+    <strong>💡 빈도 비교:</strong><br>
+    위기는 1년에 1-2회 (큰 임팩트). 약세 기회는 분기에 1-2회 (꾸준한 임팩트).<br>
+    <strong style="color: #10B981;">Opportunity Mission이 매니저에게 더 자주 가치 만든다.</strong>
+  </div>
+</div>
+
+<!-- BIDIRECTIONAL SCORE BAR -->
+<div class="section">
+  <div class="section-title">📊 Bidirectional Pattern Score</div>
+  <div class="section-subtitle">50이 균형점. 0=Urgent Opportunity, 100=Urgent Crisis</div>
+  
+  <div class="score-bar-container">
+    <div class="score-bar-labels">
+      <span class="left">🟢 OPPORTUNITY (Spot ↑)</span>
+      <span class="center">⚖️ STABLE</span>
+      <span class="right">🚨 CRISIS (Term ↑)</span>
+    </div>
+    <div class="score-bar">
+      <div class="score-bar-marker" style="left: 22%;"></div>
+      <div class="score-bar-marker" style="left: 82%; background: #FF8A65;"></div>
+    </div>
+    <div class="score-bar-zones">
+      <div class="score-zone" style="color: #065F46;">
+        <div class="zone-num">0-10</div>
+        <div>Urgent<br>Opportunity</div>
+      </div>
+      <div class="score-zone" style="color: #10B981;">
+        <div class="zone-num">10-30</div>
+        <div>Opportunity<br>Pattern</div>
+      </div>
+      <div class="score-zone" style="color: #5C6F7A;">
+        <div class="zone-num">30-50</div>
+        <div>Stable</div>
+      </div>
+      <div class="score-zone" style="color: #5C6F7A;">
+        <div class="zone-num">50-70</div>
+        <div>Caution</div>
+      </div>
+      <div class="score-zone" style="color: #FF3621;">
+        <div class="zone-num">70-90</div>
+        <div>Crisis<br>Pattern</div>
+      </div>
+      <div class="score-zone" style="color: #991B1B;">
+        <div class="zone-num">90+</div>
+        <div>Urgent<br>Crisis</div>
+      </div>
+    </div>
+  </div>
+  
+  <div style="margin-top: 16px; padding: 14px; background: #1B3139; color: white; border-radius: 8px; font-size: 12px; line-height: 1.7;">
+    <strong>Bidirectional Pattern Detection 계산:</strong><br>
+    bullish_score = Σ(importance × time_decay × source_credibility) WHERE direction='bullish'<br>
+    bearish_score = Σ(importance × time_decay × source_credibility) WHERE direction='bearish'<br>
+    pattern_score = 50 + ((bullish - bearish) / max_normalized) × 50 + cross_validation_bonus
+  </div>
+</div>
+
+<!-- 가치 비교 양방향 -->
+<div class="section">
+  <div class="section-title">💰 양방향 가치 시뮬</div>
+  <div class="section-subtitle">위기 헤지 + 기회 포착 = 매일 가치</div>
+  
+  <div class="value-comparison">
+    <div class="value-card crisis">
+      <div class="value-label">🚨 HEDGE 케이스</div>
+      <div class="value-title">Pre-emptive Term Lock</div>
+      <div class="value-scenario">
+        1월: Pattern Score 65→72→82<br>
+        AI 권고: Term 50%→70%<br>
+        → Term lock $85<br><br>
+        2/28: 봉쇄 → Brent $80→$126<br>
+        락한 회사: $85 유지
+      </div>
+      <div class="value-result">+410억 절약*</div>
+      <div class="frequency">위기 1년 1-2회</div>
+    </div>
+    
+    <div class="value-card opportunity">
+      <div class="value-label">🟢 OPPORTUNITY 케이스</div>
+      <div class="value-title">Pre-emptive Spot 비중 ↑</div>
+      <div class="value-scenario">
+        Brent $90, 휴전 협상 중<br>
+        Pattern Score 35→28→22<br>
+        AI 권고: Spot 50%→70%<br><br>
+        4주 후: Brent $90→$72<br>
+        Spot 평균 $74 매수<br>
+        Term 락 안 풀었으면 $88
+      </div>
+      <div class="value-result">+130억 절약*</div>
+      <div class="frequency">기회 분기 1-2회</div>
+    </div>
+  </div>
+  
+  <div style="margin-top: 12px; padding: 10px; background: #F7F4EE; border-radius: 6px; font-size: 11px; color: #5C6F7A; font-style: italic; text-align: center;">
+    * 가상 K-Petroleum 시뮬 기준. 실제 정유사는 자사 cargo·정제 capacity·hedging instrument 따라 보정.
+  </div>
+</div>
+
+<!-- 위기 4 카테고리 -->
+<div class="section">
+  <div class="section-title">🌐 위기 4 카테고리 — 양방향 확장</div>
+  <div class="section-subtitle">동일 architecture로 8가지 시나리오 (위기 4 + 기회 4) 모두 처리</div>
+  
+  <div class="bidirectional-categories">
+    <table>
+      <thead>
+        <tr>
+          <th class="cat">카테고리</th>
+          <th class="crisis">🚨 위기 신호 (Hedge)</th>
+          <th class="opportunity">🟢 약세 신호 (Opportunity)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="cat-name">지정학</td>
+          <td class="crisis-cell">호르무즈 봉쇄, 후티 홍해 공격, 러우 전쟁</td>
+          <td class="opportunity-cell">휴전 발표, 제재 해제, 외교 정상화</td>
+        </tr>
+        <tr>
+          <td class="cat-name">정책</td>
+          <td class="crisis-cell">OPEC+ 감산, 추가 제재, 환경 규제</td>
+          <td class="opportunity-cell">OPEC+ 증산, SPR 방출, 핵합의 복귀</td>
+        </tr>
+        <tr>
+          <td class="cat-name">자연재해</td>
+          <td class="crisis-cell">허리케인 정유시설 타격, 중동 지진</td>
+          <td class="opportunity-cell">재해 복구 진척, 공급 정상화</td>
+        </tr>
+        <tr>
+          <td class="cat-name">시장 shock</td>
+          <td class="crisis-cell">달러 약세, war risk premium</td>
+          <td class="opportunity-cell">Backwardation→Contango, 운임·재고 정상화</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- DEMOCRATIZATION -->
+<div class="democratization-showcase">
+  <div class="badge">⭐ Track 1 진짜 의도</div>
+  <div class="title">Open Data Democratization</div>
+  
+  <div class="question">
+    💭 평가위원의 잠재 의문:<br>
+    "Bloomberg · S&P Global Platts · Vortexa · Kpler 같은 풀 옵션 시스템을 못 쓰는 게 한계 아닌가?"
+  </div>
+  
+  <div class="answer">
+    Crude Compass는 의도적으로 <strong style="color: #FF8A65;">100% open data만</strong> 사용했다.<br>
+    정유 빅5는 이미 유료 시스템에 연 수천만원 지출 가능. 그게 없는 곳도<br>
+    같은 수준의 위기·기회 신호 감지를 가질 수 있도록.<br>
+    <strong style="color: #FF8A65;">이게 Track 1 (Social Impact, Open Data) 진짜 의도, 그리고 진짜 social value.</strong>
+  </div>
+  
+  <div class="beneficiaries">
+    <div class="beneficiary">
+      <strong>중소 정유사</strong><br>
+      유료 시스템 도입 부담 없음
+    </div>
+    <div class="beneficiary">
+      <strong>석화 trading desk</strong><br>
+      나프타 의존 산업 보호
+    </div>
+    <div class="beneficiary">
+      <strong>정책 연구자</strong><br>
+      대외경제정책연구원·산업연구원
+    </div>
+    <div class="beneficiary">
+      <strong>정부 분석관</strong><br>
+      산업부·외교부 에너지 안보
+    </div>
+  </div>
+</div>
+
+<!-- 4-LAYER ARCHITECTURE -->
+<div class="section">
+  <div class="section-title">🏗️ AI Agent 4-Layer Architecture</div>
+  <div class="section-subtitle">정기 + Reactive + Pattern Detection + Mission Plan</div>
+  
+  <div class="layer-grid">
+    <div class="layer-card l1">
+      <div class="layer-num">LAYER 1 — 정기 News Fetch (2시간 cron)</div>
+      <div class="layer-title">News RSS + LLM 양방향 scoring</div>
+      <div class="layer-desc">
+        <strong>Tier A 속보</strong> (Reuters · AP · 연합뉴스 · FT · BBC)<br>
+        <strong>Tier B 1차</strong> (EIA · IEA · OPEC · OFAC · Aramco IR · 외교부)<br>
+        → Hard rule filter → LLM scoring (importance + <strong>direction</strong>) → 60+ 만 적재
+      </div>
+    </div>
+    
+    <div class="layer-card l2">
+      <div class="layer-num">LAYER 2 — Reactive Trigger (5분 cron)</div>
+      <div class="layer-title">가격 spike + 통과량 급변 + 키워드 burst</div>
+      <div class="layer-desc">
+        가격 +/-2%, 호르무즈 +/-20%, 환율 +/-1%, 키워드 burst<br>
+        → 즉시 reactive 뉴스 검색 → LLM 분석 → URGENT alert
+      </div>
+    </div>
+    
+    <div class="layer-card l3">
+      <div class="layer-num">LAYER 3 — Bidirectional Pattern Detection (매일 06:30) ⭐</div>
+      <div class="layer-title">3-6개월 window 양방향 누적 분석</div>
+      <div class="layer-desc">
+        bullish - bearish 양방향 가중<br>
+        Time-decay (최근 100% → 3mo 10%) + Cross-validation<br>
+        70+ HEDGE / 30- OPPORTUNITY → <strong>Mission Plan Agent 호출</strong>
+      </div>
+    </div>
+    
+    <div class="layer-card l4">
+      <div class="layer-num">LAYER 4 — Mission Plan Agent (자율)</div>
+      <div class="layer-title">양방향 Mission 제안 + Lifecycle 관리</div>
+      <div class="layer-desc">
+        mission_type 분기 (HEDGE / OPPORTUNITY)<br>
+        구체적 goal · reasoning · simulation ROI · urgency<br>
+        Lakebase INSERT → Slack DM + Apps push 동시 발송
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AI vs HUMAN -->
+<div class="section">
+  <div class="section-title">⚖️ Agentic 본질 — AI 능동 + 사람 결정</div>
+  <div class="section-subtitle">사람이 dashboard 열기 기다리지 않는다. AI가 능동적으로 reach.</div>
+  
+  <div class="roles-split">
+    <div class="role-card ai">
+      <div class="role-label">AI ROLE</div>
+      <div class="role-title">🤖 능동 (Proactive)</div>
+      <ul>
+        <li>5종 데이터 + 뉴스 24/7 모니터링</li>
+        <li>importance + direction 양방향 scoring</li>
+        <li>Bidirectional Pattern Detection 누적 분석</li>
+        <li>Reactive trigger 즉시 반응</li>
+        <li>Pre-emptive Mission 양방향 제안</li>
+        <li>Plan vs Reality 매일 비교</li>
+        <li>변화 시 양방향 Pivot 권고</li>
+        <li>매주 Self-Critique + 양방향 보정</li>
+      </ul>
+    </div>
+    <div class="role-card human">
+      <div class="role-label">HUMAN ROLE</div>
+      <div class="role-title">👤 결정 (Reactive)</div>
+      <ul>
+        <li>AI 제안 review</li>
+        <li>Confirm / Reject / Modify</li>
+        <li>Pivot 4 옵션 결정<br>(Abort/Pause/Pivot/Continue)</li>
+        <li>(보조) 자유 NL 질문</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 3-MODE -->
+<div class="section">
+  <div class="section-title">🔄 위기·평시·기회 — 3-mode 작동</div>
+  <div class="section-subtitle">단순 평시·위기 2-mode가 아닌, 3-mode 매일 작동</div>
+  
+  <div class="three-mode-grid">
+    <div class="mode-card crisis-mode">
+      <div class="mode-icon">🚨</div>
+      <div class="mode-name">CRISIS MODE</div>
+      <div class="mode-score">Pattern Score 70+</div>
+      <div class="mode-action">
+        시장 폭등 risk<br>
+        AI: <strong>HEDGE Mission</strong><br>
+        Term ↑
+      </div>
+      <div class="mode-freq">빈도: 1년 1-2회<br>(큰 임팩트)</div>
+    </div>
+    
+    <div class="mode-card stable-mode">
+      <div class="mode-icon">⚖️</div>
+      <div class="mode-name">STABLE MODE</div>
+      <div class="mode-score">Pattern Score 30-70</div>
+      <div class="mode-action">
+        시장 안정<br>
+        AI: 모니터링<br>
+        매니저: 균형 유지
+      </div>
+      <div class="mode-freq">빈도: 일상<br>(가장 흔함)</div>
+    </div>
+    
+    <div class="mode-card opportunity-mode">
+      <div class="mode-icon">🟢</div>
+      <div class="mode-name">OPPORTUNITY MODE</div>
+      <div class="mode-score">Pattern Score 30-</div>
+      <div class="mode-action">
+        시장 약세 신호<br>
+        AI: <strong>OPPORTUNITY Mission</strong><br>
+        Spot ↑
+      </div>
+      <div class="mode-freq">빈도: 분기 1-2회<br>(꾸준한 임팩트)</div>
+    </div>
+  </div>
+</div>
+
+<!-- SLACK ↔ APPS 동기화 -->
+<div class="sync-showcase">
+  <div class="badge">⭐⭐⭐ 핵심 차별점</div>
+  <div class="title">Slack ↔ Apps 양방향 즉시 동기화</div>
+  <p style="font-size: 13px; opacity: 0.95; margin-bottom: 12px;">
+    Lakebase가 Single Source of Truth. 어디서든 결정해도 5초 동기화.
+  </p>
+  
+  <div class="sync-flow">
+    <div class="sync-side">
+      <div class="side-title">📱 Slack에서 결정 → Apps</div>
+      <div>
+        Slack [Confirm] 클릭<br>
+        → Lakebase UPDATE<br>
+        → Apps 5초 안에 자동 update<br>
+        → status pill 'proposed' → 'active'
+      </div>
+    </div>
+    <div class="sync-side">
+      <div class="side-title">💻 Apps에서 결정 → Slack</div>
+      <div>
+        Apps [Confirm] 클릭<br>
+        → Lakebase UPDATE<br>
+        → Slack 메시지 5초 안에 자동 update<br>
+        → "✅ Confirmed via Apps"
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HEDGE Slack 시뮬 -->
+<div class="section">
+  <div class="section-title">📱 사용 흐름 1 — Pre-emptive HEDGE Mission</div>
+  
+  <div class="slack-mock">
+    <div class="slack-header">#crude-compass · 김지훈 ↔ Crude Compass Bot</div>
+    
+    <div class="slack-msg">
+      <div class="author system">— 04:30, Tier 1 Daily 실행 —</div>
+    </div>
+    <div class="slack-msg">
+      <div class="author system">— 06:30, Bidirectional Pattern Detection: Score 82 —</div>
+    </div>
+    <div class="slack-msg">
+      <div class="author system">— 07:00, Mission Plan Agent: HEDGE Mission 자동 생성 —</div>
+    </div>
+    
+    <div class="slack-msg">
+      <div class="author bot">🤖 Crude Compass Bot · 07:30 (출근 시각)</div>
+      <div class="content">
+        🚨 <strong>Pre-emptive HEDGE Mission 제안</strong><br>
+        <div class="card">
+          <strong>Bidirectional Pattern Detection</strong>: 위기 신호 6건 누적<br>
+          • 1/15: 미 펜타곤 중동 군 가족 출국<br>
+          • 1/22: Geneva 협상 결렬<br>
+          • 1/30: IRGC 강경 발언 + 3건<br>
+          <br>
+          <strong>누적 Pattern Score</strong>: 82<br>
+          <strong>Cross-validation</strong>: 4 source confirm<br>
+          <br>
+          <strong>권고</strong>: Term 50% → 70% (4주) — Pre-emptive Hedge<br>
+          <strong>시뮬</strong>: 봉쇄 발발 시 +410억 / 평화 유지 시 -50억<br>
+          <strong>현재 cargo</strong>: 익명화 VLCC #003 호르무즈 진입 D-1
+        </div>
+        <div class="buttons">
+          <span class="slack-btn primary-red">Confirm</span>
+          <span class="slack-btn">Reject</span>
+          <span class="slack-btn">Modify</span>
+          <span class="slack-btn">Open in Apps</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="slack-msg">
+      <div class="author system">— 매니저 Apps에서 [Confirm] 클릭 (5초 후 동기화) —</div>
+    </div>
+    
+    <div class="slack-msg">
+      <div class="author bot">🤖 Crude Compass Bot · 09:15</div>
+      <div class="content">
+        <div class="card confirmed">
+          ✅ <strong>Mission Confirmed via Apps</strong> (by 김지훈, 09:15 KST)<br>
+          <br>
+          Mission 활성화. 4주 plan 시작.<br>
+          <strong>Mission Plan Agent</strong>가 매일 plan vs reality 비교.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- OPPORTUNITY Slack 시뮬 -->
+<div class="section">
+  <div class="section-title">📱 사용 흐름 2 — Pre-emptive OPPORTUNITY Mission ⭐⭐⭐</div>
+  <div class="section-subtitle">약세 신호 5건 누적 → AI 자동 OPPORTUNITY 제안</div>
+  
+  <div class="slack-mock">
+    <div class="slack-header">#crude-compass · 약세 신호 누적 → OPPORTUNITY 제안</div>
+    
+    <div class="slack-msg">
+      <div class="author system">— Bidirectional Pattern Detection: Score 35 → 28 → 22 —</div>
+    </div>
+    <div class="slack-msg">
+      <div class="author system">— Mission Plan Agent: OPPORTUNITY Mission 자동 제안 —</div>
+    </div>
+    
+    <div class="slack-msg">
+      <div class="author bot green">🤖 Crude Compass Bot · 14:32</div>
+      <div class="content">
+        🟢 <strong>Pre-emptive OPPORTUNITY Mission 제안</strong><br>
+        <div class="card opportunity">
+          <strong>Bidirectional Pattern Detection</strong>: 약세 신호 5건 누적<br>
+          • 휴전 임박 (외교, Reuters confirm)<br>
+          • 미국 SPR 1억 배럴 방출 (정책)<br>
+          • 중국 PMI 49.2 — 수축 영역 (수요)<br>
+          • VLCC 운임 -15% (시장)<br>
+          • 글로벌 정유 재고 ↑ (공급)<br>
+          <br>
+          <strong>누적 Pattern Score</strong>: 22 (낮을수록 약세 강함)<br>
+          <strong>Cross-validation</strong>: 5 source confirm<br>
+          <br>
+          <strong>권고</strong>: Spot 50% → 70% (4주) — Pre-emptive Opportunity<br>
+          <strong>시뮬</strong>: Brent $72 하락 시 +130억 / 다시 상승 시 -30억
+        </div>
+        <div class="buttons">
+          <span class="slack-btn primary-green">Confirm</span>
+          <span class="slack-btn">Reject</span>
+          <span class="slack-btn">Modify</span>
+          <span class="slack-btn">Open in Apps</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div style="margin-top: 12px; padding: 12px; background: #ECFDF5; border-radius: 8px; font-size: 12px; color: #14532D; line-height: 1.7;">
+    <strong>narrator</strong>: "위기만이 아니다. 약세 신호도 동일 architecture로 catch.<br>
+    <strong>위기는 1년 1-2회, 기회는 분기 1-2회 — Opportunity가 더 자주 가치 만든다.</strong>"
+  </div>
+</div>
+
+<!-- BIDIRECTIONAL PIVOT -->
+<div class="section">
+  <div class="section-title">🔀 사용 흐름 3 — Bidirectional Living Mission Pivot ⭐⭐⭐</div>
+  <div class="section-subtitle">진행 중 OPPORTUNITY → 갑작스 협상 결렬 → AI HEDGE Pivot 권고</div>
+  
+  <div class="slack-mock">
+    <div class="slack-header">#crude-compass · 진행 중 OPPORTUNITY Mission</div>
+    
+    <div class="slack-msg">
+      <div class="author system">— Pattern Score: 22 → 78 (반대 방향 급변) —</div>
+    </div>
+    
+    <div class="slack-msg">
+      <div class="author bot">🚨 Crude Compass Bot · URGENT</div>
+      <div class="content">
+        <div class="card pivot">
+          🔀 <strong>Mission Pivot 권고 — Opportunity → Hedge 반전</strong><br>
+          <br>
+          휴전 결렬 + IRGC 위협 재개 (Reuters · AP confirm)<br>
+          현재 OPPORTUNITY Mission 진행 시 손해 ↑<br>
+          <br>
+          AI 권고 4 옵션 (각각 시뮬 ROI):
+        </div>
+        <div class="buttons">
+          <span class="slack-btn">Abort</span>
+          <span class="slack-btn">Pause</span>
+          <span class="slack-btn primary-red">Pivot to HEDGE ⭐</span>
+          <span class="slack-btn">Continue</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="slack-msg">
+      <div class="author user">매니저 [Pivot to HEDGE 클릭]</div>
+    </div>
+    
+    <div class="slack-msg">
+      <div class="author bot">🤖 Crude Compass Bot · 5초 후</div>
+      <div class="content">
+        <div class="card confirmed">
+          ✅ <strong>Pivoted: OPPORTUNITY → HEDGE</strong><br>
+          <br>
+          Lakebase: mission_type 'OPPORTUNITY' → 'HEDGE'<br>
+          새 plan: Spot 70% → Term 70%<br>
+          Apps timeline에 양방향 Pivot marker (🟢 → 🚨)<br>
+          Term lock 가속 시작
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 페르소나 -->
+<div class="section">
+  <div class="section-title">👥 페르소나 — 2층 구조</div>
+  <div class="persona-grid">
+    <div class="persona-card">
+      <div class="label">1층 매니저 (가상)</div>
+      <div class="name">김지훈, K-Petroleum</div>
+      <div class="desc">
+        30대 후반 원유조달팀 시니어<br>
+        가상 정유사 (정제 80만 b/d)<br>
+        baseline Term 50% : Spot 50%<br>
+        Slack always-on, Apps deep work<br>
+        Crude Compass 4주째 보조 중
+      </div>
+    </div>
+    <div class="persona-card">
+      <div class="label">2층 평가위원 (실제)</div>
+      <div class="name">5분 동안 직접 체험</div>
+      <div class="desc">
+        AI Pre-emptive 제안 receive<br>
+        Slack 또는 Apps에서 Confirm<br>
+        Spike trigger → AI Reactive 반응<br>
+        Mission Pivot 결정 (양방향)<br>
+        AI/BI Dashboard backtest
+      </div>
+    </div>
+  </div>
+  <div style="margin-top: 14px; padding: 12px; background: #FFF4F2; border-radius: 8px; font-size: 12px; color: #663328;">
+    📦 <strong>Cargo 데이터</strong>: 한국 정유 4사 중 한 곳의 <strong>실제 VLCC AIS 데이터</strong> (공개 source).<br>
+    데모에서 회사명·선박명 익명화 ("VLCC #003" 같은 가명).
+  </div>
+</div>
+
+<!-- TERM vs SPOT -->
+<div class="section">
+  <div class="section-title">💰 Term vs Spot — 단순 비유</div>
+  <div class="analogy-row">
+    <div class="analogy-card term">
+      <div class="a-title">Term 계약 = 월세</div>
+      <div class="a-desc">"6개월간 매월 100만 배럴, $90/bbl 고정"<br><br>시장 폭등해도 $90<br>가격 폭등 보험</div>
+    </div>
+    <div class="analogy-card spot">
+      <div class="a-title">Spot 거래 = 에어비앤비</div>
+      <div class="a-desc">"지금 시장가로 사기"<br><br>평소 더 싸지만 변동성 큼<br>시장 폭등 시 폭등 가격</div>
+    </div>
+  </div>
+  <div style="background: #FAF7F2; border-radius: 8px; padding: 14px; margin-top: 14px; text-align: center; font-size: 13px; color: #1B3139; font-weight: 600; line-height: 1.7;">
+    🚨 위기 신호 누적 → Pre-emptive Term ↑ (가격 폭등 보험)<br>
+    🟢 약세 신호 누적 → Pre-emptive Spot ↑ (싸게 매수 기회)
+  </div>
+</div>
+
+<!-- LIVING MISSION -->
+<div class="section">
+  <div class="section-title">⭐ Living Mission Lifecycle</div>
+  <div class="section-subtitle">"fixed = 일정표 / 살아있다 = Agentic"</div>
+  
+  <div class="lifecycle-grid">
+    <div class="lifecycle-item lc-active"><span class="label">on_track</span><span class="desc">계획대로</span></div>
+    <div class="lifecycle-item lc-risk"><span class="label">at_risk</span><span class="desc">시장 변화</span></div>
+    <div class="lifecycle-item lc-paused"><span class="label">paused</span><span class="desc">시장 관망</span></div>
+    <div class="lifecycle-item lc-pivoted"><span class="label">pivoted</span><span class="desc">목표 수정</span></div>
+    <div class="lifecycle-item lc-aborted"><span class="label">aborted</span><span class="desc">완전 폐기</span></div>
+    <div class="lifecycle-item lc-completed"><span class="label">completed</span><span class="desc">4주 완료</span></div>
+  </div>
+  
+  <div style="background: #1B3139; color: white; padding: 16px; border-radius: 8px; margin-top: 14px; font-size: 12px; line-height: 1.7;">
+    <strong>양방향 Pivot 가능</strong>: HEDGE ↔ OPPORTUNITY 반전<br>
+    Mission 진행 중 시장 변화 시 → AI 4 옵션 권고:<br>
+    <strong>Abort</strong> · <strong>Pause</strong> · <strong>Pivot</strong> (양방향 반전) · <strong>Continue</strong><br>
+    매니저 결정 시 5초 안에 새 plan + 양쪽 동기화
+  </div>
+</div>
+
+<!-- 5분 데모 -->
+<div class="section">
+  <div class="section-title">🎬 5분 데모 — 평가위원 직접 체험</div>
+  <div class="section-subtitle">평가위원 클릭 4회 + AI 자율 5회 + 양방향 동기화 2회 시연</div>
+  
+  <div class="demo-phase">
+    <div class="phase-header">
+      <span class="phase-num">PHASE 1</span><span class="phase-time">00:00 — 00:30</span>
+    </div>
+    <div class="phase-title">Opening + Open Data Democratization</div>
+    <div class="phase-desc">"AI는 위기 발발 후가 아니라 신호 누적 단계에서 가치를 만든다.<br>그리고 양방향 — 위기 헤지 + 기회 포착 모두."<br>"의도적 100% open data. 정유 빅5만 아니라 중소·정책연구·정부도. 이게 Track 1 진짜 의도."</div>
+  </div>
+  
+  <div class="demo-phase wow">
+    <div class="phase-header">
+      <span class="phase-num">PHASE 2</span><span class="phase-time">00:30 — 01:30</span>
+    </div>
+    <div class="phase-title">Pre-emptive HEDGE Mission 제안</div>
+    <div class="phase-desc">
+      평가위원 Slack 열면 — AI Pre-emptive HEDGE 제안 도착<br>
+      "지난 3주 escalation 6건 누적 → Pattern Score 82"<br>
+      "권고: Term 70% mission, 시뮬 +410억"<br>
+      narrator: "AI가 위기 1-2주 전부터 신호 누적 모니터링"
+    </div>
+  </div>
+  
+  <div class="demo-phase wow">
+    <div class="phase-header">
+      <span class="phase-num">PHASE 3</span><span class="phase-time">01:30 — 02:30</span>
+    </div>
+    <div class="phase-title">⭐⭐⭐ Apps에서 Confirm → Slack 동기화</div>
+    <div class="phase-desc">
+      <strong>화면 분할</strong>: 왼쪽 Slack / 오른쪽 Apps<br>
+      평가위원 "Open in Apps" → Apps에서 Confirm<br>
+      5초 안에: Apps 'active' + Slack "✅ Confirmed via Apps"
+    </div>
+  </div>
+  
+  <div class="demo-phase">
+    <div class="phase-header">
+      <span class="phase-num">PHASE 4</span><span class="phase-time">02:30 — 03:00</span>
+    </div>
+    <div class="phase-title">Reactive Trigger — Spike 즉시 반응</div>
+    <div class="phase-desc">
+      "Inject Brent +5% spike" 클릭 → 5초 안에 reactive 뉴스 검색<br>
+      Slack URGENT alert: "Brent spike. HEDGE Mission Term lock 가속 권고"
+    </div>
+  </div>
+  
+  <div class="demo-phase opportunity-phase wow">
+    <div class="phase-header">
+      <span class="phase-num">PHASE 5</span><span class="phase-time">03:00 — 03:45</span>
+    </div>
+    <div class="phase-title">⭐⭐⭐ Pre-emptive OPPORTUNITY Mission</div>
+    <div class="phase-desc">
+      평가위원 "Inject Bearish signals" → 약세 신호 5건 누적<br>
+      Pattern Score 22 → AI 자동 OPPORTUNITY Mission 제안<br>
+      "위기만이 아니다. 약세도 동일 architecture로 catch"<br>
+      "Opportunity가 분기 1-2회 — 더 자주 가치 만든다"
+    </div>
+  </div>
+  
+  <div class="demo-phase bidirectional-phase wow">
+    <div class="phase-header">
+      <span class="phase-num">PHASE 6</span><span class="phase-time">03:45 — 04:30</span>
+    </div>
+    <div class="phase-title">⭐⭐⭐ Bidirectional Pivot — 양방향 반전</div>
+    <div class="phase-desc">
+      평가위원 "Inject Sudden Crisis" → 휴전 결렬<br>
+      Pattern Score 22 → 78 급변<br>
+      AI 양방향 Pivot 권고 (Pivot to HEDGE)<br>
+      평가위원 클릭 → 5초 안에 새 plan + 양쪽 동기화
+    </div>
+  </div>
+  
+  <div class="demo-phase wow">
+    <div class="phase-header">
+      <span class="phase-num">PHASE 7</span><span class="phase-time">04:30 — 04:50</span>
+    </div>
+    <div class="phase-title">⭐ AI/BI Dashboard + 양방향 backtest</div>
+    <div class="phase-desc">
+      4 차트 + Bidirectional Pattern Detection backtest<br>
+      HEDGE 정확도 78% + OPPORTUNITY 정확도 71%<br>
+      Self-Critique: "AI 권고 vs 매니저 결정 outcome 비교 + MLflow 보정"
+    </div>
+  </div>
+  
+  <div class="demo-phase">
+    <div class="phase-header">
+      <span class="phase-num">PHASE 8</span><span class="phase-time">04:50 — 05:00</span>
+    </div>
+    <div class="phase-title">Closing</div>
+    <div class="phase-desc">"위기 + 기회 양방향 = 매일 최적화. Slack-Apps 동기화. Mission 살아있음. Open data democratize."</div>
+  </div>
+</div>
+
+<!-- DATABRICKS STACK -->
+<div class="section">
+  <div class="section-title">🧱 Databricks Stack 활용</div>
+  
+  <div style="margin-top: 16px;">
+    <div class="tool-row">
+      <div class="tool-name">Apps</div>
+      <div class="tool-desc">Vite + React + FastAPI hybrid<br>Mission Dashboard + Slack Bot 백엔드</div>
+      <div class="tool-wow">UI 핵심</div>
+    </div>
+    <div class="tool-row">
+      <div class="tool-name">Genie</div>
+      <div class="tool-desc">Apps embed (Agent Mode GA)<br>Slack Bot 자연어 시뮬 통합</div>
+      <div class="tool-wow">Wow 5</div>
+    </div>
+    <div class="tool-row">
+      <div class="tool-name">Lakebase</div>
+      <div class="tool-desc">Postgres OLTP, 4 tables<br><strong>Slack ↔ Apps Single Source of Truth</strong></div>
+      <div class="tool-wow">Wow 1·3</div>
+    </div>
+    <div class="tool-row">
+      <div class="tool-name">Agent Bricks</div>
+      <div class="tool-desc">4 Custom Agents (GA)<br>Monitoring · Simulation · <strong>Mission Plan</strong> · Self-Critique<br>Bidirectional Pattern Detection</div>
+      <div class="tool-wow">Wow 2·5·6</div>
+    </div>
+    <div class="tool-row">
+      <div class="tool-name">AI/BI Dashboard</div>
+      <div class="tool-desc">Apps embed<br>30일 + 양방향 Pattern Detection backtest</div>
+      <div class="tool-wow">Wow 7</div>
+    </div>
+  </div>
+</div>
+
+<!-- DATA SOURCE -->
+<div class="section">
+  <div class="section-title">📡 데이터 Source — 100% Open Data</div>
+  <div class="source-grid">
+    <div class="source-card">
+      <div class="name">News RSS <span class="check">✓</span> ⭐</div>
+      <div class="desc">Reuters · AP · 연합뉴스 · FT · BBC + 1차 source<br>(Tier A 5개 + Tier B 6개)</div>
+    </div>
+    <div class="source-card">
+      <div class="name">OilPriceAPI <span class="check">✓</span></div>
+      <div class="desc">WTI + Brent + Dubai (5분 갱신)<br>$19/mo (1달만, 데모 후 cancel)</div>
+    </div>
+    <div class="source-card">
+      <div class="name">AIS aisstream <span class="check">✓</span></div>
+      <div class="desc">호르무즈 통과량 + 익명화 cargo<br>WebSocket continuous, 무료</div>
+    </div>
+    <div class="source-card">
+      <div class="name">GDACS <span class="check">✓</span></div>
+      <div class="desc">UN/EU 글로벌 재해 events<br>REST, 무료</div>
+    </div>
+    <div class="source-card">
+      <div class="name">ECOS 한국은행 <span class="check">✓</span></div>
+      <div class="desc">KRW/USD 환율 (Usance 차손)<br>일 1회, 무료 무제한</div>
+    </div>
+    <div class="source-card">
+      <div class="name">JWC PDF</div>
+      <div class="desc">Lloyd's War zone (manual upload)<br>무료</div>
+    </div>
+  </div>
+  <div style="margin-top: 12px; padding: 12px; background: #FAF7F2; border-radius: 6px; font-size: 11px; color: #5C6F7A; line-height: 1.6;">
+    <strong>총 외부 비용 $19</strong> (OilPriceAPI 1달).<br>
+    Bloomberg $24,000/year 대비 1,200x 저렴 — Open Data Democratization narrative 핵심.
+  </div>
+</div>
+
+<!-- 차별점 -->
+<div class="section">
+  <div class="section-title">🏆 진짜 차별점</div>
+  <div style="overflow-x: auto;">
+    <table class="diff-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>일반 PM 도구</th>
+          <th>일반 Dashboard</th>
+          <th>RAG Chat</th>
+          <th class="us">Crude Compass</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="label">진입점</td>
+          <td class="weak">앱 새로 열기</td>
+          <td class="weak">로그인</td>
+          <td class="weak">채팅</td>
+          <td class="strong">Slack 알림 (능동)</td>
+        </tr>
+        <tr>
+          <td class="label">위기 감지</td>
+          <td class="weak">없음</td>
+          <td class="weak">후행</td>
+          <td class="weak">후행</td>
+          <td class="strong">Pre-Crisis Pattern ⭐</td>
+        </tr>
+        <tr class="highlight">
+          <td class="label">방향성</td>
+          <td class="weak">—</td>
+          <td class="weak">—</td>
+          <td class="weak">—</td>
+          <td class="strong">양방향 (Hedge + Opportunity) ⭐</td>
+        </tr>
+        <tr>
+          <td class="label">AI 역할</td>
+          <td class="weak">없음</td>
+          <td class="weak">없음</td>
+          <td class="weak">답변</td>
+          <td class="strong">Mission 자율 제안</td>
+        </tr>
+        <tr>
+          <td class="label">자율 작업</td>
+          <td class="weak">없음</td>
+          <td class="weak">없음</td>
+          <td class="weak">없음</td>
+          <td class="strong">24/7 자율 reasoning</td>
+        </tr>
+        <tr>
+          <td class="label">Plan vs Reality</td>
+          <td class="weak">사람이 비교</td>
+          <td class="weak">없음</td>
+          <td class="weak">없음</td>
+          <td class="strong">AI 24/7 자율</td>
+        </tr>
+        <tr>
+          <td class="label">Pivot</td>
+          <td class="weak">없음</td>
+          <td class="weak">없음</td>
+          <td class="weak">없음</td>
+          <td class="strong">AI 능동 양방향 Pivot</td>
+        </tr>
+        <tr>
+          <td class="label">동기화</td>
+          <td class="weak">N/A</td>
+          <td class="weak">N/A</td>
+          <td class="weak">N/A</td>
+          <td class="strong">Slack ↔ Apps 양방향</td>
+        </tr>
+        <tr>
+          <td class="label">자기 비판</td>
+          <td class="weak">없음</td>
+          <td class="weak">없음</td>
+          <td class="weak">없음</td>
+          <td class="strong">매주 양방향 backtest</td>
+        </tr>
+        <tr>
+          <td class="label">사용 빈도</td>
+          <td class="weak">프로젝트별</td>
+          <td class="weak">필요시</td>
+          <td class="weak">질문 시</td>
+          <td class="strong">매일 (위기·평시·기회)</td>
+        </tr>
+        <tr class="highlight">
+          <td class="label">데이터 source</td>
+          <td class="weak">자체</td>
+          <td class="weak">자체</td>
+          <td class="weak">자체</td>
+          <td class="strong">100% Open data ⭐</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- CLOSING -->
+<div class="closing-box">
+  <div class="title">
+    위기 + 기회 양방향 = 매일 최적화<br>
+    AI Agent의 진짜 가치는 매일.<br>
+    Open data로 인텔리전스 democratize.
+  </div>
+  <div class="keywords">
+    <span class="keyword">Bidirectional Detection</span>
+    <span class="keyword">HEDGE + OPPORTUNITY</span>
+    <span class="keyword">Pattern Score 양방향</span>
+    <span class="keyword">3-mode (위기·평시·기회)</span>
+    <span class="keyword">양방향 Pivot</span>
+    <span class="keyword">Slack-Apps 동기화</span>
+    <span class="keyword">100% Open Data</span>
+    <span class="keyword">Lakebase Single Source of Truth</span>
+  </div>
+</div>
+
+<footer>
+  Built with Databricks Apps · Genie · Lakebase · Agent Bricks · AI/BI Dashboard<br>
+  Slack Bolt SDK · Vite + React + FastAPI · Lakeflow Jobs<br>
+  데이터: News RSS · AIS · OilPriceAPI · GDACS · ECOS · JWC (모두 open data)<br>
+  <strong>Crude Compass</strong> — Pre-emptive Bidirectional Decision Support<br>
+  Databricks APJ Hackathon 2026 · Track 1 한국어
+</footer>
+
+</div>
+</body>
+</html>
