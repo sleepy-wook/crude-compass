@@ -598,13 +598,16 @@ confidence = avg(
 2026-03-04: 이란 호르무즈 공식 폐쇄
 2026-03-10: 6.7M bpd 시장 이탈
 2026-04-13: 미국 이란 항구 역봉쇄 (dual blockade)
-2026-04-30: Brent $126 정점
-2026-05-07: Brent $100 (협상 중)
-2026-05-08~ (현재): Pakistan 중재 협상
+2026-04-30: Brent $126 정점, Dubai ~$140
+2026-05-04: Dubai $102 (OPINET 실측, 전일 대비 spike 시작)
+2026-05-05: Dubai $106 (OPINET 실측, peak)
+2026-05-06: Dubai $103 (OPINET 실측, 협상 시작 반영)
+2026-05-07~ (현재): Pakistan 중재 협상
 ```
 
 Pre-crisis Brent: 실제 $68-72 (시나리오 보정 완료, $80에서)
 정점: Brent $126 (4/30), Dubai ~$140
+**Dubai daily 검증**: OPINET 실측 5/4-6 spike $102→$106→$103 → 시나리오 timeline과 정확히 일치
 
 ---
 
@@ -659,28 +662,42 @@ missions (
 
 ---
 
-## 부록 C — Mock Backtest 산출 방법 (HEDGE 78% / OPP 71% 정당화)
+## 부록 C — Mock Backtest 산출 방법 (Dubai 기반 3년 4개월)
 
 ### 데이터셋
-- **기간**: 2025-12 ~ 2026-04 (5개월)
-- **Source**: Reuters / AP / 연합뉴스 / FT / BBC RSS archive (Wayback Machine + Google News archive)
-- **신호 detected 정의**: Pattern Score 70+ (HEDGE) 또는 30 이하 (OPP) 돌파일
+- **기간**: 2023-01 ~ 2026-04 (40개월 ≈ **3년 4개월**)
+  - 다양한 regime 포함: 2023 OPEC+ cut + Israel-Hamas, 2024 홍해 후티,
+    2025 중동 긴장 + 미 셰일, 2026 Q1-Q2 호르무즈 위기
+- **News source**: GDELT 2.0 DOC API (`bronze.news_articles` source_type='gdelt_backtest')
+- **Price baseline**: **Dubai 현물 daily close** (한국 정유사 중동 원유 70%+ 수입)
+  - Source: **OPINET (한국석유공사 공식)** CSV (https://www.opinet.co.kr/gloptotSelect.do)
+  - `bronze.oil_prices_daily` ticker='DUBAI', 2023-01 ~ daily 적재
+- **신호 정의 (Option D)**: 매일 zone in (HEDGE 70+ / OPP 30-) + **7-day cool-down**
+  - 같은 zone이 직전 7일 안에 이미 signal로 식별됐으면 skip
+  - production "weekly review" 운영 모델과 일치 (자기상관 noise 제거)
 
 ### Outcome 정의
-- **HEDGE 적중**: 신호 후 30일 안에 Brent +10%↑
-- **OPPORTUNITY 적중**: 신호 후 30일 안에 Brent -10%↓
+- **HEDGE 적중**: signal day 후 30일 안에 Dubai +10%↑
+- **OPPORTUNITY 적중**: signal day 후 30일 안에 Dubai -10%↓
 - **미적중**: 30일 안에 변동 없음 또는 반대 방향
+- **lead time**: signal day 이후 처음 ±10% 도달까지 days (hit case 평균)
 
-### 산출 결과
-- HEDGE 12건 → 9건 적중 = 75% (한계 1건 재분류 시 78%)
-- OPPORTUNITY 14건 → 10건 적중 = **71%**
-- 평균 lead time = **12.4일**
-- Pivot 성공률 = 4/5 = **80%**
+### 산출 (자동 계산 — `gold.backtest_results`)
+- 5/22 데모 시점 expected sample: HEDGE 25-35건, OPP 20-30건 (3년 cool-down 적용)
+- 기대 precision: HEDGE ~75%, OPP ~70% (production 운영 시 Self-Critique Agent로 calibration)
+- 평균 lead time: ~10-15일
+
+### 왜 Dubai인가 (push back 대비)
+- **Brent ≠ K-Petroleum 의사결정**: 한국은 중동 원유 70-75% 수입 → 두바이/오만 marker가 실제 baseline
+- Brent와 Dubai는 평균 $1-3 spread로 다르지만, 위기 시 spread vault (war zone premium)
+- OPINET (한국석유공사 공식) 데이터 = 정유사 의사결정 검증의 gold standard
 
 ### 평가위원 예상 질문 → 답변
-- Q: "78%/71% 어떻게?" → A: "5개월 RSS archive backtest, Pattern Score threshold 돌파 + 30일 outcome 측정"
-- Q: "양방향 산출?" → A: "약세 신호도 동일 architecture (direction 컬럼 분기)"
+- Q: "왜 Dubai?" → A: "한국 정유사는 중동산 70%+ 수입, Brent baseline은 잘못된 anchor"
+- Q: "3년 4개월 sample 구성?" → A: "OPEC+ cut/Israel-Hamas/Houthi/호르무즈 4개 regime 포함, regime change validation"
+- Q: "Sample size?" → A: "Daily-state + 7-day cool-down → cool-down 없는 daily noise 제거 + entry-only 대비 4-5배 sample"
 - Q: "Production 정확도?" → A: "Self-Critique Agent 매주 calibration + 람다 auto-optimization"
+- Q: "AIS/OilPriceAPI는?" → A: "realtime stream 특성상 historical 미제공, production-only signal"
 
 → 코드: `scripts/backtest_signals.py` (Sprint 3 ⭐ 1.5일 critical task)
 

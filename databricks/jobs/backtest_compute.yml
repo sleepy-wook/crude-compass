@@ -1,0 +1,16 @@
+resources:
+  jobs:
+    backtest_compute:
+      name: ${bundle.name}-backtest-compute-${bundle.target}
+      description: "5개월 daily Pattern Score + Brent outcome → HEDGE/OPP accuracy"
+      tasks:
+        - task_key: backtest_compute
+          notebook_task:
+            notebook_path: ../notebooks/job_backtest_compute.py
+            source: WORKSPACE
+          timeout_seconds: 1200
+      max_concurrent_runs: 1
+      tags:
+        project: crude-compass
+        layer: gold
+        purpose: mock_backtest

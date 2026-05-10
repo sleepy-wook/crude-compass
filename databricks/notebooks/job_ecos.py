@@ -33,16 +33,28 @@ from pyspark.sql.types import (
 TARGET_TABLE = "crude_compass.bronze.fx_rates"
 api_key = dbutils.secrets.get(scope="crude", key="ecos_api_key")
 
-# 최근 14일 fetch (idempotent MERGE)
+# Widget: mode (daily | historical) + hist_start
+dbutils.widgets.dropdown("mode", "daily", ["daily", "historical"], "Run mode")
+dbutils.widgets.text("hist_start", "2023-01-01", "Historical start date (YYYY-MM-DD)")
+MODE = dbutils.widgets.get("mode")
+HIST_START = dbutils.widgets.get("hist_start")
+
 end_dt = date.today()
-start_dt = end_dt - timedelta(days=14)
+if MODE == "historical":
+    start_dt = date.fromisoformat(HIST_START)
+    page_size = 5000  # ~3.5년 daily ≈ 870 records, 안전 margin
+else:
+    start_dt = end_dt - timedelta(days=14)
+    page_size = 100
+
 start_str = start_dt.strftime("%Y%m%d")
 end_str = end_dt.strftime("%Y%m%d")
 
 ECOS_URL = (
-    f"https://ecos.bok.or.kr/api/StatisticSearch/{api_key}/json/kr/1/100/"
+    f"https://ecos.bok.or.kr/api/StatisticSearch/{api_key}/json/kr/1/{page_size}/"
     f"731Y004/D/{start_str}/{end_str}/0000001"
 )
+print(f"MODE={MODE}, range={start_dt} ~ {end_dt}, page_size={page_size}")
 
 # COMMAND ----------
 

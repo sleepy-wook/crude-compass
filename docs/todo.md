@@ -7,6 +7,17 @@
 
 ## 🔴 Active blocker / carryover
 
+### 2026-05-11 — Dubai daily price source 확정 ✅ (해결)
+- **이전 blocker**: EIA RBRTE 403 차단 (Brent daily 부재)
+- **해결**: OPINET (한국석유공사) `gloptotSelect.do` CSV endpoint
+  - Dubai/Brent/WTI 일별 1996~ 동시 반환 (cp949 인코딩)
+  - 3년 4개월 (864 trade days) 한 번에 0.7s fetch 검증 완료
+  - robots.txt 미차단, Public web feature fair-use
+- **Bronze**: `crude_compass.bronze.oil_prices_daily` (Dubai 중심, ticker별 row)
+- **Job**: `databricks/jobs/oil_prices_daily.yml` (daily / historical mode widget)
+- **시나리오 변경**: Brent baseline → **Dubai baseline** (한국 정유사 중동산 70%+ 수입)
+- **남은 manual**: Workspace에서 historical mode 1회 실행하면 3년치 적재
+
 ### 2026-05-11 — OPEC 4월 PDF 403 차단
 - **상황**: `https://www.opec.org/assets/assetdb/momr-april-2026.pdf` HTTP 403 (다른 suffix `-1`, `-2`도 마찬가지)
 - **publications.opec.org** route도 anti-bot (JavaScript challenge)로 httpx 차단
@@ -42,21 +53,32 @@
 ### Day 1 (5/11)
 - [x] OPEC Document Intelligence 재작성 (SQL-only) PASS
 - [x] 1-3월 OPEC indicator 추출 + 검증 로직 PASS
-- [ ] `scripts/backtest_signals.py` — 5개월 RSS archive backtest 시작
-- [ ] Mission Plan Agent prompt 설계 (Foundation Model API)
+- [x] Mission Plan Agent prompt 설계 (Foundation Model API) PASS
+- [x] backtest seed 5개월 (job_backtest_seed.py 906 rows) — **Sprint 3 Day 3에서 3년 4개월로 확장**
 
 ### Day 2 (5/15) ⭐
+- [x] UC Function `weighted_signal()` 등록
+- [x] Job 5 daily_curation (Bidirectional Pattern Detection)
 - [ ] **OilPriceAPI $15 Exploration plan 결제** (형욱님 manual)
 - [ ] Cron 60min → 15min 전환
 - [ ] Mission Plan Agent 등록 (Agent Bricks Custom Agent)
-- [ ] Job 5 daily_curation 06:30 (Bidirectional Pattern Detection)
-- [ ] 시간 감쇠 UC Function 등록 (`weighted_signal()`)
 
-### Day 3 (5/16)
+### Day 3 (5/11-12) — **Dubai/3년 backtest pivot**
+- [x] Dubai daily price source 확정 (OPINET KNOC) ✅
+- [x] Bronze `oil_prices_daily` 스키마 + apply_schemas
+- [x] `job_oil_prices_daily.py` ingestion notebook + bundle YAML
+- [x] GDELT backtest seed 5개월 → 3년 4개월 (START_DT 20230101)
+- [x] ECOS FX historical mode widget 추가
+- [x] Backtest compute Dubai 기반 재작성 (Option D + 7d cool-down)
+- [x] 시나리오 §부록 C narrative 전면 교체 (Dubai 3년)
+- [ ] **형욱님 manual**: `apply_schemas.py` 재실행 (oil_prices_daily 추가)
+- [ ] **형욱님 manual**: `job_oil_prices_daily` MODE=historical 1회 실행 (~864 trade days × 3 ticker)
+- [ ] **형욱님 manual**: `job_backtest_seed` 3년 재실행 (~9000 GDELT rows)
+- [ ] **형욱님 manual**: `job_ecos` MODE=historical 1회 실행
+- [ ] **형욱님 manual**: `job_backtest_compute` 재실행 → precision 검증
 - [ ] Supervisor Agent No-code UI 등록 + sub-agent 라우팅
 - [ ] Knowledge Assistant — OPEC MOMR + 가상 정유사 정책 PDF 업로드
 - [ ] Genie Space + certified queries
-- [ ] Mock backtest 산출 완료 (HEDGE 78% / OPP 71% / lead 12.4d)
 - [ ] mini end-to-end smoke test
 
 ---

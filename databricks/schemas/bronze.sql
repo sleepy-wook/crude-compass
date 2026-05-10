@@ -47,7 +47,7 @@ TBLPROPERTIES (
 );
 
 -- ────────────────────────────────────────────────────────────────────
--- 2. oil_prices
+-- 2. oil_prices  (realtime — OilPriceAPI 1-min stream)
 -- ────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS crude_compass.bronze.oil_prices (
     fetched_at      TIMESTAMP     NOT NULL,
@@ -60,6 +60,24 @@ CREATE TABLE IF NOT EXISTS crude_compass.bronze.oil_prices (
 USING DELTA
 PARTITIONED BY (DATE(fetched_at))
 CLUSTER BY (ticker, fetched_at);
+
+-- ────────────────────────────────────────────────────────────────────
+-- 2-b. oil_prices_daily  ⭐ KNOC OPINET historical close (Dubai 중심)
+-- ────────────────────────────────────────────────────────────────────
+-- 한국 정유사 baseline = Dubai (중동 원유 70%+ 수입 의존)
+-- 출처: OPINET (한국석유공사 공식) — 1996~ daily close
+-- 적재: scripts/ingest_opinet_history.py (one-shot 3-4년) + Job daily increment
+-- backtest 진입 baseline + production daily anchor
+-- ────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS crude_compass.bronze.oil_prices_daily (
+    trade_date      DATE          NOT NULL COMMENT 'KNOC 공시 거래일',
+    ticker          STRING        NOT NULL COMMENT 'DUBAI | BRENT | WTI',
+    price_usd       DECIMAL(8, 2) NOT NULL COMMENT 'USD/bbl close',
+    fetched_at      TIMESTAMP     NOT NULL,
+    source          STRING        NOT NULL DEFAULT 'OPINET KNOC' COMMENT '한국석유공사 OPINET CSV download'
+)
+USING DELTA
+CLUSTER BY (ticker, trade_date);
 
 -- ────────────────────────────────────────────────────────────────────
 -- 3. ais_positions  (5분 batch — continuous WebSocket 대체)

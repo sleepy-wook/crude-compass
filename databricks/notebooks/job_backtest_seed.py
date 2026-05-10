@@ -56,8 +56,11 @@ QUERIES = [
     {"label": "iran_sanctions",  "query": "Iran sanctions oil export",     "tier": "A", "category": "policy",       "horizon": "medium", "confidence": "high", "baseline": 70},
 ]
 
-# Backtest range — 5개월 (2025-12 ~ 2026-04)
-START_DT = "20251201000000"
+# Backtest range — 3년 4개월 (2023-01 ~ 2026-04)
+# 다양한 regime 포함: 2023 OPEC+ cut + Israel-Hamas, 2024 홍해 후티,
+# 2025 중동 긴장 + 미 셰일, 2026 Q1-Q2 호르무즈 위기
+# Dubai daily price (OPINET KNOC)와 동일 기간으로 매핑
+START_DT = "20230101000000"
 END_DT   = "20260430235959"
 
 # COMMAND ----------

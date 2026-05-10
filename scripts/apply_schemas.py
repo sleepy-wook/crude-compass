@@ -86,6 +86,17 @@ CREATE TABLE IF NOT EXISTS crude_compass.bronze.oil_prices (
 USING DELTA
 CLUSTER BY (ticker, fetched_at)
 """),
+    Stmt("bronze.oil_prices_daily", """
+CREATE TABLE IF NOT EXISTS crude_compass.bronze.oil_prices_daily (
+    trade_date      DATE          NOT NULL COMMENT 'KNOC 공시 거래일',
+    ticker          STRING        NOT NULL COMMENT 'DUBAI | BRENT | WTI',
+    price_usd       DECIMAL(8, 2) NOT NULL,
+    fetched_at      TIMESTAMP     NOT NULL,
+    source          STRING        NOT NULL DEFAULT 'OPINET KNOC'
+)
+USING DELTA
+CLUSTER BY (ticker, trade_date)
+"""),
     Stmt("bronze.ais_positions", """
 CREATE TABLE IF NOT EXISTS crude_compass.bronze.ais_positions (
     fetched_at      TIMESTAMP     NOT NULL,

@@ -1,0 +1,27 @@
+resources:
+  jobs:
+    oil_prices_daily:
+      name: ${bundle.name}-oil-prices-daily-${bundle.target}
+      description: "OPINET KNOC Dubai/Brent/WTI 일별 close → bronze.oil_prices_daily (한국 정유사 baseline = Dubai)"
+      schedule:
+        # KNOC 공시 시점 고려 평일 19:00 KST (장 마감 후)
+        quartz_cron_expression: "0 0 19 ? * MON-FRI"
+        timezone_id: Asia/Seoul
+        pause_status: PAUSED
+      tasks:
+        - task_key: opinet_fetch
+          notebook_task:
+            notebook_path: ../notebooks/job_oil_prices_daily.py
+            source: WORKSPACE
+            base_parameters:
+              mode: daily
+              hist_start: "2023-01-01"
+          timeout_seconds: 180
+      max_concurrent_runs: 1
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
+      tags:
+        project: crude-compass
+        layer: bronze
+        source: opinet_knoc
