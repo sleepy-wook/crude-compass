@@ -21,6 +21,13 @@ import sys
 import time
 from typing import Any
 
+# Windows PowerShell cp949 → UTF-8 (emoji print 가능)
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+    except (AttributeError, OSError):
+        pass
+
 import httpx
 
 
@@ -79,9 +86,19 @@ def main() -> None:
         ok, data = try_batch_query(client, key)
         dt = (time.perf_counter() - t0) * 1000
         if ok:
-            print(f"✅ Batch OK ({dt:.0f}ms)")
-            print(f"   Response keys: {list(data.keys())[:5]}")
-            print(f"   Sample: {str(data)[:300]}")
+            print(f"⏱  HTTP 200 ({dt:.0f}ms)")
+            print(f"   Top-level keys: {list(data.keys())}")
+            inner = data.get("data")
+            if isinstance(inner, list):
+                print(f"   ✅ TRUE BATCH — data is list, {len(inner)} items")
+                for item in inner[:5]:
+                    print(f"      · {item.get('code')} = ${item.get('price')}")
+            elif isinstance(inner, dict):
+                code = inner.get("code")
+                print(f"   ⚠️  data is single object — only {code} returned (NOT real batch)")
+                print(f"   → 1 call에 1 ticker만 — by_codes 무시되고 첫 번째만 반환")
+            else:
+                print(f"   ? Unexpected: {type(inner)}")
         else:
             print(f"❌ Batch failed: {data}")
 
