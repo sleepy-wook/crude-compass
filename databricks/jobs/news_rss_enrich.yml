@@ -1,0 +1,34 @@
+# Lakeflow Job — news_rss_enrich (보강층)
+#
+# 시나리오 v2 § 7 RSS 보강층 + Sprint 2 task 4 한국어 처리 보강.
+# Sprint 2 동안 PAUSED — manual run + 향후 GDELT trigger 패턴.
+
+resources:
+  jobs:
+    news_rss_enrich:
+      name: ${bundle.name}-news-rss-enrich-${bundle.target}
+      description: "RSS 보강층 (한국어 + 영문 Tier A) → bronze.news_articles"
+
+      # event-driven 설계 — 우선 일별 schedule (한국어 처리 검증용)
+      schedule:
+        quartz_cron_expression: "0 0 6 * * ?"  # 매일 06:00 KST
+        timezone_id: Asia/Seoul
+        pause_status: PAUSED
+
+      tasks:
+        - task_key: rss_fetch_score
+          notebook_task:
+            notebook_path: ../notebooks/job_news_rss_enrich.py
+            source: WORKSPACE
+          timeout_seconds: 900
+
+      max_concurrent_runs: 1
+
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
+
+      tags:
+        project: crude-compass
+        layer: bronze
+        source: rss_enrich

@@ -1,0 +1,43 @@
+# Lakeflow Job — gdelt_15min (감지층)
+#
+# 시나리오 v2 § 12 #2 매핑.
+# Sprint 2 task 4 첫 deploy.
+#
+# 운영 일정 (시나리오 § 22):
+#   5/8-14 개발:  schedule PAUSED (manual run만)
+#   5/15-19 통합: 15min cron 활성화
+#   5/20-22 데모: 그대로 15min
+
+resources:
+  jobs:
+    gdelt_15min:
+      name: ${bundle.name}-gdelt-15min-${bundle.target}
+      description: "GDELT DOC API → bronze.news_articles (감지층)"
+
+      # Sprint 2 동안은 PAUSED — schedule 비활성. manual run으로 검증.
+      schedule:
+        quartz_cron_expression: "0 0/15 * * * ?"   # 매 15분
+        timezone_id: Asia/Seoul
+        pause_status: PAUSED
+
+      tasks:
+        - task_key: gdelt_fetch_score
+          notebook_task:
+            notebook_path: ../notebooks/job_gdelt.py
+            source: WORKSPACE
+          timeout_seconds: 600
+          # Serverless compute (시나리오 § 비용 — Standard mode)
+          # bundle deploy 시 default serverless compute 사용
+
+      max_concurrent_runs: 1
+
+      # 알림 (실패 시)
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
+
+      # 태그 (cost tracking)
+      tags:
+        project: crude-compass
+        layer: bronze
+        source: gdelt

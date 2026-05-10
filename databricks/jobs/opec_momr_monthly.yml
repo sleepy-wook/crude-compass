@@ -1,0 +1,23 @@
+resources:
+  jobs:
+    opec_momr_monthly:
+      name: ${bundle.name}-opec-momr-${bundle.target}
+      description: "OPEC MOMR PDF auto-fetch + Document Intelligence (ai_parse_document) 시연"
+      schedule:
+        quartz_cron_expression: "0 0 0 12 * ?"  # 매월 12일 0시 KST
+        timezone_id: Asia/Seoul
+        pause_status: PAUSED
+      tasks:
+        - task_key: opec_parse
+          notebook_task:
+            notebook_path: ../notebooks/job_opec_momr.py
+            source: WORKSPACE
+          timeout_seconds: 600
+      max_concurrent_runs: 1
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
+      tags:
+        project: crude-compass
+        layer: bronze
+        source: opec_momr

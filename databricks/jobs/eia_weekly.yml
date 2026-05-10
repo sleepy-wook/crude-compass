@@ -1,0 +1,23 @@
+resources:
+  jobs:
+    eia_weekly:
+      name: ${bundle.name}-eia-weekly-${bundle.target}
+      description: "EIA Open Data API 주간 crude stocks → bronze.eia_inventory"
+      schedule:
+        quartz_cron_expression: "0 0 18 ? * WED"  # 매주 수요일 18:00 KST
+        timezone_id: Asia/Seoul
+        pause_status: PAUSED
+      tasks:
+        - task_key: eia_fetch
+          notebook_task:
+            notebook_path: ../notebooks/job_eia.py
+            source: WORKSPACE
+          timeout_seconds: 180
+      max_concurrent_runs: 1
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
+      tags:
+        project: crude-compass
+        layer: bronze
+        source: eia
