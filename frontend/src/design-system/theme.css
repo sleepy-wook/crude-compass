@@ -1,0 +1,58 @@
+/**
+ * Crude Compass theme — CSS variables.
+ *
+ * design/index.html에서 1:1 추출. tokens.ts와 일관 유지.
+ * 컴포넌트는 Tailwind utility (예: bg-crisis-500) 우선,
+ * 동적 inline style 필요 시 var(--crisis-500) 사용.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  /* HEDGE crisis */
+  --crisis-50: #ffece9;
+  --crisis-500: #FF3621;
+  --crisis-900: #b81d0a;
+
+  /* OPPORTUNITY opp */
+  --opp-50: #E1F4EB;
+  --opp-500: #0E8F5E;
+  --opp-900: #06724a;
+
+  /* base */
+  --ink: #1B3139;
+  --ink-2: #4A5C63;
+  --ink-3: #7A8A91;
+  --ink-4: #A9B4B9;
+  --paper: #FCFCFB;
+  --panel: #FFFFFF;
+  --line-1: #ECECE8;
+  --line-2: #E2E2DD;
+
+  /* accent */
+  --warn: #F59E0B;
+  --ok: #10B981;
+  --info: #0EA5E9;
+
+  /* fonts */
+  --font-display: 'Space Grotesk', 'IBM Plex Sans KR', sans-serif;
+  --font-body: 'IBM Plex Sans', 'IBM Plex Sans KR', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  min-width: 1280px; /* desktop-first */
+}
+
+::selection {
+  background: var(--crisis-500);
+  color: #fff;
+}
