@@ -44,16 +44,31 @@ GDELT_API = "https://api.gdeltproject.org/api/v2/doc/doc"
 TARGET_TABLE = "crude_compass.bronze.news_articles"
 
 # 시나리오 §16 anchor + §6 양방향 direction
+# 12 queries — 균형 잡힌 bullish/bearish 시그널 catch
+# verify 결과 bearish 1.8% 편향 → 본질적 bearish query 5개 + default_direction 명시
+#
+# default_direction 의미:
+#   - "bullish": query 자체가 가격 ↑ 시그널 (위기/공급차질). tone 부호와 무관하게 bullish.
+#   - "bearish": query 자체가 가격 ↓ 시그널 (수요둔화/공급증가). tone 부호와 무관하게 bearish.
+#   - "auto":    tone 부호로 추정 (geopolitical 기본값)
 QUERIES = [
-    # 평시 정기 (메인 가치)
-    {"label": "opec_monthly",  "query": "OPEC monthly oil market report",  "tier": "B", "category": "policy",       "horizon": "medium", "confidence": "high", "baseline": 65},
-    {"label": "eia_inventory", "query": "EIA crude oil inventory weekly",  "tier": "B", "category": "supply",       "horizon": "short",  "confidence": "high", "baseline": 60},
-    {"label": "saudi_osp",     "query": "Saudi Aramco OSP official",       "tier": "B", "category": "supply",       "horizon": "medium", "confidence": "high", "baseline": 65},
-    {"label": "china_demand",  "query": "China oil demand PMI",            "tier": "A", "category": "demand",       "horizon": "medium", "confidence": "med",  "baseline": 55},
-    {"label": "us_spr",        "query": "strategic petroleum reserve release", "tier": "A", "category": "policy",   "horizon": "short",  "confidence": "high", "baseline": 60},
-    # 위기
-    {"label": "hormuz",        "query": "Strait of Hormuz Iran",           "tier": "A", "category": "geopolitical", "horizon": "short",  "confidence": "high", "baseline": 75},
-    {"label": "iran_sanctions",  "query": "Iran sanctions oil export",     "tier": "A", "category": "policy",       "horizon": "medium", "confidence": "high", "baseline": 70},
+    # ─── Tier A 위기 (bullish 본질) ───────────────────────────────────
+    {"label": "hormuz",          "query": "Strait of Hormuz Iran",                     "tier": "A", "category": "geopolitical", "horizon": "short",  "confidence": "high", "baseline": 75, "default_direction": "bullish"},
+    {"label": "iran_sanctions",  "query": "Iran sanctions oil export",                 "tier": "A", "category": "policy",       "horizon": "medium", "confidence": "high", "baseline": 70, "default_direction": "bullish"},
+
+    # ─── Tier B 평시 정기 (auto, tone 부호로 결정) ─────────────────────
+    {"label": "opec_monthly",    "query": "OPEC monthly oil market report",            "tier": "B", "category": "policy",       "horizon": "medium", "confidence": "high", "baseline": 65, "default_direction": "auto"},
+    {"label": "eia_inventory",   "query": "EIA crude oil inventory weekly",            "tier": "B", "category": "supply",       "horizon": "short",  "confidence": "high", "baseline": 60, "default_direction": "auto"},
+    {"label": "saudi_osp",       "query": "Saudi Aramco OSP official",                 "tier": "B", "category": "supply",       "horizon": "medium", "confidence": "high", "baseline": 65, "default_direction": "auto"},
+    {"label": "us_spr",          "query": "strategic petroleum reserve release",       "tier": "A", "category": "policy",       "horizon": "short",  "confidence": "high", "baseline": 60, "default_direction": "auto"},
+    {"label": "china_demand",    "query": "China oil demand PMI",                      "tier": "A", "category": "demand",       "horizon": "medium", "confidence": "med",  "baseline": 55, "default_direction": "auto"},
+
+    # ─── Tier A bearish 본질 (가격 ↓ 시그널, OPP zone catch) ⭐ NEW ──
+    {"label": "china_recession",     "query": "China oil demand slowdown recession",   "tier": "A", "category": "demand",       "horizon": "medium", "confidence": "med",  "baseline": 60, "default_direction": "bearish"},
+    {"label": "oecd_inventory_build","query": "OECD commercial crude inventory build", "tier": "A", "category": "supply",       "horizon": "medium", "confidence": "high", "baseline": 60, "default_direction": "bearish"},
+    {"label": "saudi_osp_cut",       "query": "Saudi Aramco OSP price cut Asia",       "tier": "A", "category": "supply",       "horizon": "medium", "confidence": "high", "baseline": 65, "default_direction": "bearish"},
+    {"label": "ev_adoption",         "query": "electric vehicle adoption oil demand peak", "tier": "B", "category": "demand",   "horizon": "long",   "confidence": "med",  "baseline": 50, "default_direction": "bearish"},
+    {"label": "us_shale_surge",      "query": "US shale oil production record surge",  "tier": "A", "category": "supply",       "horizon": "medium", "confidence": "high", "baseline": 60, "default_direction": "bearish"},
 ]
 
 # Backtest range — 3년 4개월 (2023-01 ~ 2026-04)
@@ -96,14 +111,29 @@ def fetch_timelinetone(query: str, start: str, end: str) -> list[dict]:
 # COMMAND ----------
 
 def score_from_signal(label: str, q: dict, avg_tone: float, daily_value: float) -> dict:
-    """Sprint 2 job_gdelt.py와 동일한 rule-based scoring."""
-    if avg_tone <= -1.0:
-        direction = "bullish"
-    elif avg_tone >= 1.0:
-        direction = "bearish"
+    """Rule-based scoring — query 본질 direction 우선, tone은 강도로만 사용.
+
+    default_direction:
+      'bullish'/'bearish' → query 본질 (위기/공급차질 vs 수요둔화/공급증가)
+      'auto' → tone 부호로 추정 (geopolitical 평시)
+    """
+    default_dir = q.get("default_direction", "auto")
+    if default_dir in ("bullish", "bearish"):
+        direction = default_dir
     else:
-        direction = "neutral"
-    importance = min(100, q["baseline"] + min(25, int(abs(avg_tone) * 4)))
+        # auto: GDELT 일반 매핑 (negative tone = 가격 ↑ bullish)
+        if avg_tone <= -0.5:
+            direction = "bullish"
+        elif avg_tone >= 0.5:
+            direction = "bearish"
+        else:
+            direction = "neutral"
+
+    # importance: tone 절대값으로 강도 부여 (본질 direction은 이미 정해짐)
+    # mention_count (daily_value)도 strength 반영
+    tone_boost = min(20, int(abs(avg_tone) * 4))
+    mention_boost = min(10, int(daily_value / 10)) if daily_value else 0
+    importance = min(100, q["baseline"] + tone_boost + mention_boost)
     return {
         "importance": importance,
         "direction": direction,

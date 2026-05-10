@@ -151,49 +151,190 @@ print(f"  ✅ parsed: {text_len} chars, pages={n_pages}, elements={n_elements}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## LLM extraction — 핵심 indicator
+# MAGIC ## LLM extraction — 핵심 indicator (v2 robust)
+# MAGIC
+# MAGIC v1 디버그 (5/11 verify 결과 0/3 NULL):
+# MAGIC - parsed_content[:30000] = JSON dump 앞부분만, production table 누락 가능
+# MAGIC - markdown code fence 처리 fragile
+# MAGIC - LLM 응답 파싱 실패 시 모두 NULL
+# MAGIC
+# MAGIC v2 개선:
+# MAGIC - parsed_content (Document Intelligence JSON)에서 relevant element만 추출
+# MAGIC - "Saudi Arabia" / "Iran" / "Total OPEC" / "world oil demand" 키워드 surrounding context
+# MAGIC - prompt 개선 + few-shot example
+# MAGIC - regex fallback (LLM 실패 시 raw text에서 직접 패턴 매칭)
 
 # COMMAND ----------
 
+import re
+
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
 
 w = WorkspaceClient()
 
-# 첫 50000자 (production tables 보통 앞 부분)
-text_excerpt = parsed_content[:50000]
 
-extraction_prompt = """You are extracting key indicators from OPEC Monthly Oil Market Report.
+def extract_relevant_sections(parsed_json_str: str) -> str:
+    """Document Intelligence JSON에서 production/demand 관련 element 선별.
 
-Return JSON object:
+    v2: keyword match + digit density score 기반. 짧은 ToC entry 제외.
+    """
+    if not parsed_json_str:
+        return ""
+    try:
+        doc = json.loads(parsed_json_str)
+    except json.JSONDecodeError:
+        return parsed_json_str[:30000]
+
+    elements = (doc.get("document") or {}).get("elements", []) or []
+    keywords = [
+        "saudi arabia", "iran (i.r.)", "iran (ir", "iran islamic",
+        "total opec", "non-opec liquids", "world oil demand",
+        "opec crude oil production",
+    ]
+    # Score by keyword hits + digit density
+    scored: list[tuple[int, str]] = []
+    for el in elements:
+        if not isinstance(el, dict):
+            continue
+        text = el.get("content") or el.get("description") or ""
+        if not text or len(text) < 50:
+            continue
+        text_lc = text.lower()
+        kw_hits = sum(1 for kw in keywords if kw in text_lc)
+        digits = sum(1 for c in text if c.isdigit())
+        # 숫자 10+ + 키워드 1+ → production/demand table 후보
+        if kw_hits >= 1 and digits >= 10:
+            scored.append((kw_hits * 100 + digits, text.strip()))
+    scored.sort(reverse=True)
+    relevant = [s[1] for s in scored[:30]]
+    joined = "\n\n---\n".join(relevant)
+
+    if len(joined) < 500:
+        # fallback: numeric-heavy table-like elements
+        all_tables = []
+        for el in elements:
+            if isinstance(el, dict) and el.get("type") in ("table", "list"):
+                t = el.get("content") or el.get("description") or ""
+                if t and sum(1 for c in t if c.isdigit()) > 20:
+                    all_tables.append(t.strip())
+        joined = "\n\n---\n".join(all_tables[:50])
+    return joined[:30000]  # context cap
+
+
+def regex_fallback(text: str) -> dict:
+    """Range-based fallback. 연도(2025/2026) false positive 방지.
+
+    Saudi production은 7-12M kbbl/d range, Iran 1.5-4.5M, OPEC total 25-35M, demand 95-115M.
+    """
+    out: dict = {}
+    RANGES = {
+        "saudi_production_kbbl_d":  (7000, 12000),
+        "iran_production_kbbl_d":   (1500, 4500),
+        "opec_total_kbbl_d":        (25000, 35000),
+        "forecast_demand_kbbl_d":   (95000, 115000),
+    }
+
+    def find_in_range(name_pat: str, lo: int, hi: int) -> float | None:
+        for m in re.finditer(rf"{name_pat}([\s\S]{{0,500}})", text, flags=re.IGNORECASE):
+            ctx = m.group(1)
+            for nm in re.finditer(r"\b(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d{4,6}(?:\.\d+)?)\b", ctx):
+                raw = nm.group(1).replace(",", "")
+                try:
+                    v = float(raw)
+                    if lo <= v <= hi:
+                        return v
+                except ValueError:
+                    pass
+        return None
+
+    for k, p in [
+        ("saudi_production_kbbl_d", r"Saudi\s+Arabia"),
+        ("iran_production_kbbl_d",  r"Iran\s*\(?I\.?R\.?"),
+        ("opec_total_kbbl_d",       r"Total\s+OPEC"),
+        ("forecast_demand_kbbl_d",  r"world\s+oil\s+demand"),
+    ]:
+        lo, hi = RANGES[k]
+        v = find_in_range(p, lo, hi)
+        if v:
+            out[k] = v
+    return out
+
+
+# Step 1: relevant section 추출
+text_excerpt = extract_relevant_sections(parsed_content)
+print(f"  📄 relevant text extracted: {len(text_excerpt)} chars")
+print(f"  preview: {text_excerpt[:300]}")
+
+# Step 2: LLM extraction
+extraction_prompt = """You extract numeric indicators from OPEC Monthly Oil Market Report.
+
+Return ONLY a JSON object (no markdown, no explanation):
 {
-  "saudi_production_kbbl_d": <number, Saudi Arabia crude production in thousand barrels per day>,
-  "iran_production_kbbl_d": <number, Iran crude production>,
-  "opec_total_kbbl_d": <number, OPEC total crude production>,
-  "forecast_demand_kbbl_d": <number, OPEC world oil demand forecast>
+  "saudi_production_kbbl_d": <Saudi Arabia crude oil production, thousand barrels/day, latest available month>,
+  "iran_production_kbbl_d": <Iran (I.R.) crude oil production, thousand barrels/day>,
+  "opec_total_kbbl_d": <Total OPEC crude oil production, thousand barrels/day>,
+  "forecast_demand_kbbl_d": <World oil demand forecast for next quarter, thousand barrels/day>
 }
 
-If a value is not found, use null. Return JSON only, no other text."""
+Use null if a value is not in the text.
+Numbers are usually 4-5 digits (e.g., 9083 for Saudi). Return ONLY the JSON object."""
 
+extracted: dict = {}
 try:
     resp = w.serving_endpoints.query(
         name=LLM_ENDPOINT,
         messages=[
-            {"role": "system", "content": extraction_prompt},
-            {"role": "user", "content": text_excerpt[:30000]},
+            ChatMessage(role=ChatMessageRole.SYSTEM, content=extraction_prompt),
+            ChatMessage(role=ChatMessageRole.USER, content=text_excerpt),
         ],
-        max_tokens=300,
+        max_tokens=400,
         temperature=0.0,
     )
-    extracted_raw = resp.choices[0].message.content if resp.choices else "{}"
-    extracted_raw = extracted_raw.strip()
-    if extracted_raw.startswith("```"):
-        extracted_raw = extracted_raw.split("```")[1].lstrip("json").strip()
-    extracted = json.loads(extracted_raw)
+    raw = resp.choices[0].message.content if resp.choices else "{}"
+    print(f"  🤖 LLM raw response (first 500 chars): {raw[:500]}")
+
+    # markdown code fence 강건 stripping
+    raw = raw.strip()
+    fence_match = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", raw)
+    if fence_match:
+        raw = fence_match.group(1)
+    else:
+        # no fence, try to find first { ... }
+        brace = re.search(r"(\{[\s\S]*\})", raw)
+        if brace:
+            raw = brace.group(1)
+
+    extracted = json.loads(raw)
+    # 값 정제 (string → float, kbbl 단위 sanity check)
+    for k, v in list(extracted.items()):
+        if v is None:
+            continue
+        if isinstance(v, str):
+            v = re.sub(r"[^\d.\-]", "", v) or None
+            if v:
+                v = float(v)
+        if isinstance(v, (int, float)):
+            if not (100 < float(v) < 200000):
+                # outlier — sanity drop
+                extracted[k] = None
+            else:
+                extracted[k] = float(v)
 except Exception as e:
     print(f"  ⚠️  LLM extraction failed: {e}")
-    extracted = {}
 
-print(f"  Extracted: {extracted}")
+# Step 3: regex fallback for any None values
+if not all(extracted.get(k) for k in [
+    "saudi_production_kbbl_d", "iran_production_kbbl_d",
+    "opec_total_kbbl_d", "forecast_demand_kbbl_d"
+]):
+    print("  🔄 regex fallback for missing fields")
+    fb = regex_fallback(text_excerpt)
+    for k, v in fb.items():
+        if not extracted.get(k):
+            extracted[k] = v
+
+print(f"  ✅ Extracted: {extracted}")
 
 # COMMAND ----------
 

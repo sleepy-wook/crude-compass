@@ -53,42 +53,52 @@ GDELT_API = "https://api.gdeltproject.org/api/v2/doc/doc"
 LLM_ENDPOINT = "databricks-claude-haiku-4-5"
 TARGET_TABLE = "crude_compass.bronze.news_articles"
 
-# 시나리오 § 2 평시 가치 메인 narrative — peacetime queries 우선
+# 시나리오 § 2 평시 가치 + § 6 양방향 — 12 queries (5 bullish + 5 bearish + 2 auto)
+# verify (5/11) 결과 bearish 1.8% 편향 → bearish query 보강 + default_direction 명시
 QUERIES = [
-    # 평시 정기 시그널 (메인 가치) — quoted phrase 제거 (GDELT 해석 불안정)
+    # 평시 정기 시그널 (auto, tone 부호로 결정)
     {"label": "opec_monthly",  "query": "OPEC monthly oil market report", "tier": "B"},
     {"label": "eia_inventory", "query": "EIA crude oil inventory weekly", "tier": "B"},
     {"label": "saudi_osp",     "query": "Saudi Aramco OSP official selling price", "tier": "B"},
     {"label": "china_demand",  "query": "China oil demand PMI manufacturing", "tier": "A"},
     {"label": "us_spr",        "query": "strategic petroleum reserve release", "tier": "A"},
-    # 위기 시그널 (극단 능력 검증)
+    # 위기 시그널 (bullish 본질)
     {"label": "hormuz",        "query": "Strait of Hormuz Iran tanker", "tier": "A"},
     {"label": "iran_sanctions",  "query": "Iran sanctions oil export", "tier": "A"},
+    # bearish 본질 (수요 둔화 / 공급 증가) ⭐ NEW
+    {"label": "china_recession",     "query": "China oil demand slowdown recession", "tier": "A"},
+    {"label": "oecd_inventory_build","query": "OECD commercial crude inventory build", "tier": "A"},
+    {"label": "saudi_osp_cut",       "query": "Saudi Aramco OSP price cut Asia", "tier": "A"},
+    {"label": "ev_adoption",         "query": "electric vehicle adoption oil demand peak", "tier": "B"},
+    {"label": "us_shale_surge",      "query": "US shale oil production record surge", "tier": "A"},
 ]
 
-# 시나리오 § 16 importance anchor — query별 baseline (LLM 호출 X, 비용 0)
-# 시나리오 § 4 Layer 1 "Hard rule filter (cheap, 90% 절감)" 정신 적용
 QUERY_BASELINE = {
-    # 평시 정기 시그널 (시나리오 § 2 핵심)
-    "opec_monthly":   65,  # 월 1회 정기 — § 16 anchor 80 근처
-    "eia_inventory":  60,  # 주간 정기 — § 16 anchor 60
-    "saudi_osp":      65,  # 월 1회 OSP — § 16 anchor 60-80
-    "china_demand":   55,  # 월간 PMI
-    "us_spr":         60,  # SPR 발표
-    # 위기 시그널
-    "hormuz":         75,  # § 16 anchor 80-100
-    "iran_sanctions": 70,  # § 16 anchor 80
+    "opec_monthly":   65, "eia_inventory":  60, "saudi_osp":      65,
+    "china_demand":   55, "us_spr":         60, "hormuz":         75,
+    "iran_sanctions": 70,
+    # bearish
+    "china_recession":      60, "oecd_inventory_build": 60,
+    "saudi_osp_cut":        65, "ev_adoption":          50, "us_shale_surge": 60,
 }
 
-# Query별 metadata (시나리오 § 16 + § 6 양방향)
+# Query별 metadata + default_direction
 QUERY_META = {
-    "opec_monthly":   {"category": "policy",       "horizon": "medium", "confidence": "high"},
-    "eia_inventory":  {"category": "supply",       "horizon": "short",  "confidence": "high"},
-    "saudi_osp":      {"category": "supply",       "horizon": "medium", "confidence": "high"},
-    "china_demand":   {"category": "demand",       "horizon": "medium", "confidence": "med"},
-    "us_spr":         {"category": "policy",       "horizon": "short",  "confidence": "high"},
-    "hormuz":         {"category": "geopolitical", "horizon": "short",  "confidence": "high"},
-    "iran_sanctions": {"category": "policy",       "horizon": "medium", "confidence": "high"},
+    # auto (tone 부호로)
+    "opec_monthly":   {"category": "policy",       "horizon": "medium", "confidence": "high", "default_direction": "auto"},
+    "eia_inventory":  {"category": "supply",       "horizon": "short",  "confidence": "high", "default_direction": "auto"},
+    "saudi_osp":      {"category": "supply",       "horizon": "medium", "confidence": "high", "default_direction": "auto"},
+    "china_demand":   {"category": "demand",       "horizon": "medium", "confidence": "med",  "default_direction": "auto"},
+    "us_spr":         {"category": "policy",       "horizon": "short",  "confidence": "high", "default_direction": "auto"},
+    # bullish 본질
+    "hormuz":         {"category": "geopolitical", "horizon": "short",  "confidence": "high", "default_direction": "bullish"},
+    "iran_sanctions": {"category": "policy",       "horizon": "medium", "confidence": "high", "default_direction": "bullish"},
+    # bearish 본질
+    "china_recession":      {"category": "demand", "horizon": "medium", "confidence": "med",  "default_direction": "bearish"},
+    "oecd_inventory_build": {"category": "supply", "horizon": "medium", "confidence": "high", "default_direction": "bearish"},
+    "saudi_osp_cut":        {"category": "supply", "horizon": "medium", "confidence": "high", "default_direction": "bearish"},
+    "ev_adoption":          {"category": "demand", "horizon": "long",   "confidence": "med",  "default_direction": "bearish"},
+    "us_shale_surge":       {"category": "supply", "horizon": "medium", "confidence": "high", "default_direction": "bearish"},
 }
 
 # COMMAND ----------
@@ -154,29 +164,35 @@ def fetch_artlist(query: str, max_records: int = 5, timespan: str = "1d") -> lis
 def score_from_gdelt(label: str, avg_tone: float, mention_buckets: int) -> dict:
     """GDELT raw signal → importance + direction. LLM 호출 X.
 
-    Direction logic:
-    - tone <= -1 → bullish (negative news = oil price 상승 압력)
-    - tone >= 1 → bearish (positive news = oil price 하락 압력)
-    - else neutral
+    Direction logic (default_direction 기반):
+    - 'bullish' / 'bearish' 본질 query → 그대로 (tone 부호와 무관)
+    - 'auto' query → tone 부호로 추정:
+        - tone <= -0.5 → bullish (negative news = oil price 상승 압력)
+        - tone >= +0.5 → bearish (positive news = oil price 하락 압력)
+        - else neutral
 
-    Importance:
-    - query baseline + tone deviation bonus (max +25)
+    Importance: baseline + tone abs bonus + mention bonus (max +25 + +10)
     """
-    # Direction (tone과 oil price 반대)
-    if avg_tone <= -1.0:
-        direction = "bullish"
-    elif avg_tone >= 1.0:
-        direction = "bearish"
-    else:
-        direction = "neutral"
+    meta = QUERY_META.get(label, {"category": "market", "horizon": "short", "confidence": "low", "default_direction": "auto"})
+    default_dir = meta.get("default_direction", "auto")
 
-    # Importance
+    if default_dir in ("bullish", "bearish"):
+        direction = default_dir
+    else:
+        # auto: GDELT tone 부호로 추정
+        if avg_tone <= -0.5:
+            direction = "bullish"
+        elif avg_tone >= 0.5:
+            direction = "bearish"
+        else:
+            direction = "neutral"
+
+    # Importance: tone abs (강도 → bonus), mention 누적 (보강 +10)
     baseline = QUERY_BASELINE.get(label, 50)
-    tone_bonus = min(25, int(abs(avg_tone) * 4))
-    mention_bonus = 5 if mention_buckets > 50 else 0
+    tone_bonus = min(20, int(abs(avg_tone) * 4))
+    mention_bonus = min(10, mention_buckets // 10) if mention_buckets else 0
     importance = min(100, baseline + tone_bonus + mention_bonus)
 
-    meta = QUERY_META.get(label, {"category": "market", "horizon": "short", "confidence": "low"})
     entities = label.replace("_", " ").upper().split()
 
     return {
