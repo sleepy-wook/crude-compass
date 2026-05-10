@@ -1,0 +1,23 @@
+resources:
+  jobs:
+    daily_curation:
+      name: ${bundle.name}-daily-curation-${bundle.target}
+      description: "Bidirectional Pattern Detection (시나리오 §6 핵심) — silver/gold 적재 + Mission trigger"
+      schedule:
+        quartz_cron_expression: "0 30 6 * * ?"
+        timezone_id: Asia/Seoul
+        pause_status: PAUSED
+      tasks:
+        - task_key: curation
+          notebook_task:
+            notebook_path: ../notebooks/job_curation.py
+            source: WORKSPACE
+          timeout_seconds: 600
+      max_concurrent_runs: 1
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
+      tags:
+        project: crude-compass
+        layer: silver_gold
+        purpose: bidirectional_pattern_detection
