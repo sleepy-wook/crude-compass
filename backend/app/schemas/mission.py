@@ -65,7 +65,13 @@ class Mission(BaseModel):
 
 
 class MissionPlanOutput(BaseModel):
-    """Mission Plan Agent (Agent Bricks) 출력 schema."""
+    """Mission Plan Agent (Agent Bricks) 출력 schema.
+
+    시나리오 § 9.7 + § 10 Lifecycle rule 반영.
+    """
+
+    # 새 mission 또는 Pivot — action_type으로 구분
+    action_type: Literal["new_mission", "pivot", "pause", "abort", "continue"] = "new_mission"
 
     mission_type: MissionType
     goal_text: str
@@ -73,4 +79,34 @@ class MissionPlanOutput(BaseModel):
     simulation_roi: dict[str, float]
     urgency: MissionUrgency = MissionUrgency.DEFAULT
     pattern_score: float = Field(ge=0, le=100)
+    confidence_score: float = Field(ge=0, le=100, default=70.0)
     target_pct: int | None = None
+    duration_days: int = 28
+
+
+class SignalContext(BaseModel):
+    """Mission Plan Agent input — 최근 90일 top 시그널."""
+
+    signal_id: str          # bronze.news_articles.article_id
+    published_at: datetime
+    source: str             # GDELT_hormuz, EIA_inventory, OPEC_monthly...
+    direction: Literal["bullish", "bearish", "neutral"]
+    importance: int         # 0-100
+    category: str
+    title: str
+
+
+class MissionPlanInput(BaseModel):
+    """Mission Plan Agent input."""
+
+    pattern_score: float = Field(ge=0, le=100)
+    bullish_score: float
+    bearish_score: float
+    cross_val_bonus: float
+    signal_count_90d: int
+
+    # 최근 90일 top 시그널 (importance desc, max 20)
+    top_signals: list[SignalContext] = Field(default_factory=list)
+
+    # 진행 중 mission (Pivot 검토용)
+    active_mission: Mission | None = None
