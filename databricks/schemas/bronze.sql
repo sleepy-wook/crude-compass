@@ -13,8 +13,9 @@ CREATE SCHEMA  IF NOT EXISTS crude_compass.bronze;
 -- 1. news_articles  ⭐ Bidirectional Pattern Detection 핵심
 -- ────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS crude_compass.bronze.news_articles (
-    article_id      STRING        NOT NULL COMMENT 'SHA256(url)',
-    source          STRING        NOT NULL COMMENT 'Reuters | Yonhap | EIA | ...',
+    article_id      STRING        NOT NULL COMMENT 'SHA256(url) or GDELT artid',
+    source          STRING        NOT NULL COMMENT 'GDELT | Reuters | Yonhap | EIA | ...',
+    source_type     STRING        NOT NULL COMMENT 'gdelt_detect | rss_enrich (시나리오 §7 감지층/보강층)',
     tier            STRING        NOT NULL COMMENT 'A | B',
     published_at    TIMESTAMP     NOT NULL,
     fetched_at      TIMESTAMP     NOT NULL,
@@ -22,6 +23,10 @@ CREATE TABLE IF NOT EXISTS crude_compass.bronze.news_articles (
     title           STRING        NOT NULL,
     body            STRING,
     body_lang       STRING        COMMENT 'ko | en',
+
+    -- GDELT timelinetone output (Sprint 2 task 2 검증 결과 매핑)
+    raw_tone        DECIMAL(5, 2) COMMENT 'GDELT tone score, range -10 ~ 10',
+    mention_count   INT           COMMENT 'GDELT mention count (기간 내)',
 
     -- LLM scoring (Foundation Model API · Claude Haiku 4.5)
     importance      INT           NOT NULL COMMENT '0-100',
@@ -84,3 +89,42 @@ CREATE TABLE IF NOT EXISTS crude_compass.bronze.fx_rates (
 )
 USING DELTA
 PARTITIONED BY (date);
+
+-- ────────────────────────────────────────────────────────────────────
+-- 5. eia_inventory  (D-14 추가, 시나리오 §7 #4 + §16 importance 60 anchor)
+-- ────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS crude_compass.bronze.eia_inventory (
+    week_ending       DATE          NOT NULL COMMENT '주간 보고서 종료일 (수요일 직전 금요일)',
+    series_id         STRING        NOT NULL COMMENT 'EIA series identifier',
+    inventory_type    STRING        NOT NULL COMMENT 'commercial | spr | total',
+    value_kbbl        DECIMAL(12, 2) NOT NULL COMMENT 'thousand barrels',
+    delta_vs_prev_wk  DECIMAL(10, 2) COMMENT 'WoW 변화량 (시그널 강도)',
+    fetched_at        TIMESTAMP     NOT NULL,
+    source            STRING        NOT NULL DEFAULT 'EIA Open Data API'
+)
+USING DELTA
+PARTITIONED BY (week_ending);
+
+-- ────────────────────────────────────────────────────────────────────
+-- 6. opec_momr_parsed  (D-14 추가, 시나리오 §9.6 Document Intelligence)
+-- ────────────────────────────────────────────────────────────────────
+-- ai_parse_document() 결과 적재. Sprint 2 task 8에서 OPEC MOMR PDF → 이 테이블.
+CREATE TABLE IF NOT EXISTS crude_compass.bronze.opec_momr_parsed (
+    report_month      STRING        NOT NULL COMMENT 'YYYY-MM (예: 2026-04)',
+    pdf_volume_path   STRING        NOT NULL COMMENT '/Volumes/crude_compass/bronze/opec_pdfs/...',
+    parsed_at         TIMESTAMP     NOT NULL,
+
+    -- ai_parse_document output
+    parsed_content    STRING        COMMENT 'Full text content',
+    pages             ARRAY<STRUCT<page_num INT, content STRING>> COMMENT 'Page-level structure',
+    tables            ARRAY<STRING> COMMENT 'Extracted tables (JSON)',
+
+    -- 추출된 핵심 indicator (Job 7에서 LLM extraction)
+    saudi_production_kbbl_d  DECIMAL(10, 2),
+    iran_production_kbbl_d   DECIMAL(10, 2),
+    opec_total_kbbl_d        DECIMAL(10, 2),
+    forecast_demand_kbbl_d   DECIMAL(10, 2),
+
+    extraction_model  STRING        COMMENT 'databricks-claude-haiku-4-5'
+)
+USING DELTA;
