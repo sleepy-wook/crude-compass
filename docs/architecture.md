@@ -6,14 +6,31 @@
 
 ---
 
-## 0. 4 Architecture Decisions (Phase 3 진입 시 확정)
+## 0. Architecture Decisions
 
+### Phase 3 결정 (5/8)
 | # | 결정 | 근거 |
 |---|---|---|
 | **A1** | **Apps + FastAPI 단일 deploy unit** | apps-cookbook.dev 공식 패턴. Vite static = FastAPI mount. Slack Bolt도 같은 FastAPI 안에 mount. 14일 단독 개발 risk 최소화 |
 | **A2** | **Lakebase Lakehouse Sync (CDC) 자동** | Autoscaling 기본 기능. missions 변경 → Unity Catalog Delta append (full history). Self-Critique Agent가 이 history로 작동. 추가 코드 X |
 | **A3** | **FastAPI WebSocket endpoint (`/ws/missions`)** | mission INSERT/UPDATE 시 모든 connected client에 broadcast. Slack Bolt도 같은 FastAPI에서 emit. 5초 SLA 보장 + 디버그 용이 |
 | **A4** | **Mock backtest 진짜 산출** (`scripts/backtest_signals.py`) | 5개월 RSS archive backtest. 5축 Storytelling + Technical 강화. Sprint 3 ⭐ 1.5일 task |
+
+### Sprint 1 검증 결과 보정 (5/10)
+| # | 결정 | 근거 |
+|---|---|---|
+| **A5** | **Lakebase driver = psycopg3 + direct host** (NOT asyncpg, NOT pooled host) | Sprint 1 검증 — pooler가 SASL OAuth bearer 호환 X, asyncpg도 SASL incompat. psycopg3 + direct host 9/9 check PASS |
+| **A6** | **OAuth token = `w.postgres.generate_database_credential(endpoint=...)`** SDK method | Sprint 1 검증 — raw API path 잘못 추정한 것 SDK method로 보정 |
+
+### D-14 통합 결정 (5/10, 다른 채팅 시나리오 흡수)
+| # | 결정 | 근거 |
+|---|---|---|
+| **A7** | **Track 1 Social Impact 유지** (Track 2 변경 X) | 우리는 자체 organizational data X (가상 K-Petroleum + 100% open public data). Track 1 명백 정합. Open Data Democratization narrative 강화 |
+| **A8** | **Agent Bricks 5 빌드 옵션 모두 활용** | Custom Agent on Apps + Supervisor Agent + Knowledge Assistant + Document Intelligence + Mission Plan Agent. 우리 Bidirectional Mission Plan은 차별화 유지 |
+| **A9** | **GDELT (감지층) + RSS 보강층 (이벤트 드리븐)** 패턴 | RSS 11 source 직접 fetch 대신 GDELT tone score → alert 시점에만 RSS Knowledge Assistant 입력. 효율 + tone 자동화 |
+| **A10** | **Document Intelligence 시연** (`ai_parse_document()`) — OPEC MOMR + JWC PDF | Agent Bricks 5 옵션 중 하나 추가 활용. Technical Capability ↑ |
+| **A11** | **시간 감쇠 시그널별 람다 차등 + UC Function 분리** | Genie도 동일 함수 호출 가능. 람다 자체 버전 관리 (Time Travel 비교) |
+| **A12** | **Time Travel 백테스트 슬라이더 + Confidence Score UI 노출** | 데모 wow + 임원 신뢰성 narrative |
 
 ---
 
@@ -165,18 +182,21 @@ FastAPI broadcast:
 
 ---
 
-## 3. Lakeflow Jobs — 6 Jobs (3 real + 1 batch + 2 mock)
+## 3. Lakeflow Jobs — 9 Jobs (D-14 통합 후)
 
 | # | Job | Cron | 상태 | 핵심 task | Notebook |
 |---|---|---|---|---|---|
-| 1 | news_pipeline_2hr | `0 */2 * * *` | **real** | RSS fetch + filter + LLM scoring + bronze append | `databricks/notebooks/job_news.py` |
-| 2 | price_pipeline_5min | `*/5 * * * *` | **real** | OilPriceAPI 3 ticker + spike detection | `databricks/notebooks/job_price.py` |
-| 3 | ais_batch_5min | `*/5 * * * *` | **real** (batch) | aisstream REST polling + Hormuz vessel snapshot | `databricks/notebooks/job_ais.py` |
-| 4 | ecos_daily | `0 18 * * 1-5` | should-have | KRW/USD fetch | `databricks/notebooks/job_ecos.py` |
-| 5 | daily_curation | `30 6 * * *` | **real** ⭐ | Bidirectional Pattern Detection + Mission Plan trigger | `databricks/notebooks/job_curation.py` |
-| 6 | weekly_self_critique | `0 18 * * 0` | **mock stub** | Hard-coded backtest 결과 → gold.backtest_results | `databricks/notebooks/job_critique_mock.py` |
+| 1 | news_rss_event_driven | event-driven | **real** (보강층) | GDELT alert 시 RSS fetch (Reuters/AP/연합) → Knowledge Assistant 입력 | `databricks/notebooks/job_news_rss.py` |
+| 2 | **gdelt_15min** ⭐ | `*/15 * * * *` | **real** (감지층) | GDELT events + tone score → bronze.news_articles | `databricks/notebooks/job_gdelt.py` |
+| 3 | price_pipeline_5min | `*/5 * * * *` | **real** | OilPriceAPI 3 ticker batch + spike | `databricks/notebooks/job_price.py` |
+| 4 | ais_batch_5min | `*/5 * * * *` | **real** | aisstream REST polling | `databricks/notebooks/job_ais.py` |
+| 5 | eia_weekly | `0 18 * * 3` | should-have | EIA Open Data API 주간 재고 | `databricks/notebooks/job_eia.py` |
+| 6 | ecos_daily | `0 18 * * 1-5` | should-have | KRW/USD | `databricks/notebooks/job_ecos.py` |
+| 7 | **opec_momr_monthly** ⭐ | `0 0 12 * *` | optional | OPEC MOMR PDF fetch + `ai_parse_document()` | `databricks/notebooks/job_opec_momr.py` |
+| 8 | daily_curation_06:30 ⭐ | `30 6 * * *` | **real** ⭐ | Bidirectional Pattern Detection + Mission Plan trigger + Time Travel snapshot | `databricks/notebooks/job_curation.py` |
+| 9 | weekly_self_critique | `0 18 * * 0` | **mock stub** | Hard-coded 78%/71% backtest | `databricks/notebooks/job_critique_mock.py` |
 
-> Sprint 2 (5/11-13)에 1·2·3·4 구현, Sprint 3 (5/14-16)에 5·6 + Mission Plan Agent.
+> Sprint 2 (5/11-13): 1·2·3·4·5·6 구현 + 7 (Document Intelligence 시연용). Sprint 3 (5/14-16): 8 + Mission Plan Agent + Mock backtest 산출.
 
 ### Cluster 정책 (비용 인식)
 
@@ -187,14 +207,29 @@ FastAPI broadcast:
 
 ---
 
-## 4. Agent Bricks — 4 Agents (1 real + 3 mocked)
+## 4. Agent Bricks — Supervisor + 5 sub-agent (D-14 통합)
 
-| # | Agent | 상태 | 구현 |
+```
+[Custom Agent on Apps] (메인 entry, Lakebase 메모리, Slack ↔ Apps sync)
+   │
+   └─ [Supervisor Agent] (트래픽 컨트롤러, No-code UI)
+        ├ [Genie Space] — 정형 자연어 (certified queries + UC Function)
+        ├ [Knowledge Assistant] — OPEC MOMR + 가상 정유사 정책 RAG
+        ├ [UC Function] — 시간 감쇠 + 비중 시뮬 + 랜딩 코스트
+        ├ [Document Intelligence] — `ai_parse_document()` PDF 파싱
+        └ [Mission Plan Agent ⭐] — Bidirectional 양방향 Mission (우리 차별화)
+```
+
+| # | Agent / 빌드 옵션 | 상태 | 구현 |
 |---|---|---|---|
-| 1 | Monitoring | **얇게** | Job 1 notebook 안에 LLM call 직접 (별도 endpoint X). Architecture diagram에는 4 Agent로 표시 |
-| 2 | Simulation | **mock** | What-If 페이지 textarea → Genie API 호출 시도 → 실패 시 canned response (5초 sleep). Public Preview fallback |
-| 3 | **Mission Plan ⭐** | **real** | Agent Bricks Custom Agent 등록 (Sprint 3). Foundation Model API + scenario prompt. MLflow tracking. Model Serving endpoint |
-| 4 | Self-Critique | **mock** | What-If "어제 복기" 탭 hard-coded 78%/71%. 실제 산출은 `scripts/backtest_signals.py` (Sprint 3) 결과를 hardcoded JSON으로 |
+| 1 | **Custom Agent on Apps** | **real** | 메인 entry. Lakebase 네이티브 통합 (대화 히스토리 자동 저장). Slack Bolt mount → Slack ↔ Apps 5초 sync |
+| 2 | **Supervisor Agent** | **얇게** | No-code UI 권장 (형욱님 부담 ↓). sub-agent 라우팅. Sprint 3 진입 시 등록 |
+| 3 | **Genie Space** | **real** | ≤30 테이블 (Bronze 5 + Silver 3 + Gold 4). certified queries + instructions + UC Function. Public Preview fallback (canned response 준비) |
+| 4 | **Knowledge Assistant** | **얇게** | UC Volume에 OPEC MOMR + 가상 정유사 조달 정책 PDF 1개 적재. RAG endpoint |
+| 5 | **Document Intelligence** | **시연** | `ai_parse_document()` SQL 한 줄 — `bronze.opec_momr_parsed` 적재. Sprint 2 day 5 1회 실행으로 시연 (월간이라 자주 안 필요) |
+| 6 | **Mission Plan Agent ⭐** | **real** | Agent Bricks Custom Agent. Bidirectional 양방향 Mission 생성. Foundation Model API (Claude Haiku 4.5) + scenario prompt. MLflow tracking |
+| 7 | UC Function (sub-agent 보조) | **real** | `crude_compass.functions.weighted_signal()`, `simulate_term_spot()`, `landing_cost()` — Genie + Mission Plan 공통 호출 |
+| 8 | Self-Critique | **mock** | What-If "어제 복기" 탭 hard-coded 78%/71%. 실제 산출은 `scripts/backtest_signals.py` (Sprint 3) 결과 hardcoded |
 
 ### Mission Plan Agent (Agent 3) — Real 구현
 
