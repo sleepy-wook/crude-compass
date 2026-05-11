@@ -56,16 +56,21 @@ TARGET_TABLE = "crude_compass.bronze.news_articles"
 # 시나리오 § 2 평시 가치 + § 6 양방향 — 12 queries (5 bullish + 5 bearish + 2 auto)
 # verify (5/11) 결과 bearish 1.8% 편향 → bearish query 보강 + default_direction 명시
 QUERIES = [
-    # 평시 정기 시그널 (auto, tone 부호로 결정)
+    # bullish 본질 — 7개
+    {"label": "hormuz",            "query": "Strait of Hormuz Iran tanker", "tier": "A"},
+    {"label": "iran_sanctions",    "query": "Iran sanctions oil export", "tier": "A"},
+    {"label": "russia_ukraine",    "query": "Russia Ukraine oil sanctions", "tier": "A"},
+    {"label": "houthi_red_sea",    "query": "Houthi Red Sea tanker attack", "tier": "A"},
+    {"label": "opec_cut_surprise", "query": "OPEC production cut surprise", "tier": "A"},
+    {"label": "libya_shutdown",    "query": "Libya oil production shutdown unrest", "tier": "A"},
+    {"label": "venezuela_sanctions","query": "Venezuela oil sanctions PdVSA", "tier": "A"},
+    # auto (평시 정기, tone 부호로)
     {"label": "opec_monthly",  "query": "OPEC monthly oil market report", "tier": "B"},
     {"label": "eia_inventory", "query": "EIA crude oil inventory weekly", "tier": "B"},
     {"label": "saudi_osp",     "query": "Saudi Aramco OSP official selling price", "tier": "B"},
     {"label": "china_demand",  "query": "China oil demand PMI manufacturing", "tier": "A"},
     {"label": "us_spr",        "query": "strategic petroleum reserve release", "tier": "A"},
-    # 위기 시그널 (bullish 본질)
-    {"label": "hormuz",        "query": "Strait of Hormuz Iran tanker", "tier": "A"},
-    {"label": "iran_sanctions",  "query": "Iran sanctions oil export", "tier": "A"},
-    # bearish 본질 (수요 둔화 / 공급 증가) ⭐ NEW
+    # bearish 본질 — 5개
     {"label": "china_recession",     "query": "China oil demand slowdown recession", "tier": "A"},
     {"label": "oecd_inventory_build","query": "OECD commercial crude inventory build", "tier": "A"},
     {"label": "saudi_osp_cut",       "query": "Saudi Aramco OSP price cut Asia", "tier": "A"},
@@ -74,31 +79,39 @@ QUERIES = [
 ]
 
 QUERY_BASELINE = {
-    "opec_monthly":   65, "eia_inventory":  60, "saudi_osp":      65,
-    "china_demand":   55, "us_spr":         60, "hormuz":         75,
-    "iran_sanctions": 70,
+    # bullish
+    "hormuz": 75, "iran_sanctions": 70, "russia_ukraine": 70,
+    "houthi_red_sea": 70, "opec_cut_surprise": 65,
+    "libya_shutdown": 60, "venezuela_sanctions": 60,
+    # auto
+    "opec_monthly": 65, "eia_inventory": 60, "saudi_osp": 65,
+    "china_demand": 55, "us_spr": 60,
     # bearish
-    "china_recession":      60, "oecd_inventory_build": 60,
-    "saudi_osp_cut":        65, "ev_adoption":          50, "us_shale_surge": 60,
+    "china_recession": 60, "oecd_inventory_build": 60,
+    "saudi_osp_cut": 65, "ev_adoption": 50, "us_shale_surge": 60,
 }
 
-# Query별 metadata + default_direction
 QUERY_META = {
-    # auto (tone 부호로)
-    "opec_monthly":   {"category": "policy",       "horizon": "medium", "confidence": "high", "default_direction": "auto"},
-    "eia_inventory":  {"category": "supply",       "horizon": "short",  "confidence": "high", "default_direction": "auto"},
-    "saudi_osp":      {"category": "supply",       "horizon": "medium", "confidence": "high", "default_direction": "auto"},
-    "china_demand":   {"category": "demand",       "horizon": "medium", "confidence": "med",  "default_direction": "auto"},
-    "us_spr":         {"category": "policy",       "horizon": "short",  "confidence": "high", "default_direction": "auto"},
     # bullish 본질
-    "hormuz":         {"category": "geopolitical", "horizon": "short",  "confidence": "high", "default_direction": "bullish"},
-    "iran_sanctions": {"category": "policy",       "horizon": "medium", "confidence": "high", "default_direction": "bullish"},
+    "hormuz":              {"category": "geopolitical", "horizon": "short",  "confidence": "high", "default_direction": "bullish"},
+    "iran_sanctions":      {"category": "policy",       "horizon": "medium", "confidence": "high", "default_direction": "bullish"},
+    "russia_ukraine":      {"category": "geopolitical", "horizon": "medium", "confidence": "high", "default_direction": "bullish"},
+    "houthi_red_sea":      {"category": "geopolitical", "horizon": "short",  "confidence": "high", "default_direction": "bullish"},
+    "opec_cut_surprise":   {"category": "policy",       "horizon": "short",  "confidence": "high", "default_direction": "bullish"},
+    "libya_shutdown":      {"category": "geopolitical", "horizon": "medium", "confidence": "med",  "default_direction": "bullish"},
+    "venezuela_sanctions": {"category": "policy",       "horizon": "medium", "confidence": "high", "default_direction": "bullish"},
+    # auto
+    "opec_monthly":        {"category": "policy",       "horizon": "medium", "confidence": "high", "default_direction": "auto"},
+    "eia_inventory":       {"category": "supply",       "horizon": "short",  "confidence": "high", "default_direction": "auto"},
+    "saudi_osp":           {"category": "supply",       "horizon": "medium", "confidence": "high", "default_direction": "auto"},
+    "china_demand":        {"category": "demand",       "horizon": "medium", "confidence": "med",  "default_direction": "auto"},
+    "us_spr":              {"category": "policy",       "horizon": "short",  "confidence": "high", "default_direction": "auto"},
     # bearish 본질
-    "china_recession":      {"category": "demand", "horizon": "medium", "confidence": "med",  "default_direction": "bearish"},
-    "oecd_inventory_build": {"category": "supply", "horizon": "medium", "confidence": "high", "default_direction": "bearish"},
-    "saudi_osp_cut":        {"category": "supply", "horizon": "medium", "confidence": "high", "default_direction": "bearish"},
-    "ev_adoption":          {"category": "demand", "horizon": "long",   "confidence": "med",  "default_direction": "bearish"},
-    "us_shale_surge":       {"category": "supply", "horizon": "medium", "confidence": "high", "default_direction": "bearish"},
+    "china_recession":     {"category": "demand", "horizon": "medium", "confidence": "med",  "default_direction": "bearish"},
+    "oecd_inventory_build":{"category": "supply", "horizon": "medium", "confidence": "high", "default_direction": "bearish"},
+    "saudi_osp_cut":       {"category": "supply", "horizon": "medium", "confidence": "high", "default_direction": "bearish"},
+    "ev_adoption":         {"category": "demand", "horizon": "long",   "confidence": "med",  "default_direction": "bearish"},
+    "us_shale_surge":      {"category": "supply", "horizon": "medium", "confidence": "high", "default_direction": "bearish"},
 }
 
 # COMMAND ----------

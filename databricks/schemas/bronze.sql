@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS crude_compass.bronze.oil_prices_daily (
     ticker          STRING        NOT NULL COMMENT 'DUBAI | BRENT | WTI',
     price_usd       DECIMAL(8, 2) NOT NULL COMMENT 'USD/bbl close',
     fetched_at      TIMESTAMP     NOT NULL,
-    source          STRING        NOT NULL DEFAULT 'OPINET KNOC' COMMENT '한국석유공사 OPINET CSV download'
+    source          STRING        NOT NULL COMMENT 'OPINET KNOC — 한국석유공사 CSV download'
 )
 USING DELTA
 CLUSTER BY (ticker, trade_date);

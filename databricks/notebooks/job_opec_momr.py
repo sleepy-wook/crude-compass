@@ -178,6 +178,10 @@ def extract_relevant_sections(parsed_json_str: str) -> str:
     """Document Intelligence JSON에서 production/demand 관련 element 선별.
 
     v2: keyword match + digit density score 기반. 짧은 ToC entry 제외.
+
+    JSON 구조 2가지 모두 처리:
+    - {"document": {"elements": [...]}}  (bronze 저장 raw)
+    - {"elements": [...]}                  (cast(parsed:document AS STRING) 결과)
     """
     if not parsed_json_str:
         return ""
@@ -186,7 +190,11 @@ def extract_relevant_sections(parsed_json_str: str) -> str:
     except json.JSONDecodeError:
         return parsed_json_str[:30000]
 
-    elements = (doc.get("document") or {}).get("elements", []) or []
+    # 양쪽 구조 모두 대응
+    if isinstance(doc, dict) and "elements" in doc:
+        elements = doc.get("elements") or []
+    else:
+        elements = (doc.get("document") or {}).get("elements", []) or []
     keywords = [
         "saudi arabia", "iran (i.r.)", "iran (ir", "iran islamic",
         "total opec", "non-opec liquids", "world oil demand",
@@ -346,27 +354,48 @@ print(f"  ✅ Extracted: {extracted}")
 # 기존 row 덮어쓰기 (월별 idempotent)
 spark.sql(f"DELETE FROM {TARGET_TABLE} WHERE report_month = '{report_month}'")
 
-# Driver memory의 row를 single-row DataFrame으로 다시 만들어 INSERT
+# Driver memory row → DataFrame INSERT (명시 schema for ArrayType inference 방지)
 from pyspark.sql import Row as SparkRow
+from pyspark.sql.types import (
+    StructType, StructField, StringType, TimestampType,
+    ArrayType, IntegerType, DecimalType
+)
 from decimal import Decimal
 
 def _dec(v):
     return Decimal(str(v)) if v is not None else None
+
+insert_schema = StructType([
+    StructField("report_month", StringType(), False),
+    StructField("pdf_volume_path", StringType(), False),
+    StructField("parsed_at", TimestampType(), False),
+    StructField("parsed_content", StringType(), True),
+    StructField("pages", ArrayType(StructType([
+        StructField("page_num", IntegerType(), True),
+        StructField("content", StringType(), True),
+    ])), True),
+    StructField("tables", ArrayType(StringType()), True),
+    StructField("saudi_production_kbbl_d", DecimalType(10, 2), True),
+    StructField("iran_production_kbbl_d", DecimalType(10, 2), True),
+    StructField("opec_total_kbbl_d", DecimalType(10, 2), True),
+    StructField("forecast_demand_kbbl_d", DecimalType(10, 2), True),
+    StructField("extraction_model", StringType(), True),
+])
 
 new_row = SparkRow(
     report_month=parsed_row["report_month"],
     pdf_volume_path=parsed_row["pdf_volume_path"],
     parsed_at=parsed_row["parsed_at"],
     parsed_content=parsed_content,
-    pages=pages_list,
-    tables=tables_list,
+    pages=pages_list or [],
+    tables=tables_list or [],
     saudi_production_kbbl_d=_dec(extracted.get("saudi_production_kbbl_d")),
     iran_production_kbbl_d=_dec(extracted.get("iran_production_kbbl_d")),
     opec_total_kbbl_d=_dec(extracted.get("opec_total_kbbl_d")),
     forecast_demand_kbbl_d=_dec(extracted.get("forecast_demand_kbbl_d")),
     extraction_model=LLM_ENDPOINT,
 )
-insert_df = spark.createDataFrame([new_row])
+insert_df = spark.createDataFrame([new_row], schema=insert_schema)
 insert_df.write.mode("append").saveAsTable(TARGET_TABLE)
 print(f"\n✅ {report_month} OPEC MOMR parsed + extracted into {TARGET_TABLE}")
 

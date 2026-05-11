@@ -256,7 +256,7 @@ def main() -> None:
     rows = q(w, """
         SELECT COUNT(*) AS n FROM crude_compass.bronze.oil_prices_daily WHERE ticker = 'DUBAI'
     """, label="dubai count")
-    n = rows[0][0] if rows else 0
+    n = int(rows[0][0]) if rows and rows[0][0] is not None else 0
     if n < 100:
         diagnostics.append(
             f"Dubai daily 적재 부족 (n={n})\n"

@@ -123,30 +123,42 @@ cross_val AS (
     )
     GROUP BY as_of_date
 ),
-final AS (
-    SELECT
-        a.as_of_date,
-        a.bullish,
-        a.bearish,
-        COALESCE(c.cross_val_bonus, 0) AS cross_val_bonus,
-        GREATEST(a.bullish, a.bearish, 1.0) AS max_norm
-    FROM agg a
-    LEFT JOIN cross_val c ON a.as_of_date = c.as_of_date
+joined AS (
+    SELECT a.as_of_date, a.bullish, a.bearish,
+           a.bullish - a.bearish AS net,
+           COALESCE(c.cross_val_bonus, 0) AS cross_val_bonus
+    FROM agg a LEFT JOIN cross_val c ON a.as_of_date = c.as_of_date
+),
+-- ⭐ z-score normalization: 90일 rolling baseline 대비 deviation
+-- GDELT 본질적 bias (e.g., bullish 6:1 dominant)에도 평소 대비 이상치만 zone 진입
+rolling AS (
+    SELECT as_of_date, bullish, bearish, net, cross_val_bonus,
+           AVG(net) OVER (ORDER BY as_of_date ROWS BETWEEN 90 PRECEDING AND 1 PRECEDING) AS mean_net,
+           COALESCE(STDDEV_SAMP(net) OVER (ORDER BY as_of_date ROWS BETWEEN 90 PRECEDING AND 1 PRECEDING), 1.0) AS stddev_net
+    FROM joined
+),
+scored AS (
+    SELECT as_of_date, bullish, bearish, net, cross_val_bonus, mean_net, stddev_net,
+           -- z-score → pattern_score 0-100
+           -- 평균 = 50, +1σ = 75 (HEDGE 70 threshold), -1σ = 25 (OPP 30 threshold)
+           GREATEST(0.0, LEAST(100.0,
+               50.0 + 25.0 * (net - mean_net) / GREATEST(stddev_net, 1.0) + cross_val_bonus
+           )) AS pattern_score
+    FROM rolling
+    WHERE mean_net IS NOT NULL  -- 90일 buffer 후만
 )
 SELECT
     as_of_date,
-    GREATEST(0, LEAST(100,
-        50 + (bullish - bearish) / max_norm * 50 + cross_val_bonus
-    )) AS pattern_score,
+    pattern_score,
     bullish,
     bearish,
     cross_val_bonus,
     CASE
-        WHEN GREATEST(0, LEAST(100, 50 + (bullish - bearish) / max_norm * 50 + cross_val_bonus)) >= 70 THEN 'HEDGE'
-        WHEN GREATEST(0, LEAST(100, 50 + (bullish - bearish) / max_norm * 50 + cross_val_bonus)) <= 30 THEN 'OPPORTUNITY'
+        WHEN pattern_score >= 70 THEN 'HEDGE'
+        WHEN pattern_score <= 30 THEN 'OPPORTUNITY'
         ELSE 'NONE'
     END AS zone
-FROM final
+FROM scored
 ORDER BY as_of_date
 """
 
@@ -280,33 +292,37 @@ for r in result:
     print(f"{r.signal_type:<15} {r.signal_count:<6} {r.correct_count:<8} {r.precision_pct}%       {r.avg_outcome_pct}%")
 
 # Lead time = signal date에서 ±10% 도달까지 days
+# Correlated subquery 회피 (Spark UNSUPPORTED_SUBQUERY_EXPRESSION_CATEGORY 제약)
+# → JOIN 후 GROUP BY 패턴
 lead_sql = """
 WITH eval AS (""" + outcome_sql + """),
 hits AS (
     SELECT * FROM eval WHERE hit = 1
 ),
-lead_calc AS (
+lead_pairs AS (
     SELECT
         h.signal_date,
         h.signal_type,
         h.dubai_at_signal,
-        -- 처음 ±10% 돌파한 날까지 days
-        (
-            SELECT MIN(DATEDIFF(b.price_date, h.signal_date))
-            FROM _dubai_daily b
-            WHERE b.price_date > h.signal_date
-              AND b.price_date <= h.signal_date + INTERVAL 30 DAYS
-              AND CASE
-                  WHEN h.signal_type = 'HEDGE'       THEN (b.dubai_close_usd - h.dubai_at_signal) / h.dubai_at_signal >= 0.10
-                  WHEN h.signal_type = 'OPPORTUNITY' THEN (b.dubai_close_usd - h.dubai_at_signal) / h.dubai_at_signal <= -0.10
-                  ELSE FALSE
-              END
-        ) AS lead_days
+        DATEDIFF(b.price_date, h.signal_date) AS days_offset,
+        CASE
+            WHEN h.signal_type = 'HEDGE'       AND (b.dubai_close_usd - h.dubai_at_signal) / h.dubai_at_signal >= 0.10  THEN 1
+            WHEN h.signal_type = 'OPPORTUNITY' AND (b.dubai_close_usd - h.dubai_at_signal) / h.dubai_at_signal <= -0.10 THEN 1
+            ELSE 0
+        END AS reached
     FROM hits h
+    JOIN _dubai_daily b
+      ON b.price_date > h.signal_date
+     AND b.price_date <= h.signal_date + INTERVAL 30 DAYS
+),
+first_reach AS (
+    SELECT signal_date, signal_type, MIN(days_offset) AS lead_days
+    FROM lead_pairs
+    WHERE reached = 1
+    GROUP BY signal_date, signal_type
 )
 SELECT signal_type, ROUND(AVG(lead_days), 1) AS avg_lead_days
-FROM lead_calc
-WHERE lead_days IS NOT NULL
+FROM first_reach
 GROUP BY signal_type
 """
 lead_rows = spark.sql(lead_sql).collect()

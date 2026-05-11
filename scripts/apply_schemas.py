@@ -31,7 +31,8 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
 from databricks.sdk import WorkspaceClient
 
 
-WAREHOUSE_ID = "da56f72320e22238"  # Serverless Starter Warehouse
+PROFILE = "crude-compass"  # ~/.databrickscfg
+WAREHOUSE_ID = "da56f72320e22238"  # Serverless Starter Warehouse (crude-compass workspace)
 
 
 @dataclass
@@ -92,7 +93,7 @@ CREATE TABLE IF NOT EXISTS crude_compass.bronze.oil_prices_daily (
     ticker          STRING        NOT NULL COMMENT 'DUBAI | BRENT | WTI',
     price_usd       DECIMAL(8, 2) NOT NULL,
     fetched_at      TIMESTAMP     NOT NULL,
-    source          STRING        NOT NULL DEFAULT 'OPINET KNOC'
+    source          STRING        NOT NULL COMMENT 'OPINET KNOC'
 )
 USING DELTA
 CLUSTER BY (ticker, trade_date)
@@ -295,7 +296,9 @@ def main() -> None:
     print(f"Apply schemas → {WAREHOUSE_ID} (Serverless Starter Warehouse)")
     print("=" * 70)
 
-    w = WorkspaceClient()  # ~/.databrickscfg crude-compass profile
+    w = WorkspaceClient(profile=PROFILE)
+    print(f"  host: {w.config.host}")
+    print(f"  user: {w.current_user.me().user_name}")
 
     print(f"\n📦 Bronze ({len(BRONZE)} tables)")
     for s in BRONZE:

@@ -52,23 +52,28 @@ TARGET_TABLE = "crude_compass.bronze.news_articles"
 #   - "bearish": query 자체가 가격 ↓ 시그널 (수요둔화/공급증가). tone 부호와 무관하게 bearish.
 #   - "auto":    tone 부호로 추정 (geopolitical 기본값)
 QUERIES = [
-    # ─── Tier A 위기 (bullish 본질) ───────────────────────────────────
-    {"label": "hormuz",          "query": "Strait of Hormuz Iran",                     "tier": "A", "category": "geopolitical", "horizon": "short",  "confidence": "high", "baseline": 75, "default_direction": "bullish"},
-    {"label": "iran_sanctions",  "query": "Iran sanctions oil export",                 "tier": "A", "category": "policy",       "horizon": "medium", "confidence": "high", "baseline": 70, "default_direction": "bullish"},
+    # ─── Tier A 위기 (bullish 본질) — 7개 ────────────────────────────
+    {"label": "hormuz",            "query": "Strait of Hormuz Iran",                       "tier": "A", "category": "geopolitical", "horizon": "short",  "confidence": "high", "baseline": 75, "default_direction": "bullish"},
+    {"label": "iran_sanctions",    "query": "Iran sanctions oil export",                   "tier": "A", "category": "policy",       "horizon": "medium", "confidence": "high", "baseline": 70, "default_direction": "bullish"},
+    {"label": "russia_ukraine",    "query": "Russia Ukraine oil sanctions",                "tier": "A", "category": "geopolitical", "horizon": "medium", "confidence": "high", "baseline": 70, "default_direction": "bullish"},
+    {"label": "houthi_red_sea",    "query": "Houthi Red Sea tanker attack",                "tier": "A", "category": "geopolitical", "horizon": "short",  "confidence": "high", "baseline": 70, "default_direction": "bullish"},
+    {"label": "opec_cut_surprise", "query": "OPEC production cut surprise",                "tier": "A", "category": "policy",       "horizon": "short",  "confidence": "high", "baseline": 65, "default_direction": "bullish"},
+    {"label": "libya_shutdown",    "query": "Libya oil production shutdown unrest",        "tier": "A", "category": "geopolitical", "horizon": "medium", "confidence": "med",  "baseline": 60, "default_direction": "bullish"},
+    {"label": "venezuela_sanctions","query": "Venezuela oil sanctions PdVSA",              "tier": "A", "category": "policy",       "horizon": "medium", "confidence": "high", "baseline": 60, "default_direction": "bullish"},
 
     # ─── Tier B 평시 정기 (auto, tone 부호로 결정) ─────────────────────
-    {"label": "opec_monthly",    "query": "OPEC monthly oil market report",            "tier": "B", "category": "policy",       "horizon": "medium", "confidence": "high", "baseline": 65, "default_direction": "auto"},
-    {"label": "eia_inventory",   "query": "EIA crude oil inventory weekly",            "tier": "B", "category": "supply",       "horizon": "short",  "confidence": "high", "baseline": 60, "default_direction": "auto"},
-    {"label": "saudi_osp",       "query": "Saudi Aramco OSP official",                 "tier": "B", "category": "supply",       "horizon": "medium", "confidence": "high", "baseline": 65, "default_direction": "auto"},
-    {"label": "us_spr",          "query": "strategic petroleum reserve release",       "tier": "A", "category": "policy",       "horizon": "short",  "confidence": "high", "baseline": 60, "default_direction": "auto"},
-    {"label": "china_demand",    "query": "China oil demand PMI",                      "tier": "A", "category": "demand",       "horizon": "medium", "confidence": "med",  "baseline": 55, "default_direction": "auto"},
+    {"label": "opec_monthly",      "query": "OPEC monthly oil market report",              "tier": "B", "category": "policy",       "horizon": "medium", "confidence": "high", "baseline": 65, "default_direction": "auto"},
+    {"label": "eia_inventory",     "query": "EIA crude oil inventory weekly",              "tier": "B", "category": "supply",       "horizon": "short",  "confidence": "high", "baseline": 60, "default_direction": "auto"},
+    {"label": "saudi_osp",         "query": "Saudi Aramco OSP official",                   "tier": "B", "category": "supply",       "horizon": "medium", "confidence": "high", "baseline": 65, "default_direction": "auto"},
+    {"label": "us_spr",            "query": "strategic petroleum reserve release",         "tier": "A", "category": "policy",       "horizon": "short",  "confidence": "high", "baseline": 60, "default_direction": "auto"},
+    {"label": "china_demand",      "query": "China oil demand PMI",                        "tier": "A", "category": "demand",       "horizon": "medium", "confidence": "med",  "baseline": 55, "default_direction": "auto"},
 
-    # ─── Tier A bearish 본질 (가격 ↓ 시그널, OPP zone catch) ⭐ NEW ──
-    {"label": "china_recession",     "query": "China oil demand slowdown recession",   "tier": "A", "category": "demand",       "horizon": "medium", "confidence": "med",  "baseline": 60, "default_direction": "bearish"},
-    {"label": "oecd_inventory_build","query": "OECD commercial crude inventory build", "tier": "A", "category": "supply",       "horizon": "medium", "confidence": "high", "baseline": 60, "default_direction": "bearish"},
-    {"label": "saudi_osp_cut",       "query": "Saudi Aramco OSP price cut Asia",       "tier": "A", "category": "supply",       "horizon": "medium", "confidence": "high", "baseline": 65, "default_direction": "bearish"},
-    {"label": "ev_adoption",         "query": "electric vehicle adoption oil demand peak", "tier": "B", "category": "demand",   "horizon": "long",   "confidence": "med",  "baseline": 50, "default_direction": "bearish"},
-    {"label": "us_shale_surge",      "query": "US shale oil production record surge",  "tier": "A", "category": "supply",       "horizon": "medium", "confidence": "high", "baseline": 60, "default_direction": "bearish"},
+    # ─── Tier A bearish 본질 — 5개 (가격 ↓ 시그널, OPP zone catch) ──
+    {"label": "china_recession",      "query": "China oil demand slowdown recession",      "tier": "A", "category": "demand",       "horizon": "medium", "confidence": "med",  "baseline": 60, "default_direction": "bearish"},
+    {"label": "oecd_inventory_build", "query": "OECD commercial crude inventory build",    "tier": "A", "category": "supply",       "horizon": "medium", "confidence": "high", "baseline": 60, "default_direction": "bearish"},
+    {"label": "saudi_osp_cut",        "query": "Saudi Aramco OSP price cut Asia",          "tier": "A", "category": "supply",       "horizon": "medium", "confidence": "high", "baseline": 65, "default_direction": "bearish"},
+    {"label": "ev_adoption",          "query": "electric vehicle adoption oil demand peak","tier": "B", "category": "demand",       "horizon": "long",   "confidence": "med",  "baseline": 50, "default_direction": "bearish"},
+    {"label": "us_shale_surge",       "query": "US shale oil production record surge",     "tier": "A", "category": "supply",       "horizon": "medium", "confidence": "high", "baseline": 60, "default_direction": "bearish"},
 ]
 
 # Backtest range — 3년 4개월 (2023-01 ~ 2026-04)
@@ -235,6 +240,12 @@ print(f"\n{'='*60}\nTotal rows: {len(all_rows)}")
 # COMMAND ----------
 
 if all_rows:
+    # Idempotency: 기존 gdelt_backtest row 삭제 후 새 적재
+    deleted_count = spark.sql(f"""
+        DELETE FROM {TARGET_TABLE} WHERE source_type = 'gdelt_backtest'
+    """)
+    print(f"🗑  cleared existing gdelt_backtest rows (idempotent)")
+
     schema = StructType([
         StructField("article_id", StringType(), False),
         StructField("source", StringType(), False),

@@ -28,6 +28,7 @@
 
 import json
 import re
+import urllib.parse
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -85,10 +86,13 @@ form_data = [
 headers = {
     "User-Agent": "Mozilla/5.0",
     "Referer": "https://www.opinet.co.kr/gloptotSelect.do",
+    "Content-Type": "application/x-www-form-urlencoded",
 }
 
+# httpx 1.x: data=list[tuple] 호환성 이슈 → pre-encode + content=bytes
+body = urllib.parse.urlencode(form_data).encode("utf-8")
 with httpx.Client(timeout=60.0) as client:
-    resp = client.post(OPINET_CSV_URL, data=form_data, headers=headers)
+    resp = client.post(OPINET_CSV_URL, content=body, headers=headers)
     resp.raise_for_status()
     text = resp.content.decode("cp949")
 

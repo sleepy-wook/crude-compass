@@ -2,14 +2,14 @@ resources:
   jobs:
     backtest_seed:
       name: ${bundle.name}-backtest-seed-${bundle.target}
-      description: "5개월 GDELT historical fetch → bronze.news_articles (gdelt_backtest)"
+      description: "3년 4개월 GDELT historical fetch → bronze.news_articles (gdelt_backtest), 12 queries balanced direction"
       # 1회만 실행 — Sprint 3 Mock backtest 산출용
       tasks:
         - task_key: backtest_fetch
           notebook_task:
             notebook_path: ../notebooks/job_backtest_seed.py
             source: WORKSPACE
-          timeout_seconds: 1200
+          timeout_seconds: 2400
       max_concurrent_runs: 1
       tags:
         project: crude-compass

@@ -7,8 +7,8 @@
 # MAGIC - § 12 #6 cron `0 18 * * 1-5` (평일 장 마감 후)
 # MAGIC
 # MAGIC ## API
-# MAGIC - https://ecos.bok.or.kr/api/StatisticSearch/{key}/json/kr/1/1000/731Y004/D/{start}/{end}/0000001
-# MAGIC - 731Y004 = 시장평균환율 통계표
+# MAGIC - https://ecos.bok.or.kr/api/StatisticSearch/{key}/json/kr/1/{N}/731Y001/D/{start}/{end}/0000001
+# MAGIC - 731Y001 = 시장평균환율 (daily) — 731Y004는 monthly+
 # MAGIC - 0000001 = 원/미국달러(매매기준율)
 
 # COMMAND ----------
@@ -52,7 +52,8 @@ end_str = end_dt.strftime("%Y%m%d")
 
 ECOS_URL = (
     f"https://ecos.bok.or.kr/api/StatisticSearch/{api_key}/json/kr/1/{page_size}/"
-    f"731Y004/D/{start_str}/{end_str}/0000001"
+    # 731Y001 = daily 환율 (731Y004는 monthly+), 0000001 = 원/미국달러(매매기준율)
+    f"731Y001/D/{start_str}/{end_str}/0000001"
 )
 print(f"MODE={MODE}, range={start_dt} ~ {end_dt}, page_size={page_size}")
 
