@@ -1,0 +1,20 @@
+resources:
+  jobs:
+    backtest_llm:
+      name: ${bundle.name}-backtest-llm-${bundle.target}
+      description: "LLM Mission Plan Agent backtest v4 — look-ahead 방지 + multi-horizon cost saving"
+      tasks:
+        - task_key: backtest_llm
+          notebook_task:
+            notebook_path: ../notebooks/job_backtest_llm.py
+            source: WORKSPACE
+            base_parameters:
+              n_samples: "100"
+              seed: "42"
+              smoke_test: "false"
+          timeout_seconds: 1800
+      max_concurrent_runs: 1
+      tags:
+        project: crude-compass
+        layer: gold
+        purpose: llm_backtest

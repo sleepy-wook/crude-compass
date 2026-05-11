@@ -76,11 +76,17 @@ QUERIES = [
     {"label": "us_shale_surge",       "query": "US shale oil production record surge",     "tier": "A", "category": "supply",       "horizon": "medium", "confidence": "high", "baseline": 60, "default_direction": "bearish"},
 ]
 
-# Backtest range — 3년 4개월 (2023-01 ~ 2026-04)
-# 다양한 regime 포함: 2023 OPEC+ cut + Israel-Hamas, 2024 홍해 후티,
-# 2025 중동 긴장 + 미 셰일, 2026 Q1-Q2 호르무즈 위기
-# Dubai daily price (OPINET KNOC)와 동일 기간으로 매핑
-START_DT = "20230101000000"
+# Backtest range — 7년 4개월 (2019-01 ~ 2026-04)
+# Regime 다양성 강화 (D-10 push back 5/12):
+# - 2019 트럼프 무역전쟁
+# - 2020 COVID 폭락 ($-37 마이너스 유가)
+# - 2021 회복 + Delta variant
+# - 2022 러우 침공 spike ($120+)
+# - 2023 OPEC+ cut + Israel-Hamas
+# - 2024 홍해 후티 위기
+# - 2025 중동 긴장 + 미 셰일
+# - 2026 Q1-Q2 호르무즈 위기
+START_DT = "20190101000000"
 END_DT   = "20260430235959"
 
 # COMMAND ----------

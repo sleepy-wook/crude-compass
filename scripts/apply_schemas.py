@@ -269,6 +269,39 @@ CREATE TABLE IF NOT EXISTS crude_compass.gold.landing_cost_scenarios (
 )
 USING DELTA
 """),
+    Stmt("gold.llm_backtest_predictions", """
+CREATE TABLE IF NOT EXISTS crude_compass.gold.llm_backtest_predictions (
+    run_id            STRING        NOT NULL,
+    sample_idx        INT           NOT NULL,
+    as_of_date        DATE          NOT NULL,
+    -- Pattern Score input
+    pattern_score     DECIMAL(5, 2),
+    bullish_score     DECIMAL(8, 2),
+    bearish_score     DECIMAL(8, 2),
+    cross_val_bonus   DECIMAL(5, 2),
+    signal_count_90d  INT,
+    -- LLM Mission Plan Agent output
+    action_type       STRING        COMMENT 'new_mission | pivot | pause | abort | continue',
+    mission_type      STRING        COMMENT 'HEDGE | OPPORTUNITY | NONE',
+    target_pct        INT,
+    duration_days     INT,
+    confidence_score  DECIMAL(5, 2),
+    reasoning         STRING,
+    -- Outcome — Dubai actual price after signal
+    dubai_at_signal   DECIMAL(8, 2),
+    dubai_7d          DECIMAL(8, 2),
+    dubai_30d         DECIMAL(8, 2),
+    dubai_90d         DECIMAL(8, 2),
+    -- Cost saving % per horizon (positive = AI 권고가 default mix 대비 비용 절감)
+    cost_saving_7d    DECIMAL(6, 3),
+    cost_saving_30d   DECIMAL(6, 3),
+    cost_saving_90d   DECIMAL(6, 3),
+    -- Diagnostics
+    llm_error         STRING,
+    computed_at       TIMESTAMP     NOT NULL
+)
+USING DELTA
+"""),
 ]
 
 

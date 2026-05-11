@@ -1,0 +1,19 @@
+resources:
+  jobs:
+    opec_momr_backfill:
+      name: ${bundle.name}-opec-momr-backfill-${bundle.target}
+      description: "OPEC MOMR 2020-2025 batch backfill (~72 PDFs) for 7-year backtest"
+      tasks:
+        - task_key: opec_backfill
+          notebook_task:
+            notebook_path: ../notebooks/job_opec_momr_backfill.py
+            source: WORKSPACE
+            base_parameters:
+              start_year: "2020"
+              end_year: "2025"
+          timeout_seconds: 14400  # 4시간
+      max_concurrent_runs: 1
+      tags:
+        project: crude-compass
+        layer: bronze
+        source: opec_backfill
