@@ -35,10 +35,16 @@ TARGET_TABLE = "crude_compass.bronze.eia_inventory"
 
 api_key = dbutils.secrets.get(scope="crude", key="eia_api_key")
 
+# Widget: mode + hist_start
+dbutils.widgets.dropdown("mode", "weekly", ["weekly", "historical"], "Run mode")
+dbutils.widgets.text("hist_start", "2023-01-01", "Historical start (YYYY-MM-DD)")
+MODE = dbutils.widgets.get("mode")
+HIST_START = dbutils.widgets.get("hist_start")
+
 # COMMAND ----------
 
-def fetch_eia(series_id: str, length: int = 10) -> list[dict]:
-    """EIA v2 API — weekly crude stocks 최근 N weeks."""
+def fetch_eia(series_id: str, length: int = 10, start_date: str | None = None) -> list[dict]:
+    """EIA v2 API — weekly crude stocks. historical mode: start_date 지정."""
     params = {
         "api_key": api_key,
         "frequency": "weekly",
@@ -48,6 +54,8 @@ def fetch_eia(series_id: str, length: int = 10) -> list[dict]:
         "sort[0][direction]": "desc",
         "length": length,
     }
+    if start_date:
+        params["start"] = start_date
     resp = httpx.get(EIA_API, params=params, timeout=30.0)
     resp.raise_for_status()
     data = resp.json().get("response", {}).get("data", [])
@@ -66,10 +74,15 @@ SERIES = [
 now = datetime.now(timezone.utc)
 all_rows = []
 
+# historical mode: 3년 = ~170 weeks
+fetch_length = 5000 if MODE == "historical" else 8
+fetch_start = HIST_START if MODE == "historical" else None
+print(f"MODE={MODE}, length={fetch_length}, start={fetch_start}")
+
 for s in SERIES:
     print(f"\n─── EIA series {s['id']} ({s['type']}) ───")
     try:
-        data = fetch_eia(s["id"], length=8)  # 최근 8주
+        data = fetch_eia(s["id"], length=fetch_length, start_date=fetch_start)
         print(f"  ✅ {len(data)} weekly records")
 
         # WoW 변화량 계산을 위해 정렬

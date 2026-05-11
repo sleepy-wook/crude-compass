@@ -45,6 +45,11 @@ MONTH_NAMES = [
 
 # COMMAND ----------
 
+# Widget: target_month (YYYY-MM) — backfill specific month, or "auto" for latest
+dbutils.widgets.text("target_month", "auto", "Target month (YYYY-MM, or 'auto' for latest)")
+TARGET_MONTH_PARAM = dbutils.widgets.get("target_month")
+
+
 def find_latest_pdf() -> tuple[str, str, str] | None:
     """최근 3개월 URL 시도 — HEAD로 존재 확인.
 
@@ -73,6 +78,24 @@ def find_latest_pdf() -> tuple[str, str, str] | None:
     return None
 
 
+def find_specific_pdf(year: int, month: int) -> tuple[str, str, str] | None:
+    """특정 month PDF 탐색."""
+    month_name = MONTH_NAMES[month - 1]
+    url = OPEC_URL_TEMPLATE.format(month=month_name, year=year)
+    try:
+        resp = httpx.head(url, timeout=15.0, follow_redirects=True)
+        if resp.status_code == 200:
+            return url, month_name, str(year)
+        # try -1 suffix variant
+        url2 = url.replace(".pdf", "-1.pdf")
+        resp2 = httpx.head(url2, timeout=15.0, follow_redirects=True)
+        if resp2.status_code == 200:
+            return url2, month_name, str(year)
+    except httpx.HTTPError:
+        pass
+    return None
+
+
 def download_to_volume(url: str, year: str, month: str) -> str:
     """Download PDF → UC Volume. Returns volume path."""
     filename = f"momr_{year}_{month}.pdf"
@@ -91,9 +114,19 @@ def download_to_volume(url: str, year: str, month: str) -> str:
 
 # COMMAND ----------
 
-found = find_latest_pdf()
+if TARGET_MONTH_PARAM and TARGET_MONTH_PARAM != "auto":
+    try:
+        yy, mm = TARGET_MONTH_PARAM.split("-")
+        found = find_specific_pdf(int(yy), int(mm))
+        print(f"  TARGET_MONTH={TARGET_MONTH_PARAM} → found={found}")
+    except Exception as e:
+        print(f"  ⚠️  invalid target_month '{TARGET_MONTH_PARAM}': {e}")
+        found = None
+else:
+    found = find_latest_pdf()
+
 if not found:
-    print("⚠️  No recent OPEC MOMR PDF found — skipping (Sprint 2 day 5 manual upload fallback)")
+    print("⚠️  No PDF found — skipping")
     dbutils.notebook.exit(json.dumps({"status": "skipped", "reason": "no_pdf_found"}))
 
 url, month_name, year = found

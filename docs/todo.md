@@ -7,6 +7,12 @@
 
 ## 🔴 Active blocker / carryover
 
+### 2026-05-11 — Multi-source backtest D variant 채택 ✅
+- **결과**: HEDGE 22.2% / OPP 27.3% (random 10% 대비 2.2-2.7배)
+- **기여**: GDELT (17 queries) + EIA inventory (348 weekly) + OPEC monthly (3 reports) + FX (820 daily)
+- **EIA 효과**: API key 재발급 후 활성 → OPP precision 11→27% (2.5배 ↑)
+- **시나리오 §부록 C narrative 업데이트 완료**
+
 ### 2026-05-11 — Dubai daily price source 확정 ✅ (해결)
 - **이전 blocker**: EIA RBRTE 403 차단 (Brent daily 부재)
 - **해결**: OPINET (한국석유공사) `gloptotSelect.do` CSV endpoint
