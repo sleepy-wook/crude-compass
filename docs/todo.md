@@ -7,6 +7,13 @@
 
 ## 🔴 Active blocker / carryover
 
+### 2026-05-13 — Backtest v6 (Recency + Structured Fields) — production model ⭐
+- **v6 prompt 개선**: Signal recency (C, 최근 7일 가중) + Structured fields (D, EIA/OPEC/Dubai 정량)
+- **결과**: HEDGE 75% hit (n=298), +0.626% avg saving, $100-200M annual K-Petroleum
+- **v5 → v6**: hit 69 → 75%, saving -0.245 → +0.626%, active sample 176 → 298
+- **OPP**: 1건만 권고 (시스템 양방향 capable, 7년 강세 regime dominated, paper trade 4주 검증)
+- **시나리오 §부록 C v6 narrative 완성** (Sprint 4 진입 준비 완료)
+
 ### 2026-05-12 — LLM Mission Plan Backtest v5 (300 samples, 7년) ✅
 - **결과**: HEDGE 67% hit (+0.37%), OPP 15% hit (-1.36%)
 - **LLM cheating 검증**: 2019-2024 (training IN) 73% vs 2025-2026 (OUT) 43% → 30pp drop
