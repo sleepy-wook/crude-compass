@@ -63,6 +63,10 @@ class Mission(BaseModel):
     pivot_history: list[PivotEntry] = Field(default_factory=list)
     version: int = 1
 
+    # Provenance — demo inject vs agent (Mission Plan LLM) vs seed
+    # Lakebase column 미존재여도 default None이라 backward-compatible.
+    source: Literal["demo_inject", "agent", "seed"] | None = None
+
 
 class MissionPlanOutput(BaseModel):
     """Mission Plan Agent (Agent Bricks) 출력 schema.

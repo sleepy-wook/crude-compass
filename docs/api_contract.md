@@ -302,36 +302,55 @@ Slack interactive button (Confirm / Reject / Pivot 등). Bolt action handler.
 ## 7. Demo Endpoints (5분 데모용)
 
 ### 7.1 `POST /api/demo/inject_signal`
-평가위원 데모 시 mock 신호 inject.
+평가위원 데모 시 narrative scenario별 Mission 직접 inject — 시그널 누적→LLM→Mission 흐름 shortcut.
+`/api/missions/recommend`와 별도. Mission.source='demo_inject'로 구분.
 
 **Request**:
 ```json
 {
-  "scenario": "bearish",   // "bearish" | "crisis" | "spike"
-  "count": 5
+  "scenario": "hormuz_blockade",
+  // scenario: "hormuz_blockade" | "ceasefire" | "saudi_cut" | "us_inventory_surprise" | "custom"
+  // 이하 optional overrides — preset 위에 None 아닌 값만 적용. custom은 mission_type+goal_text+reasoning 필수.
+  "mission_type": "HEDGE",            // optional. "HEDGE" | "OPPORTUNITY"
+  "pattern_score": 82.0,              // optional, 0~100
+  "urgency": "urgent",                // optional. "urgent" | "default" | "optional" (lowercase)
+  "goal_text": "Term 60% → 75% (4주)", // optional
+  "reasoning": "...",                  // optional
+  "target_pct": 75,                   // optional, 0~100
+  "duration_days": 28,                // optional, 1~365
+  "simulation_roi": {"Brent_130": 410.0}  // optional
 }
 ```
 
+**Scenarios** (narrative 1:1 매핑 — `docs/crude_compass_final_scenario.md`):
+- `hormuz_blockade`: §14 Phase 4 — HEDGE, URGENT, Score 82, Term 60%→75%
+- `ceasefire`: §14 Phase 6 — OPPORTUNITY, URGENT, Score 78, Term 60%→40%/Spot 40%→60%
+- `saudi_cut`: §5 평시 — HEDGE, DEFAULT, Score 70, Term 60%→70%
+- `us_inventory_surprise`: §5 평시 — HEDGE, OPTIONAL, Score 62, Term 60%→65%
+- `custom`: 100% overrides 의존 — mission_type/goal_text/reasoning 누락 시 422
+
 **효과**:
-- `bearish`: bronze.news_articles 5건 mock insert (direction='bearish', importance 70+) + Pattern Score 즉시 재계산 트리거
-- `crisis`: 갑작스 위기 신호 1건 + Brent +5% spike + IRGC 위협 — Reactive Trigger 작동
-- `spike`: oil_prices에 mock spike (Brent +5%) — Reactive Trigger 작동
+1. Mission 생성 (source='demo_inject') + store.create
+2. EventBus.publish('mission.proposed') → slack_bus_subscriber가 Slack DM 카드 push + WS broadcast
+3. 매니저는 Slack 또는 Apps에서 [Confirm/Reject/Pivot/Modify/Open in Apps] 작동
 
 **Response 200**:
 ```json
 {
-  "injected": 5,
-  "new_pattern_score": 22,
-  "triggered_mission_id": "..."   // 있을 경우
+  "mission": { /* Mission full schema */ },
+  "slack_status": "live",          // "live" | "dry-run"
+  "channel": "C0B343F7771",        // Slack channel id or null
+  "source": "demo_inject"
 }
 ```
 
+**Error**:
+- `404`: `DEMO_MODE` 미활성화 — router 자체 mount 안 됨
+- `422 INVALID_SCENARIO`: scenario 이름 잘못
+- `422 CUSTOM_REQUIRES_FIELDS`: custom인데 필수 field 누락
+
 > ⚠️ **데모용. Production rollout 시 disable** (env flag `DEMO_MODE=true`만 enable).
-
-### 7.2 `POST /api/demo/reset`
-데모 후 mock data 정리 (Lakebase delete + Bronze tag 삭제).
-
-**Response 200**: `{ ok: true, deleted: 12 }`
+> 시그널 inject (bronze table) → Pattern Score 재계산 → LLM 흐름은 Sprint 5에서 추가 예정.
 
 ---
 
