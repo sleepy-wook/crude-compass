@@ -59,6 +59,9 @@ def get_pool() -> ConnectionPool:
             connection_class=psycopg.Connection,
             min_size=1,
             max_size=5,
+            # OAuth token life = 60min. max_lifetime 50min로 강제 reconnect → 토큰 만료 전 재발급.
+            # 만약 max_lifetime 미설정 시 idle 60min+ pool connection은 stale token으로 SQL 실패.
+            max_lifetime=3000,
             open=False,  # explicit open
             connection=_new_connection,  # custom factory for token rotation
         )
