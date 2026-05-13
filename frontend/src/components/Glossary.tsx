@@ -1,5 +1,5 @@
 /**
- * Glossary — 6개 핵심 용어 hover tooltip.
+ * Glossary — 7개 핵심 용어 hover tooltip.
  *
  * 사용:
  *   <Term name="PATTERN_SCORE">위기 신호 점수</Term>

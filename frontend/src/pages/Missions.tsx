@@ -55,9 +55,9 @@ export function MissionsList() {
             <div className="text-sm text-ink-3 line-clamp-2">{m.reasoning}</div>
             <div className="mt-3 flex gap-4 text-xs font-mono text-ink-3">
               <span>
-                {/* 첫 카드에만 Tooltip 노출 — 도배 방지 */}
+                {/* 첫 카드에만 Tooltip 노출 — 도배 방지. position=bottom: 카드 첫 줄이라 잘림 방지 */}
                 {i === 0 ? (
-                  <Term name="PATTERN_SCORE">위기 신호 점수</Term>
+                  <Term name="PATTERN_SCORE" position="bottom">위기 신호 점수</Term>
                 ) : (
                   "위기 신호 점수"
                 )}{" "}
