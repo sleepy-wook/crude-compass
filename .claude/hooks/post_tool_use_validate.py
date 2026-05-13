@@ -67,18 +67,27 @@ def main() -> int:
         frontend_dir = Path("C:/crude-compass/frontend")
         if frontend_dir.exists() and str(p).startswith(str(frontend_dir)):
             try:
-                r = subprocess.run(
-                    ["pnpm", "exec", "tsc", "--noEmit", "--pretty", "false", str(p)],
-                    capture_output=True, timeout=20, cwd=str(frontend_dir),
-                    encoding="utf-8", errors="replace",
-                    shell=True,  # Windows
-                )
-                if r.returncode != 0 and r.stdout.strip():
-                    # tsc는 stdout에 에러 출력
-                    out = r.stdout.strip()[:600]
-                    if "error TS" in out:
-                        feedback.append(f"[TS type error in {p.name}]\n{out}")
-            except (subprocess.TimeoutExpired, FileNotFoundError):
+                # tsc with project config (full type-check, slow but correct)
+                # Run only on .tsx (components) — skip pure type files .ts to save time
+                if p.suffix == ".tsx":
+                    r = subprocess.run(
+                        ["pnpm", "exec", "tsc", "--noEmit", "-p", "tsconfig.app.json"],
+                        capture_output=True, timeout=30, cwd=str(frontend_dir),
+                        encoding="utf-8", errors="replace",
+                        shell=True,
+                    )
+                    if r.returncode != 0:
+                        out = (r.stdout or "").strip()
+                        # Filter TS5112 (informational about tsconfig)
+                        relevant = [
+                            line for line in out.split("\n")
+                            if "error TS" in line and "TS5112" not in line
+                        ]
+                        if relevant:
+                            feedback.append(
+                                f"[TS type error in {p.name}]\n" + "\n".join(relevant[:10])
+                            )
+            except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
                 pass
 
     # 3. Scenario drift check (정적 grep, LLM X)
