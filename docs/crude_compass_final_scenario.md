@@ -177,6 +177,20 @@ Pattern Score 30 이하 (기회) → OPPORTUNITY Mission Plan Agent 호출
 
 → 백테스트 v6 평균 적중률 75%는 fundamentals + macro 위주 측정. **Leading 신호 (AIS) 통합 시 lead time이 핵심 metric**이 되어야 함.
 
+### 6.5.1 Backtest 4 source vs Production 6 source — 의도된 분리
+
+| 영역 | Source | 데이터 형태 | 사용 위치 |
+|---|---|---|---|
+| **Backtest (historical 7년)** | GDELT / EIA / OPEC MOMR / FX (ECOS) | 4 source × daily-monthly granularity | v6 backtest 75% hit (n=298) |
+| **Ground truth (historical)** | OPINET KNOC daily close (Dubai/Brent/WTI 1996~) | 2,545+ rows daily | 30/90일 saving % 계산 |
+| **Production-only (realtime)** | AIS Stream + OilPriceAPI realtime | 5분 streaming | Phase 4 (AIS D-7 leading) + Phase 6 (price spike Reactive) |
+
+**왜 분리?** AIS Stream historical은 유료 (MarineTraffic/Spire 수백 USD/년) + 무료 historical 부재. OilPriceAPI도 realtime-only tier. 즉 **backtest 추가 자체가 데이터 부재로 불가능**.
+
+**평가위원 질문 대비 답변**: "AIS는 historical 부재라 backtest 못 했지만 production 라이브 시연으로 검증합니다. 7년 backtest는 fundamentals + macro 4 source로 75% hit rate 확보, AIS/OilPriceAPI는 backtest로 측정 불가능한 D-7 leading + Reactive 영역을 커버합니다."
+
+**Track 1 Social Impact 측면**: Bloomberg/Platts는 historical AIS 유료. 우리는 AISStream realtime + GDELT/EIA/OPEC 무료로 backtest 검증된 75% + 라이브 production 모두 가능 — **open data democratization 진짜 의미**.
+
 ---
 
 ## 7. 데이터 Source — 7개 (100% Open Public)
