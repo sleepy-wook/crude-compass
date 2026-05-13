@@ -242,7 +242,7 @@ FastAPI broadcast:
 ```python
 class MissionPlanOutput(BaseModel):
     mission_type: Literal["HEDGE", "OPPORTUNITY"]
-    goal_text: str           # "Term 50% → 70% (4주)"
+    goal_text: str           # "Term 60% → 75% (4주)"
     reasoning: str           # 한국어 narrative
     simulation_roi: dict     # {scenario: amount_krw_billion}
     urgency: Literal["optional", "default", "urgent"]

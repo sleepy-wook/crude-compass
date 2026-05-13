@@ -288,7 +288,7 @@ CREATE INDEX idx_missions_type_active   ON missions (mission_type)
   "mission_id": "550e8400-e29b-41d4-a716-446655440000",
   "mission_type": "HEDGE",
   "status": "proposed",
-  "goal_text": "Term 50% → 70% (4주) — Pre-emptive Hedge",
+  "goal_text": "Term 60% → 75% (4주) — Pre-emptive Hedge",
   "pattern_score": 82.0,
   "reasoning": "지난 3주 escalation 신호 6건 누적, Cross-validation 4 source confirm...",
   "simulation_roi": {
