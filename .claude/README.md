@@ -23,8 +23,8 @@ Anthropic 공식 [Building Effective Agents - Evaluator-Optimizer](https://anthr
 
 | 도구 | 역할 | 비용 | 자동/수동 |
 |---|---|---|---|
-| **Planner subagent** | 의미 단위 plan (semantic) | Sonnet $0.02/call | 명시 호출 (`/plan`) |
-| **Evaluator subagent** | 의미 단위 grade (semantic, 5축) | Sonnet $0.03/call | 명시 호출 (`/evaluate`) |
+| **Planner subagent** | 의미 단위 plan (semantic) | Opus $0.10/call | 명시 호출 (`/plan`) |
+| **Evaluator subagent** | 의미 단위 grade (semantic, 5축) — **scope: 직전 task만** | Opus $0.15/call | 명시 호출 (`/evaluate`) |
 | **PostToolUse hook** | 정적 quality check (syntax, type, drift) | $0 | 자동 |
 | **PreToolUse hook** | Safety guard (rm -rf 등) | $0 | 자동 |
 | **UserPromptSubmit hook** | git/todo context inject | $0 | 자동 |
@@ -106,9 +106,13 @@ evaluator subagent 호출 → 5축 점수 + verdict
 
 1. **모든 non-trivial 작업은 `/plan` 먼저** (5분이라도)
 2. **commit 전에 `/evaluate`** 필수
-3. **점수 inflate 금지** — 평가위원 시뮬레이션이 핵심
-4. **REVISE는 fail이 아니라 정상** — Anthropic cookbook도 평균 2-3 iteration
-5. **scope cut 정직**: scenario drift blocker 발견 시 narrative pivot 또는 cut
+3. **`/evaluate` scope = 직전 task만** (전체 프로젝트 audit 아님)
+   - 직전 commit / unstaged 파일만 검토
+   - 무관한 축은 N/A 처리, average 계산에서 제외
+   - full audit은 명시 요청 시만
+4. **점수 inflate 금지** — 평가위원 시뮬레이션이 핵심
+5. **REVISE는 fail이 아니라 정상** — Anthropic cookbook도 평균 2-3 iteration
+6. **scope cut 정직**: scenario drift blocker 발견 시 narrative pivot 또는 cut
 
 ## 참고
 

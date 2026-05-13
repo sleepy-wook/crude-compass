@@ -1,19 +1,22 @@
 ---
-description: Evaluator subagent 호출 — 최근 변경분을 5축 hackathon 점수로 평가, REVISE/PASS 판정
-argument-hint: "[optional: 특정 평가 초점]"
+description: Evaluator subagent 호출 — 직전 task/commit만 5축 점수, REVISE/PASS 판정 (full audit 아님)
+argument-hint: "[optional: scope hint 또는 task name]"
 ---
 
-**evaluator subagent**를 명시 호출해서 최근 작업을 hackathon judge 관점에서 검토하세요.
+**evaluator subagent**를 명시 호출해서 **방금 끝낸 task만** hackathon judge 관점에서 검토.
 
-평가 초점: $ARGUMENTS (없으면 최근 commit 또는 unstaged changes)
+⚠️ 평가 범위 = **직전 task / 직전 commit / unstaged changes**. 전체 프로젝트 audit 아님.
+
+평가 초점: $ARGUMENTS (없으면 가장 최근 commit 또는 unstaged changes)
 
 ## Evaluator 호출
 
 `Task` tool with `subagent_type: "evaluator"` 사용.
 
-Evaluator에 전달할 input:
-- "최근 작업을 평가해줘"
-- 추가 컨텍스트가 있다면 (e.g., "Slack Bolt 통합 직후 평가")
+Evaluator에 전달할 input (scope 강제):
+- "직전 task만 평가. 전체 프로젝트 audit 아님."
+- task 명칭 또는 commit hash (`git rev-parse HEAD` 또는 사용자 지정)
+- 관련 파일만 읽도록 명시 (e.g., "Sprint 4 Day 2 frontend wiring → frontend/src/* 만 검토")
 
 ## Evaluator output 받은 후
 
