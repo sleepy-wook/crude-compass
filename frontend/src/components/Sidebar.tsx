@@ -5,7 +5,7 @@ import { useMissionsWebSocket } from "../lib/ws";
 const navItems = [
   { to: "/", label: "Discovery", desc: "오늘의 발견" },
   { to: "/missions", label: "Mission", desc: "진행 중 미션" },
-  { to: "/what-if", label: "What-if", desc: "Time Travel" },
+  { to: "/what-if", label: "What-if", desc: "과거 시점 복원" },
 ];
 
 export function Sidebar() {
@@ -14,15 +14,18 @@ export function Sidebar() {
 
   return (
     <aside className="w-60 bg-sidebar-bg text-white flex flex-col h-screen sticky top-0">
-      <div className="p-6 border-b border-sidebar-bg2">
+      <div className="p-5 border-b border-sidebar-bg2">
         <div className="text-[10px] uppercase tracking-widest text-sidebar-muted mb-1">
           Crude Compass
         </div>
         <div className="font-display text-lg font-semibold tracking-tight">
           K-Petroleum
         </div>
-        <div className="text-[10px] text-sidebar-muted2 font-mono mt-1">
-          Bidirectional Decision Agent
+        <div className="text-[11px] text-sidebar-muted mt-2 leading-snug">
+          한국 정유사 원유 조달<br />의사결정 AI 비서
+        </div>
+        <div className="text-[10px] text-sidebar-muted2 mt-2 leading-relaxed">
+          공개 데이터 7개 · Slack ↔ Apps 5초 sync · 7년 backtest 75% 적중
         </div>
       </div>
 

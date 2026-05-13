@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
+import { Term } from "../components/Glossary";
 import {
   useMission,
   useMissionConfirm,
@@ -12,21 +13,25 @@ import {
 import {
   formatDate,
   formatScore,
+  missionTypeLabel,
   relativeTime,
   statusLabel,
 } from "../lib/utils";
 
 export function MissionsList() {
   const { data, isLoading } = useMissionsActive();
+  const missions = data?.missions || [];
   return (
     <div className="max-w-5xl mx-auto">
       <header className="mb-6">
-        <div className="text-xs uppercase tracking-widest text-ink-3 mb-1">Missions</div>
         <h1 className="font-display text-3xl font-semibold">진행 중 미션</h1>
+        <p className="text-sm text-ink-3 mt-1">
+          AI가 제안한 매입 비중 조정 — Slack 또는 Apps에서 승인하면 5초 안에 양쪽 동기화
+        </p>
       </header>
       {isLoading && <div className="text-ink-3">로딩 중...</div>}
       <div className="space-y-3">
-        {(data?.missions || []).map((m) => (
+        {missions.map((m, i) => (
           <Link
             key={m.mission_id}
             to={`/missions/${m.mission_id}`}
@@ -49,16 +54,30 @@ export function MissionsList() {
             <div className="font-medium text-ink mb-1">{m.goal_text}</div>
             <div className="text-sm text-ink-3 line-clamp-2">{m.reasoning}</div>
             <div className="mt-3 flex gap-4 text-xs font-mono text-ink-3">
-              <span>Pattern Score {formatScore(m.pattern_score)}</span>
-              {m.target_pct !== null && <span>target {m.target_pct}%</span>}
+              <span>
+                {/* 첫 카드에만 Tooltip 노출 — 도배 방지 */}
+                {i === 0 ? (
+                  <Term name="PATTERN_SCORE">위기 신호 점수</Term>
+                ) : (
+                  "위기 신호 점수"
+                )}{" "}
+                {formatScore(m.pattern_score)}
+              </span>
+              {m.target_pct !== null && (
+                <span>
+                  {m.mission_type === "HEDGE" ? "Term" : "Spot"} {m.target_pct}%
+                </span>
+              )}
               <span>{m.duration_days}일</span>
               {m.pivot_history.length > 0 && (
-                <span className="text-opportunity-700">{m.pivot_history.length}회 pivot</span>
+                <span className="text-opportunity-700">
+                  {m.pivot_history.length}회 방향 전환
+                </span>
               )}
             </div>
           </Link>
         ))}
-        {data?.missions?.length === 0 && (
+        {missions.length === 0 && (
           <div className="bg-panel rounded-lg border border-line-1 p-8 text-center text-ink-3">
             현재 진행 중 미션 없음
           </div>
@@ -111,14 +130,17 @@ export function MissionDetail() {
         <p className="text-sm text-ink-2 leading-relaxed">{m.reasoning}</p>
 
         <div className="mt-5 grid grid-cols-4 gap-4">
-          <Field label="Pattern Score" value={formatScore(m.pattern_score)} />
           <Field
-            label="Target"
+            label={<Term name="PATTERN_SCORE" position="bottom">위기 신호 점수</Term>}
+            value={formatScore(m.pattern_score)}
+          />
+          <Field
+            label={m.mission_type === "HEDGE" ? "장기계약 목표" : "즉시구매 목표"}
             value={m.target_pct !== null ? `${m.target_pct}%` : "—"}
           />
-          <Field label="Duration" value={`${m.duration_days}일`} />
+          <Field label="기간" value={`${m.duration_days}일`} />
           <Field
-            label="Mission ID"
+            label="미션 ID"
             value={m.mission_id.slice(0, 8)}
             mono
           />
@@ -129,7 +151,7 @@ export function MissionDetail() {
       {Object.keys(m.simulation_roi || {}).length > 0 && (
         <section className="mb-6 bg-panel rounded-xl border border-line-1 p-6">
           <h2 className="text-xs uppercase tracking-widest text-ink-3 mb-3">
-            시뮬레이션 — 시나리오별 ROI
+            시뮬레이션 — 시나리오별 절감액 (단위: 억원)
           </h2>
           <div className="grid grid-cols-3 gap-3">
             {Object.entries(m.simulation_roi).map(([scenario, roi]) => (
@@ -156,16 +178,17 @@ export function MissionDetail() {
       {m.pivot_history.length > 0 && (
         <section className="mb-6 bg-panel rounded-xl border border-line-1 p-6">
           <h2 className="text-xs uppercase tracking-widest text-ink-3 mb-3">
-            Pivot 이력
+            방향 전환 이력
           </h2>
           <div className="space-y-3">
             {m.pivot_history.map((p, i) => (
               <div key={i} className="border-l-2 border-opportunity-500 pl-3 py-1">
                 <div className="text-xs font-mono text-ink-3 mb-1">
-                  {formatDate(p.occurred_at)} · PS {formatScore(p.pattern_score_at)}
+                  {formatDate(p.occurred_at)} · 위기점수 {formatScore(p.pattern_score_at)}
                 </div>
                 <div className="text-sm">
-                  <strong>{p.from_type}</strong> → <strong>{p.to_type}</strong>
+                  <strong>{missionTypeLabel(p.from_type)}</strong> →{" "}
+                  <strong>{missionTypeLabel(p.to_type)}</strong>
                 </div>
                 <div className="text-xs text-ink-2 mt-1">{p.reason}</div>
               </div>
@@ -208,20 +231,22 @@ export function MissionDetail() {
                   onClick={() => setShowPivot(true)}
                   className="px-4 py-2 rounded-md border border-opportunity-500 text-opportunity-700 text-sm font-medium hover:bg-opportunity-50"
                 >
-                  Pivot
+                  방향 전환
                 </button>
               )}
             </div>
           ) : (
             <div className="space-y-3">
               <div className="text-sm text-ink-2">
-                Pivot — {m.mission_type} →{" "}
-                <strong>{m.mission_type === "HEDGE" ? "OPPORTUNITY" : "HEDGE"}</strong>
+                방향 전환 — {missionTypeLabel(m.mission_type)} →{" "}
+                <strong>
+                  {missionTypeLabel(m.mission_type === "HEDGE" ? "OPPORTUNITY" : "HEDGE")}
+                </strong>
               </div>
               <textarea
                 value={pivotReason}
                 onChange={(e) => setPivotReason(e.target.value)}
-                placeholder="Pivot 사유 (예: 휴전 임박 + SPR 방출 + PMI 49.2)"
+                placeholder="방향 전환 사유 (예: 휴전 임박 + 미국 비축유 방출 같은 약세 시그널)"
                 rows={3}
                 className="w-full text-sm p-3 border border-line-2 rounded-md focus:outline-none focus:border-ink-3"
               />
@@ -234,13 +259,13 @@ export function MissionDetail() {
                       pivot_action: "pivot",
                       to_type:
                         m.mission_type === "HEDGE" ? "OPPORTUNITY" : "HEDGE",
-                      reason: pivotReason || "Pivot",
+                      reason: pivotReason || "방향 전환",
                     })
                   }
                   disabled={pivotMut.isPending || !pivotReason}
                   className="px-4 py-2 rounded-md bg-opportunity-500 text-white text-sm font-medium hover:bg-opportunity-700 disabled:opacity-50"
                 >
-                  Pivot 실행
+                  방향 전환 실행
                 </button>
                 <button
                   onClick={() => setShowPivot(false)}
@@ -271,15 +296,13 @@ function Field({
   value,
   mono,
 }: {
-  label: string;
+  label: React.ReactNode;
   value: string;
   mono?: boolean;
 }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-widest text-ink-3 mb-1">
-        {label}
-      </div>
+      <div className="text-[10px] text-ink-3 mb-1">{label}</div>
       <div className={`text-sm font-medium ${mono ? "font-mono" : ""}`}>
         {value}
       </div>

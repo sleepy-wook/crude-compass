@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useBacktestPredictions, useBacktestResults } from "../lib/queries";
 import { MissionTypePill } from "../components/StatusPill";
+import { Term } from "../components/Glossary";
 import { formatPct, formatScore, formatUsd } from "../lib/utils";
 
 export function WhatIf() {
@@ -17,21 +18,24 @@ export function WhatIf() {
     [predictions]
   );
 
-  const [idx, setIdx] = useState(0);
-  const current = sorted[idx];
+  // 첫 시점 자동 선택 = 가장 최근 (sorted.length-1)
+  const [idx, setIdx] = useState<number | null>(null);
+  useEffect(() => {
+    if (idx === null && sorted.length > 0) {
+      setIdx(sorted.length - 1);
+    }
+  }, [sorted.length, idx]);
+  const current = idx === null ? undefined : sorted[idx];
 
   return (
     <div className="max-w-6xl mx-auto">
       <header className="mb-6">
-        <div className="text-xs uppercase tracking-widest text-ink-3 mb-1">
-          What-if · Time Travel
-        </div>
         <h1 className="font-display text-3xl font-semibold">
-          과거 시점 복원 + AI 권고 검증
+          과거 시점 복원 + AI 추천 검증
         </h1>
         <p className="text-sm text-ink-2 mt-2 max-w-3xl">
-          7년 4개월 backtest (2019-2026, 300건 stratified samples). 슬라이더로 과거 임의
-          시점 선택 → AI가 그 시점 데이터만 보고 권고한 결정 + 30/90일 후 실제 가격 변동 비교.
+          데이터: 2019-2026 사이 300개 시점 · 슬라이더로 과거 임의 시점 선택 → AI가
+          <strong> 그 시점 데이터만 보고 추천한 결정</strong>과 실제 30/90일 후 가격 비교.
         </p>
       </header>
 
@@ -58,7 +62,7 @@ export function WhatIf() {
       <section className="mb-6 bg-panel rounded-xl border border-line-1 p-6">
         <div className="flex items-baseline justify-between mb-4">
           <h2 className="text-xs uppercase tracking-widest text-ink-3">
-            Time Travel ({sorted.length}개 시점)
+            시점 선택 ({sorted.length}개 중)
           </h2>
           <span className="text-xs font-mono text-ink-3">
             {sorted[0]?.as_of_date} → {sorted[sorted.length - 1]?.as_of_date}
@@ -71,7 +75,7 @@ export function WhatIf() {
               type="range"
               min={0}
               max={sorted.length - 1}
-              value={idx}
+              value={idx ?? 0}
               onChange={(e) => setIdx(Number(e.target.value))}
               className="w-full mb-4 accent-crisis-500"
             />
@@ -88,27 +92,28 @@ export function WhatIf() {
           <div className="border-t border-line-1 pt-5 grid grid-cols-3 gap-6">
             <div>
               <div className="text-[10px] uppercase tracking-widest text-ink-3 mb-2">
-                AI 권고 (그 시점)
+                AI 추천 (그 날짜)
               </div>
               <div className="flex items-center gap-2 mb-1">
                 {current.mission_type && <MissionTypePill type={current.mission_type} />}
                 <span className="text-xs text-ink-3">
-                  PS {formatScore(current.pattern_score)}
+                  <Term name="PATTERN_SCORE" position="bottom">위기점수</Term>{" "}
+                  {formatScore(current.pattern_score)}
                 </span>
               </div>
               <div className="text-sm font-medium">
                 {current.action_type === "new_mission"
                   ? `${current.mission_type === "HEDGE" ? "Term" : "Spot"} ${current.target_pct}% (${current.duration_days}일)`
-                  : "관망 (STAY)"}
+                  : "관망 (대기)"}
               </div>
               <div className="text-xs text-ink-3 mt-1">
-                Confidence {formatScore(current.confidence_score)}
+                자신감 {formatScore(current.confidence_score)}
               </div>
             </div>
 
             <div>
               <div className="text-[10px] uppercase tracking-widest text-ink-3 mb-2">
-                Dubai 가격 (그 시점 → 30일 후)
+                Dubai유 가격 (그 날짜 → 30일 후)
               </div>
               <div className="text-2xl font-display font-semibold">
                 {formatUsd(current.dubai_at_signal_usd)} →{" "}
@@ -129,7 +134,7 @@ export function WhatIf() {
 
             <div>
               <div className="text-[10px] uppercase tracking-widest text-ink-3 mb-2">
-                권고 따랐을 때 결과
+                AI 추천 따랐을 때 절감률
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <Outcome label="7일" value={current.saving_7d_pct} />
@@ -137,7 +142,7 @@ export function WhatIf() {
                 <Outcome label="90일" value={current.saving_90d_pct} />
               </div>
               <div className="text-[11px] text-ink-3 mt-2">
-                양수 = 기본 mix 대비 비용 절감
+                양수 = 평시(Term 60 / Spot 40) 대비 절감 (좋음)
               </div>
             </div>
           </div>
@@ -147,17 +152,17 @@ export function WhatIf() {
       {/* Sample list */}
       <section className="bg-panel rounded-xl border border-line-1 p-6">
         <h2 className="text-xs uppercase tracking-widest text-ink-3 mb-3">
-          최근 50개 추천 (Backtest sample)
+          최근 30개 AI 추천 (Backtest sample · 클릭 시 슬라이더 이동)
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[10px] uppercase tracking-widest text-ink-3 border-b border-line-1">
                 <th className="py-2">날짜</th>
-                <th>유형</th>
-                <th>Pattern</th>
-                <th>Conf</th>
-                <th>Target</th>
+                <th>추천</th>
+                <th>위기점수</th>
+                <th>자신감</th>
+                <th>목표</th>
                 <th>30일 절감</th>
               </tr>
             </thead>

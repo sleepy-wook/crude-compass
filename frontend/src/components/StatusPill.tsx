@@ -37,16 +37,21 @@ export function StatusPill({ status, label }: { status: string; label?: string }
 
 export function MissionTypePill({ type }: { type: "HEDGE" | "OPPORTUNITY" }) {
   const isHedge = type === "HEDGE";
+  const label = isHedge ? "위험방어" : "기회포착";
+  const title = isHedge
+    ? "위험 방어 — 장기계약(Term) 비중 ↑ 가격 spike 대비"
+    : "기회 포착 — 즉시구매(Spot) 비중 ↑ 평시 가격 하락 활용";
   return (
     <span
+      title={title}
       className={cn(
-        "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider border font-medium",
+        "inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] border font-medium",
         isHedge
           ? "bg-crisis-50 text-crisis-700 border-crisis-100"
           : "bg-opportunity-50 text-opportunity-700 border-opportunity-100"
       )}
     >
-      {type}
+      {label}
     </span>
   );
 }

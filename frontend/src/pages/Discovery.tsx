@@ -6,6 +6,7 @@ import {
 } from "../lib/queries";
 import { formatPct, formatScore, missionTypeLabel, relativeTime } from "../lib/utils";
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
+import { Term } from "../components/Glossary";
 
 export function Discovery() {
   const pattern = usePatternCurrent();
@@ -17,14 +18,14 @@ export function Discovery() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      {/* Hero — 오늘의 Pattern Score */}
+      {/* Hero — 오늘의 위기 신호 점수 */}
       <header className="mb-8">
-        <div className="text-xs uppercase tracking-widest text-ink-3 mb-1">
-          Today · Pre-emptive Decision Support
-        </div>
         <h1 className="font-display text-3xl font-semibold tracking-tight">
           오늘의 발견
         </h1>
+        <p className="text-sm text-ink-3 mt-1">
+          공개 데이터 7개 종합 · AI가 오늘 매입 비중을 추천합니다
+        </p>
       </header>
 
       {/* Pattern Score Card */}
@@ -42,8 +43,8 @@ export function Discovery() {
         {cur && (
           <div className="bg-panel rounded-xl border border-line-1 p-8 grid grid-cols-3 gap-8">
             <div>
-              <div className="text-xs uppercase tracking-widest text-ink-3 mb-2">
-                Pattern Score
+              <div className="text-xs text-ink-3 mb-2">
+                <Term name="PATTERN_SCORE" position="bottom">위기 신호 점수</Term>
               </div>
               <div
                 className={`font-display text-6xl font-semibold ${
@@ -66,17 +67,17 @@ export function Discovery() {
               <div className="font-display text-2xl font-semibold mb-2">
                 {cur.mission_type
                   ? missionTypeLabel(cur.mission_type)
-                  : "관망 (STAY)"}
+                  : "관망 (대기)"}
               </div>
               <div className="text-xs text-ink-3 font-mono">
-                bullish {formatScore(cur.bullish_score)} · bearish{" "}
+                위기 신호 {formatScore(cur.bullish_score)} · 안정 신호{" "}
                 {formatScore(cur.bearish_score)}
               </div>
             </div>
 
             <div className="border-l border-line-1 pl-8">
               <div className="text-xs uppercase tracking-widest text-ink-3 mb-2">
-                AI Confidence
+                AI 자신감
               </div>
               <div className="font-display text-2xl font-semibold mb-2">
                 {formatScore(cur.confidence_score)}
@@ -125,8 +126,12 @@ export function Discovery() {
               <div className="font-medium text-ink mb-1 line-clamp-1">{m.goal_text}</div>
               <div className="text-xs text-ink-3 line-clamp-2">{m.reasoning}</div>
               <div className="mt-2 flex gap-4 text-[11px] font-mono text-ink-3">
-                <span>PS {formatScore(m.pattern_score)}</span>
-                {m.target_pct !== null && <span>target {m.target_pct}%</span>}
+                <span>위기점수 {formatScore(m.pattern_score)}</span>
+                {m.target_pct !== null && (
+                  <span>
+                    {m.mission_type === "HEDGE" ? "Term" : "Spot"} {m.target_pct}%
+                  </span>
+                )}
                 <span>{m.duration_days}일</span>
               </div>
             </Link>
@@ -153,19 +158,19 @@ export function Discovery() {
             <Stat
               label="평균 비용 절감"
               value={formatPct(backtest.data.summary.avg_save_pct, 2)}
-              hint="30일 후 vs 기본 mix"
+              hint="30일 후 vs 평시(Term 60 / Spot 40) 대비"
               accent="ok"
             />
             <Stat
-              label="HEDGE 권고"
+              label="위험방어 권고"
               value={`${backtest.data.summary.n_hedge}건`}
-              hint="위험 방어"
+              hint="장기계약(Term) ↑"
               accent="crisis"
             />
             <Stat
-              label="OPP 권고"
+              label="기회포착 권고"
               value={`${backtest.data.summary.n_opp}건`}
-              hint="기회 포착"
+              hint="즉시구매(Spot) ↑"
               accent="opp"
             />
           </div>
