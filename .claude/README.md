@@ -1,77 +1,118 @@
 # Crude Compass — Claude Code Harness
 
-이 디렉토리는 **Anthropic harness 패턴 (Constitutional AI / generate-critique-refine / safety guard)**을 Claude Code hooks로 구현한 것. 모든 Sprint 4-5 개발에 사용.
+**Anthropic Evaluator-Optimizer 패턴**을 Claude Code subagents + hooks로 구현. Sprint 4-5 개발 가속화 + 품질 관리.
 
-## 디자인 원칙
+## 핵심 패턴 — Planner → Generator ↔ Evaluator
 
-| 패턴 | 우리 구현 | 이유 |
-|---|---|---|
-| Self-critique 자동 (Stop hook) | ❌ 채택 X | 무한루프 위험 (GitHub issues 입증) |
-| Self-critique 명시 (slash) | ✅ `/critique` | on-demand, 안전 |
-| Code quality validation | ✅ PostToolUse | 즉시 catch + Claude 피드백 |
-| Scenario drift detection | ✅ PostToolUse | LLM 호출 X, 정적 grep, 비용 0 |
-| Context injection | ✅ UserPromptSubmit | compact 후 컨텍스트 유지 |
-| Safety guard | ✅ PreToolUse | 데모 직전 사고 방지 |
-| Subagent auto-dispatch | ❌ 불가능 | Anthropic 설계상 미지원 (suggest only) |
+```
+User request
+  ↓
+[/plan <task>] → planner subagent → structured plan (success criteria + scenario anchor + risks)
+  ↓
+Main Claude (= Generator) → 코드 작성
+  ↓
+[/evaluate] → evaluator subagent → 5축 hackathon 점수 + 구체적 issue
+  ↓
+점수 < 80 또는 blocker drift → REVISE → Main이 수정 → 다시 /evaluate
+점수 ≥ 80 + no blocker → PASS → commit + push
+```
 
-## 구성
+Anthropic 공식 [Building Effective Agents - Evaluator-Optimizer](https://anthropic.com/research/building-effective-agents) 패턴 그대로.
+
+## Subagent vs Hooks 역할 분리
+
+| 도구 | 역할 | 비용 | 자동/수동 |
+|---|---|---|---|
+| **Planner subagent** | 의미 단위 plan (semantic) | Sonnet $0.02/call | 명시 호출 (`/plan`) |
+| **Evaluator subagent** | 의미 단위 grade (semantic, 5축) | Sonnet $0.03/call | 명시 호출 (`/evaluate`) |
+| **PostToolUse hook** | 정적 quality check (syntax, type, drift) | $0 | 자동 |
+| **PreToolUse hook** | Safety guard (rm -rf 등) | $0 | 자동 |
+| **UserPromptSubmit hook** | git/todo context inject | $0 | 자동 |
+| **`/critique`** | 일반 self-review | Haiku $0.01/call | 명시 호출 |
+
+**핵심**: subagent = 의미적 검토 (의도 일치, 점수), hook = 정적 보호 (syntax, lint, drift). 보완 관계.
+
+## 디렉토리 구조
 
 ```
 .claude/
-├── settings.local.json    # hook 등록 (PreToolUse / PostToolUse / UserPromptSubmit)
-├── hooks/
-│   ├── pre_tool_use_safety.py     # Bash dangerous pattern 차단
-│   ├── post_tool_use_validate.py  # Python syntax + TS type + scenario drift
-│   └── user_prompt_context.py     # git log + todo.md 자동 inject
+├── settings.local.json          # 자동 hooks 등록
+├── agents/
+│   ├── planner.md               # 작업 plan subagent (sonnet)
+│   └── evaluator.md             # hackathon judge subagent (sonnet)
 ├── commands/
-│   └── critique.md        # /critique slash command (on-demand self-review)
+│   ├── plan.md                  # /plan <task> — planner 호출
+│   ├── evaluate.md              # /evaluate — evaluator 호출
+│   └── critique.md              # /critique — 일반 self-review
+├── hooks/
+│   ├── pre_tool_use_safety.py
+│   ├── post_tool_use_validate.py
+│   └── user_prompt_context.py
 └── README.md
 ```
 
-## Hook 동작
+## 표준 workflow (Sprint 4 모든 task에 적용)
 
-### PreToolUse — Safety Guard
-Trigger: `Bash` 호출 직전
-검사: `rm -rf`, force push, DROP TABLE, .env dump, DATABRICKS_TOKEN 노출
-결과: 위험 시 exit 2 (차단) + stderr → Claude
+### 1. 작업 시작 — `/plan <task>`
+```
+사용자: /plan "Slack Bolt 통합 — webhook + Confirm action handler"
+↓
+planner subagent 호출 → JSON plan 반환
+↓
+Main이 한국어 요약 + 사용자 confirm
+```
 
-### PostToolUse — Quality + Drift Check
-Trigger: `Write` / `Edit` / `MultiEdit` 직후
-검사:
-- `.py` → `python -m py_compile` (syntax)
-- `.ts/.tsx` → `tsc --noEmit` (type)
-- `backend/app/api/*.py` → API endpoint가 `docs/api_contract.md`와 일치하는지
+### 2. 구현 — Main Claude가 plan 따라 코드 작성
+- 자동 hook이 syntax/type/drift check
+- 위험 명령은 자동 차단
 
-결과: 실패 시 stderr → Claude 즉시 fix
+### 3. 평가 — `/evaluate`
+```
+사용자: /evaluate
+↓
+evaluator subagent 호출 → 5축 점수 + verdict
+```
 
-### UserPromptSubmit — Context Injection
-Trigger: 매 user prompt 직전
-주입:
-- `git log --oneline -5`
-- `git status --short`
-- `docs/todo.md` Sprint 섹션 일부
+### 4. PASS/REVISE 분기
+- **PASS (≥80 avg, no blocker)**: commit + push
+- **REVISE**: critical_issues P0부터 수정 → 다시 `/evaluate`
+- **3회 REVISE**: 사용자와 scope cut/pivot 협의
 
-결과: `additionalContext` JSON → Claude prompt에 prepend
-**비용 0** (LLM 호출 없음, git CLI만)
+## 5축 평가 기준 (evaluator subagent rubric)
 
-### /critique Slash Command — On-Demand Self-Review
-사용: `/critique` 입력
-동작: 현재 작업을 5가지 axis로 self-review (시나리오 일관성 / 가정 / 데모 영향 / 우선순위 / push back 위험)
-**자동 X, 사용자가 명시 호출만**. 무한루프 회피.
-
-## 비용
-
-| Hook | 비용/turn |
+| 축 | 무엇 |
 |---|---|
-| PreToolUse | $0 (regex) |
-| PostToolUse | $0 (py_compile / tsc 로컬) |
-| UserPromptSubmit | $0 (git CLI) |
-| /critique | ~$0.01 (사용자 호출 시만) |
+| **Innovation** | Pattern Score + bidirectional + confidence calibration 독창성 |
+| **Technical** | 실제 작동 (compile ≠ runs), 통합, error handling, 테스트 |
+| **Databricks features** | Foundation Model API / Document Intelligence / UC / Lakebase / Agent Bricks / AI/BI / Lakeflow |
+| **Social Impact (Track 1)** | Open data democratization, 계량 ROI, 적용 가능성 |
+| **Demo quality** | Live demo 작동, 시각 polish, storytelling, fallback 준비 |
 
-**총 추가 비용**: ~$0/turn (자동) + ~$0.01 (on-demand 사용 시)
+## 자동화된 정적 hook 동작
+
+### PreToolUse — Bash safety
+- 차단 패턴: `rm -rf`, force push main, DROP TABLE, .env dump, TOKEN 노출
+- exit 2 + stderr → Claude
+
+### PostToolUse — Quality + Drift
+- `.py` 저장 → `python -m py_compile`
+- `.tsx` 저장 → `tsc --noEmit -p tsconfig.app.json`
+- `backend/app/api/*.py` → `docs/api_contract.md` endpoint 일치 grep
+
+### UserPromptSubmit — Context
+- 매 prompt에 git log + status + todo.md sprint section 자동 inject
+
+## 운영 원칙
+
+1. **모든 non-trivial 작업은 `/plan` 먼저** (5분이라도)
+2. **commit 전에 `/evaluate`** 필수
+3. **점수 inflate 금지** — 평가위원 시뮬레이션이 핵심
+4. **REVISE는 fail이 아니라 정상** — Anthropic cookbook도 평균 2-3 iteration
+5. **scope cut 정직**: scenario drift blocker 발견 시 narrative pivot 또는 cut
 
 ## 참고
 
-- [Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks)
-- [disler/claude-code-hooks-mastery](https://github.com/disler/claude-code-hooks-mastery)
-- [Anthropic Constitutional AI](https://arxiv.org/abs/2212.08073)
+- [Anthropic — Building Effective Agents](https://anthropic.com/research/building-effective-agents)
+- [Anthropic Cookbook — Evaluator-Optimizer](https://github.com/anthropics/anthropic-cookbook/blob/main/patterns/agents/evaluator_optimizer.ipynb)
+- [Claude Code — Subagents](https://code.claude.com/docs/en/sub-agents)
+- [Claude Code — Hooks](https://code.claude.com/docs/en/hooks)

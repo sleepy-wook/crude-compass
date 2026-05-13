@@ -36,9 +36,10 @@ Thumbs.db
 mlruns/
 mlflow.db
 
-# Claude Code — local state ignored, harness (hooks/commands) tracked
+# Claude Code — local state ignored, harness (hooks/commands/agents) tracked
 .claude/*
 !.claude/hooks/
 !.claude/commands/
+!.claude/agents/
 !.claude/settings.local.json
 !.claude/README.md
