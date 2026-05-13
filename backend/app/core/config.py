@@ -34,14 +34,24 @@ class Settings(BaseModel):
     aisstream_api_key: str = Field(default_factory=lambda: os.getenv("AISSTREAM_API_KEY", ""))
     ecos_api_key: str = Field(default_factory=lambda: os.getenv("ECOS_API_KEY", ""))
 
-    # Slack (Sprint 4 진입 시 등록)
+    # Slack (Sprint 4 진입 시 등록 — Databricks profile=crude-compass scope=crude)
     slack_bot_token: str = Field(default_factory=lambda: os.getenv("SLACK_BOT_TOKEN", ""))
     slack_signing_secret: str = Field(
         default_factory=lambda: os.getenv("SLACK_SIGNING_SECRET", "")
     )
+    # 데모 채널 ID (예: C0123...). 형욱 manual: workspace #crude-compass-demo 만든 후 .env 박기.
+    # 비어있으면 dry-run 강등.
+    slack_default_channel: str = Field(
+        default_factory=lambda: os.getenv("SLACK_DEFAULT_CHANNEL", "")
+    )
 
     # Demo mode (production X, 데모용 endpoint enable)
     demo_mode: bool = Field(default_factory=lambda: os.getenv("DEMO_MODE", "false").lower() == "true")
+
+    @property
+    def slack_enabled(self) -> bool:
+        """bot_token + signing_secret + default_channel 셋 다 채워졌을 때만 live."""
+        return bool(self.slack_bot_token and self.slack_signing_secret and self.slack_default_channel)
 
     # Databricks SDK는 환경변수 또는 ~/.databrickscfg 자동 로드
     # (DATABRICKS_HOST + DATABRICKS_TOKEN 또는 PROFILE)
