@@ -1,7 +1,7 @@
 # Crude Compass — Session Decision Log
 
 > Purpose: 대화 핵심 압축 + 결정 rationale 보존 (compact / SA review용).
-> Last updated: 2026-05-13 저녁
+> Last updated: 2026-05-13 23:00 (D-5 plan **재조정** — UX 우선)
 > Style: terse Korean, push back history 포함.
 
 ---
@@ -28,6 +28,26 @@
 ---
 
 ## 3. 결정 history + rationale (push back 위주)
+
+### 5/13 저녁 push back 3건 (정직 기록)
+
+**1. Frontend UX 전문 용어 too many** (P0)
+- 형욱님 지적: Discovery / Mission card / WhatIf 4축 다 "이해 안 됨"
+- 진단: Pattern Score / HEDGE/OPP / Term/Spot / Pivot / bullish/bearish 모두 inline 설명 없음
+- 결정: D-3 plan 분량 확대 (Genie 6h → UX 8h + Genie 2h). 위 Phase 1+2 진입.
+
+**2. AIS Stream 데이터 부재**
+- 형욱님 지적: "AIS 데이터 어디 갔어?"
+- 진단: code/job/secret 다 있지만 **0회 run, bronze.ais_positions 0 rows**
+- 시나리오 §14 "호르무즈 통과 -93%" narrative anchor 데이터 없음
+- 결정: D-4 형욱 manual에 UNPAUSE + manual run 1회. 빈 데이터일 경우 mock seed.
+
+**3. OilPriceAPI 데이터 부재**
+- 형욱님 지적: "oilpriceapi는?"
+- 진단: code/job (price_pipeline_5min) + secret 다 있지만 **0회 run, bronze.oil_prices 0 rows**
+- daily 가격은 OPINET scrape으로 2,545+ 행 있지만 realtime 5분 spike 데이터 없음
+- Reactive Trigger (Phase 6 price spike) narrative anchor 약함
+- 결정: D-4 형욱 manual에 UNPAUSE + manual run 1회 추가.
 
 ### Backtest 모델 진화 (v3 → v6)
 
@@ -107,11 +127,14 @@ PASS = avg ≥ 80, no `blocker` drift.
 - v6 backtest run: `llm_v6_20260512T164854`
 
 ### Backend (FastAPI)
-- 14 endpoints (missions CRUD + recommend + pattern + backtest + WS + health)
+- 17+ endpoints (missions CRUD + recommend + pattern + backtest + WS + health + **Slack events/interactive/health** + **demo/inject_signal**)
 - Mission store **Pluggable** (InMemory default + Lakebase via USE_LAKEBASE env flag)
 - Optimistic version 409 동작
 - Lakebase pool: psycopg3 + max_lifetime=3000 (OAuth 60min 만료 안전)
-- Tests: 13 pass + 1 skip (Lakebase live integration gated)
+- **Slack Bolt AsyncApp** — AsyncSlackRequestHandler 라우터 + EventBus subscriber 디커플 패턴
+- **Demo inject** — 5 scenario preset (hormuz_blockade / ceasefire / saudi_cut / us_inventory_surprise / custom), DEMO_MODE conditional mount
+- Tests: **34 pass + 1 skip** (test_store 12 + test_slack 12 + test_demo 9 + smoke 2 + Lakebase gated)
+- **라이브 검증 완료** (5/13 저녁): Mission inject → Slack DM 카드 5초 도착 + Apps WS 5초 sync 둘 다 작동
 
 ### Frontend (React 19 + Vite + Tailwind 3)
 - 3 pages: Discovery / Mission list+detail / What-if
@@ -135,30 +158,62 @@ PASS = avg ≥ 80, no `blocker` drift.
 
 ---
 
-## 5. 남은 D-5 plan (2026-05-13 → 5/18)
+## 5. 남은 D-5 plan (2026-05-13 → 5/18) — **재조정 (UX 우선)**
 
-| Day | 시간 | 핵심 |
+> **5/13 저녁 push back**: 형욱님 정직히 지적 — "웹페이지 직관적이지 않음, 전문 용어 too many.
+> AIS Stream 데이터 어디?, OilPriceAPI는?" — 4축 다 검증된 큰 issue.
+> 진단: Discovery / Missions / What-If 모두 정유 전문가 가정 강함. Databricks 평가위원
+> 5분 안에 narrative 이해 못 하면 점수 박살. D-3 작업 분량 확대 + UX P0 진입.
+
+| Day | 시간 | 핵심 (수정) |
 |---|---|---|
-| **D-5 (5/13 저녁)** | 4h | ✅ Lakebase swap (D1-T1+T2, PASS 85.5) |
-| **D-4 (5/14)** | 6h | Slack Bolt + Demo inject + AIS run |
-| **D-3 (5/15)** | 6h | Genie + /recommend wiring + WhatIf textarea |
-| **D-2 (5/16)** | 6h | Phase 4·6 alpha + 형욱 Workspace 4h block |
+| **D-5 (5/13)** | 6h | ✅ Lakebase (PASS 85.5) + ✅ Slack Bolt (PASS 82) + ✅ Demo inject (PASS 86.7 라이브 검증) |
+| **D-4 (5/14)** | 6h | 형욱 AIS + OilPrice run (1.5h) + **UX phase 1: 용어 한국화 + glossary + Sidebar 정의 (4h)** + /recommend wiring 시작 (0.5h) |
+| **D-3 (5/15)** | 6h | **UX phase 2: Discovery hero 1줄 + Mission 카드 단순화 + WhatIf 안내 (4h)** + Genie wiring (2h) |
+| **D-2 (5/16)** | 6h | Phase 4·6 alpha + Apps deploy + Slack Interactivity URL + 형욱 Workspace 4h |
 | **D-1 (5/17)** | 6h | full /evaluate + bug fix + 영상 1차 (RISK BUFFER) |
 | **D0 (5/18 22:00)** | 6h | 영상 final + 제출 |
 
-### 형욱 manual (8.5h parallel)
-- **5/13-14**: Slack workspace + app + 2 secret (slack_bot_token, slack_signing_secret) ⏳
-- **5/14 오전**: AIS Lakeflow job UNPAUSE + manual Run 1회
+### 형욱 manual (확대, 10h parallel)
+- ✅ Slack workspace + app + 2 secret (slack_bot_token, slack_signing_secret) — 완료
+- ✅ Slack 채널 #crude-compass-demo + 봇 invite — 완료
+- **5/14 오전 (1.5h)**: AIS Lakeflow + OilPrice Lakeflow UNPAUSE + manual run 각 1회
+  - AIS job_id 789784434326986 / OilPrice job_id 998501685675133
+  - 둘 다 deploy 되었으나 **0회 run, 데이터 0행**
+  - AIS 없으면 §14 "호르무즈 통과 -93%" anchor 없음
+  - OilPriceAPI 없으면 Reactive Trigger (spike) narrative 약함
 - **5/15 (3h)**: Genie Space + certified queries 8 + UC Function 등록
 - **5/16 (4h)**: Supervisor / Knowledge Assistant / AI/BI Dashboard
+- **5/16 (1h)**: Apps deploy 후 Slack app config Interactivity URL = `https://<apps>/api/slack/interactive`
 - **데모 직전**: OPEC 4-5월 manual download (가능 시)
 
+### UX 개선 P0 (D-4 + D-3, 8h)
+
+**왜 P0**: 평가위원 한국 정유사 전문가 아님 (Databricks Hackathon Track 1 Social Impact 평가).
+"Pattern Score" / "HEDGE/OPP" / "Term/Spot" / "Pivot" / "관망 (STAY)" / "bullish/bearish" 모두
+**inline 설명 없으면 5분 narrative 깨짐**.
+
+**Phase 1 (D-4, 4h) — 빠른 wins**:
+- frontend/src/lib/utils.ts `missionTypeLabel` 한국화 ("HEDGE" → "위험 방어 · 장기계약 ↑")
+- Sidebar.tsx 상단 1줄 정의 "한국 정유사 원유 조달 의사결정 AI 비서 · 5초 양방향 sync"
+- Discovery hero 영문 "Pre-emptive Decision Support" 제거 → "오늘의 의사결정"
+- 핵심 전문 용어 (Pattern Score / HEDGE / OPP / Term / Spot / Pivot) — hover tooltip 컴포넌트 추가
+- Mission 카드 "target 75%" → "Term(장기계약) 75%" 같이 명시
+- "30일 후 vs 기본 mix" → "30일 후 vs 평시 매입비중(60:40) 대비"
+
+**Phase 2 (D-3, 4h) — 구조 개선**:
+- Discovery hero에 "오늘 1줄 의사결정 요약" — "오늘은 HEDGE 강세 (위기 신호 82점). 추천: 장기계약 60→75% 늘리기"
+- Mission 카드 단순화: 무엇(goal) / 왜(reasoning 1-2줄) / 얼마(절감 예상) — 3개만 highlight, 나머지 접기
+- WhatIf 첫 문장 안내 + 첫 시점 자동 선택 + "양수 = 비용 절감" → "양수 = 평시보다 절감 (좋음)" 명시
+- 글로서리 모달 (Help 버튼 클릭 시 용어 정리)
+
 ### Cut priorities (시간 부족 시 순서)
-1. Phase 4 라이브 (Slack 5초 sync) → screencast (-8pt demo)
+1. ~~Phase 4 라이브 sync~~ — 이미 검증 완료 (편도 100%, 양방향 deploy 후)
 2. Genie Space → FMA fallback (-10pt databricks)
 3. AI/BI Dashboard → PNG (-3pt)
-4. **Lakebase 통합** — 절대 cut 마지막 (-12pt 최대 손실)
-5-8. 작은 polish
+4. **UX 개선** — 절대 cut 못 함 (-20pt 데모 narrative 깨짐)
+5. **Lakebase 통합** — cut 마지막 (-12pt)
+6-8. 작은 polish
 
 ---
 
@@ -180,4 +235,6 @@ PASS = avg ≥ 80, no `blocker` drift.
 - **Sonnet vs Haiku 비교 backtest** (item 10, 11): Sprint 5 buffer (5/19-20) 여유 시 시도
 - **crude_compass_final.html**: stale 50→70 잔존, 사용 여부 결정 필요
 - **AIS mock data fixture**: 5/14 형욱 manual run 결과 따라 결정 (empty 시 mock seed)
+- **OilPriceAPI mock data fixture**: 5/14 manual run 결과 따라 결정
 - **5/18 조기 제출 시점**: 18:00 freeze + 22:00 submit. miss 시 5/19-21 추가 fix
+- **UX 글로서리 모달 vs inline tooltip**: D-3 UX phase 2 시점 결정. 데모 5분에 모달 클릭 시간 없으니 inline tooltip 권장.
