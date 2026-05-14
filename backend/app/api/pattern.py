@@ -113,16 +113,16 @@ async def pattern_history(days: int = 90) -> dict:
 
 
 # ────────────────────────────────────────────────────────────────────────
-# /api/backtest/results — v6 LLM Mission Plan Agent backtest summary
+# /api/backtest/results — LLM Mission Plan Agent backtest summary
 # ────────────────────────────────────────────────────────────────────────
 @router.get("/backtest/results")
 async def backtest_results() -> dict:
-    """gold.llm_backtest_predictions v6 summary."""
+    """gold.llm_backtest_predictions summary."""
     try:
-        # latest v6 run_id
+        # latest run_id
         latest_run = _q("""
             SELECT run_id FROM crude_compass.gold.llm_backtest_predictions
-            WHERE run_id LIKE 'llm_v6_%'
+            WHERE run_id LIKE 'llm_%'
             ORDER BY computed_at DESC LIMIT 1
         """)
         if not latest_run:
@@ -199,11 +199,11 @@ async def backtest_results() -> dict:
 
 @router.get("/backtest/predictions")
 async def backtest_predictions(limit: int = 50) -> dict:
-    """Sample predictions (latest v6)."""
+    """Sample predictions (latest)."""
     try:
         latest_run = _q("""
             SELECT run_id FROM crude_compass.gold.llm_backtest_predictions
-            WHERE run_id LIKE 'llm_v6_%'
+            WHERE run_id LIKE 'llm_%'
             ORDER BY computed_at DESC LIMIT 1
         """)
         if not latest_run:

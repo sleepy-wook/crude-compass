@@ -2,17 +2,19 @@ resources:
   jobs:
     backtest_llm:
       name: ${bundle.name}-backtest-llm-${bundle.target}
-      description: "LLM Mission Plan Agent backtest v4 — look-ahead 방지 + multi-horizon cost saving"
+      description: "Backtest LLM — Signal recency + Structured fields"
       tasks:
         - task_key: backtest_llm
           notebook_task:
             notebook_path: ../notebooks/job_backtest_llm.py
             source: WORKSPACE
             base_parameters:
-              n_samples: "100"
+              n_per_zone: "100"
               seed: "42"
               smoke_test: "false"
-          timeout_seconds: 1800
+              backtest_start: "2019-04-01"
+              backtest_end: "2026-01-31"
+          timeout_seconds: 7200
       max_concurrent_runs: 1
       tags:
         project: crude-compass

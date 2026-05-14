@@ -1,27 +1,23 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Sprint 3 Day 4 — LLM Mission Plan Agent Backtest v4 ⭐⭐
+# MAGIC # Backtest LLM — Signal Recency + Structured Fields
 # MAGIC
-# MAGIC ## 시나리오 본질 재정렬 (형욱님 push back 5/12 반영)
-# MAGIC - 시나리오 = 단순 "가격 예측" 아님. **Term vs Spot 비중 의사결정**.
-# MAGIC - 평가 axis = **Landing Cost 절감액** (±10% binary hit 아님)
-# MAGIC - 진짜 AI = Mission Plan Agent (rule-based scoring + LLM 권고)
+# MAGIC ## 설계
 # MAGIC
-# MAGIC ## v4 디자인
-# MAGIC - **Random sampling**: 100 dates (시드 42, stratified — 매 ~7일에 1개)
-# MAGIC - **Look-ahead 방지**: D-90 ~ D 데이터만 LLM 제공, D 이후 절대 노출 X
-# MAGIC - **Multi-horizon**: 7일 / 30일 / 90일 cost saving 동시 측정
-# MAGIC - **LLM = Claude Haiku 4.5** (Mission Plan Agent inline call)
-# MAGIC - **Outcome = Cost saving %** vs default mix (Term 60% / Spot 40%)
+# MAGIC ### Signal Recency Weighting (prompt 구조)
+# MAGIC **시간 버킷별 명시** ("최근 7일", "8-30일", "31-90일") + 각 버킷의 핵심 신호
+# MAGIC →  LLM이 regime shift를 catch하기 쉬워짐 (예: 2020-11 vaccine rally)
 # MAGIC
-# MAGIC ## K-Petroleum 가상 baseline mix (시나리오 §3)
-# MAGIC | Mission | Term | Spot |
-# MAGIC |---|---|---|
-# MAGIC | default (no AI) | 60% | 40% |
-# MAGIC | HEDGE | 75% (+15%p) | 25% |
-# MAGIC | OPP | 40% | 60% (+20%p) |
+# MAGIC ### Structured Fields (정량 데이터 명시)
+# MAGIC prompt에 명시:
+# MAGIC - EIA 최근 4주 평균 재고 변화 (kbbl)
+# MAGIC - OPEC supply-demand gap (latest monthly)
+# MAGIC - Dubai 7-day momentum (%)
+# MAGIC - Dubai 30-day volatility (%)
+# MAGIC →  LLM이 추론할 필요 없이 명시 데이터 사용
 # MAGIC
-# MAGIC Term contract = D 시점 Dubai close × (1 - 0.05) (5% 장기계약 할인 가정)
+# MAGIC ## 비용
+# MAGIC - 300 LLM call × $0.01 (Haiku 4.5) = ~$3
 
 # COMMAND ----------
 
@@ -41,41 +37,43 @@ from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
 # COMMAND ----------
 
 # Widgets
-dbutils.widgets.text("n_samples", "100", "Sample size")
+dbutils.widgets.text("n_per_zone", "100", "Samples per zone")
 dbutils.widgets.text("seed", "42", "Random seed")
-dbutils.widgets.text("smoke_test", "false", "Smoke test (5 samples only)")
+dbutils.widgets.text("smoke_test", "false", "Smoke test (5 per zone)")
+dbutils.widgets.text("backtest_start", "2019-04-01", "Backtest start")
+dbutils.widgets.text("backtest_end", "2026-01-31", "Backtest end")
 
-N_SAMPLES = int(dbutils.widgets.get("n_samples"))
+N_PER_ZONE = int(dbutils.widgets.get("n_per_zone"))
 SEED = int(dbutils.widgets.get("seed"))
 SMOKE_TEST = dbutils.widgets.get("smoke_test").lower() == "true"
+BACKTEST_START = dbutils.widgets.get("backtest_start")
+BACKTEST_END = dbutils.widgets.get("backtest_end")
 
 if SMOKE_TEST:
-    N_SAMPLES = 5
-    print("⚠️  SMOKE TEST mode — only 5 samples")
+    N_PER_ZONE = 5
 
 LLM_ENDPOINT = "databricks-claude-haiku-4-5"
-TARGET_TABLE = "crude_compass.gold.llm_backtest_predictions"
+TARGET_TABLE = "crude_compass.gold.llm_backtest_predictions"  # 다음 commit에서 Lakebase로 이동
 
-# K-Petroleum mix params
-DEFAULT_TERM_PCT = 60
-HEDGE_TERM_PCT = 75    # +15%p
-OPP_TERM_PCT = 40      # Spot +20%p (so Term -20%p)
-TERM_DISCOUNT = 0.05   # Term contract 5% discount
+# K-Petroleum baseline mix
+DEFAULT_TERM_PCT = 75
+HEDGE_TERM_PCT = 90
+OPP_TERM_PCT = 55
+TERM_DISCOUNT = 0.03
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Step 1: Build Pattern Score view (D-90 ~ D, look-ahead 없음)
+# MAGIC ## Step 1: Signals view 
 
 # COMMAND ----------
 
-# Pattern Score view — backtest_compute v3 D variant 동일 로직 (multi-source + z-norm)
-pattern_view_sql = """
-CREATE OR REPLACE TEMP VIEW _llm_signals_unified AS
+spark.sql("""
+CREATE OR REPLACE TEMP VIEW _bt_signals AS
 WITH gdelt AS (
     SELECT DATE(published_at) AS event_date, direction, category,
            CAST(importance AS DOUBLE) AS raw_intensity,
-           'news_tone' AS signal_type,
+           'news_tone' AS signal_type, source,
            CAST(CASE tier WHEN 'A' THEN 1.0 WHEN 'B' THEN 0.8 ELSE 0.7 END AS DOUBLE) AS source_credibility
     FROM crude_compass.bronze.news_articles
     WHERE source_type = 'gdelt_backtest' AND importance >= 50
@@ -83,18 +81,17 @@ WITH gdelt AS (
 eia_signals AS (
     SELECT week_ending AS event_date,
            CASE WHEN delta_vs_prev_wk > 5000 THEN 'bearish'
-                WHEN delta_vs_prev_wk < -5000 THEN 'bullish'
-                ELSE 'neutral' END AS direction,
+                WHEN delta_vs_prev_wk < -5000 THEN 'bullish' ELSE 'neutral' END AS direction,
            'supply' AS category,
            LEAST(100.0, 60.0 + ABS(CAST(delta_vs_prev_wk AS DOUBLE)) / 500.0) AS raw_intensity,
-           'eia_inventory' AS signal_type, 1.0 AS source_credibility
+           'eia_inventory' AS signal_type, 'EIA' AS source, 1.0 AS source_credibility
     FROM crude_compass.bronze.eia_inventory
     WHERE inventory_type='commercial' AND delta_vs_prev_wk IS NOT NULL AND ABS(delta_vs_prev_wk) > 2000
 ),
 opec_signals AS (
     SELECT TO_DATE(CONCAT(report_month, '-01'), 'yyyy-MM-dd') AS event_date,
            'bullish' AS direction, 'demand' AS category,
-           70.0 AS raw_intensity, 'opec_momr' AS signal_type, 1.0 AS source_credibility
+           70.0 AS raw_intensity, 'opec_momr' AS signal_type, 'OPEC' AS source, 1.0 AS source_credibility
     FROM crude_compass.bronze.opec_momr_parsed
     WHERE forecast_demand_kbbl_d IS NOT NULL AND saudi_production_kbbl_d IS NOT NULL
       AND forecast_demand_kbbl_d > saudi_production_kbbl_d * 11.5
@@ -102,45 +99,38 @@ opec_signals AS (
 fx_signals AS (
     SELECT f.date AS event_date,
            CASE WHEN f.rate - LAG(f.rate) OVER (ORDER BY f.date) > f.rate * 0.005 THEN 'bullish'
-                WHEN f.rate - LAG(f.rate) OVER (ORDER BY f.date) < -f.rate * 0.005 THEN 'bearish'
-                ELSE 'neutral' END AS direction,
+                WHEN f.rate - LAG(f.rate) OVER (ORDER BY f.date) < -f.rate * 0.005 THEN 'bearish' ELSE 'neutral' END AS direction,
            'macro' AS category, 55.0 AS raw_intensity,
-           'fx_krw_usd' AS signal_type, 0.8 AS source_credibility
+           'fx_krw_usd' AS signal_type, 'ECOS' AS source, 0.8 AS source_credibility
     FROM crude_compass.bronze.fx_rates f WHERE f.pair='USD/KRW'
 )
 SELECT * FROM gdelt
 UNION ALL SELECT * FROM eia_signals WHERE direction != 'neutral'
 UNION ALL SELECT * FROM opec_signals
 UNION ALL SELECT * FROM fx_signals WHERE direction != 'neutral'
-"""
-spark.sql(pattern_view_sql)
-n_signals = spark.sql("SELECT COUNT(*) FROM _llm_signals_unified").collect()[0][0]
-print(f"Unified signals: {n_signals}")
+""")
 
-# Dubai daily view
 spark.sql("""
-    CREATE OR REPLACE TEMP VIEW _llm_dubai AS
+    CREATE OR REPLACE TEMP VIEW _bt_dubai AS
     SELECT trade_date AS price_date, CAST(price_usd AS DOUBLE) AS dubai_close
-    FROM crude_compass.bronze.oil_prices_daily
-    WHERE ticker='DUBAI'
+    FROM crude_compass.bronze.oil_prices_daily WHERE ticker='DUBAI'
 """)
 
 # COMMAND ----------
 
-# Pattern Score per date — multi-source z-norm (D variant 동일)
-pattern_score_sql = """
-CREATE OR REPLACE TEMP VIEW _llm_pattern_daily AS
+# Pattern Score 
+spark.sql(f"""
+CREATE OR REPLACE TEMP VIEW _bt_pattern_daily AS
 WITH date_dim AS (
-    SELECT explode(sequence(DATE'2023-04-01', DATE'2026-01-31', INTERVAL 1 DAY)) AS as_of_date
+    SELECT explode(sequence(DATE'{BACKTEST_START}', DATE'{BACKTEST_END}', INTERVAL 1 DAY)) AS as_of_date
 ),
 contribs AS (
     SELECT d.as_of_date, s.direction, s.category, s.signal_type,
            crude_compass.functions.weighted_signal(
-               s.raw_intensity,
-               CAST(DATEDIFF(d.as_of_date, s.event_date) AS INT),
+               s.raw_intensity, CAST(DATEDIFF(d.as_of_date, s.event_date) AS INT),
                s.signal_type, s.source_credibility
            ) AS w
-    FROM date_dim d JOIN _llm_signals_unified s
+    FROM date_dim d JOIN _bt_signals s
         ON s.event_date BETWEEN d.as_of_date - INTERVAL 90 DAYS AND d.as_of_date
 ),
 agg AS (
@@ -174,120 +164,304 @@ SELECT as_of_date, bullish, bearish, sig_count, cross_val_bonus,
            50.0 + 25.0 * (net - mean_net) / GREATEST(std_net, 1.0) + cross_val_bonus
        )) AS pattern_score
 FROM rolling WHERE mean_net IS NOT NULL
-"""
-spark.sql(pattern_score_sql)
-print(f"Pattern Score view created")
+""")
+print("Pattern Score view OK")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Step 2: Stratified random sampling
+# MAGIC ## Step 2: Stratified sampling 
 
 # COMMAND ----------
 
-# 거래일 + Pattern Score 있는 날만 (look-ahead window: D + 90일 outcome 필요)
-sample_pool = spark.sql("""
-    SELECT p.as_of_date
-    FROM _llm_pattern_daily p
-    JOIN _llm_dubai b ON p.as_of_date = b.price_date
-    WHERE p.as_of_date <= (SELECT DATE_SUB(MAX(price_date), 90) FROM _llm_dubai)
-    ORDER BY p.as_of_date
+all_rows = spark.sql("""
+    SELECT p.as_of_date,
+           CASE WHEN p.pattern_score >= 70 THEN 'HIGH'
+                WHEN p.pattern_score <= 30 THEN 'LOW' ELSE 'MID' END AS zone
+    FROM _bt_pattern_daily p
+    JOIN _bt_dubai b ON p.as_of_date = b.price_date
+    WHERE p.as_of_date <= (SELECT DATE_SUB(MAX(price_date), 90) FROM _bt_dubai)
 """).collect()
-all_dates = [r.as_of_date for r in sample_pool]
-print(f"Eligible date pool: {len(all_dates)} (need ≥{N_SAMPLES})")
+by_zone = {"HIGH": [], "MID": [], "LOW": []}
+for r in all_rows:
+    by_zone[r.zone].append(r.as_of_date)
 
-# Stratified: 동일 간격 + 시드 기반 랜덤 offset
 random.seed(SEED)
-if N_SAMPLES >= len(all_dates):
-    sampled_dates = all_dates
-else:
-    stride = len(all_dates) // N_SAMPLES
-    sampled_dates = []
-    for i in range(N_SAMPLES):
-        offset = random.randint(0, max(stride - 1, 0))
-        idx = min(i * stride + offset, len(all_dates) - 1)
-        sampled_dates.append(all_dates[idx])
-
-print(f"Sampled {len(sampled_dates)} dates")
-print(f"First 5: {sampled_dates[:5]}")
-print(f"Last 5: {sampled_dates[-5:]}")
+sampled = []
+for zone in ["HIGH", "MID", "LOW"]:
+    pool = sorted(by_zone[zone])
+    n_take = min(N_PER_ZONE, len(pool))
+    if len(pool) <= N_PER_ZONE:
+        sampled.extend([(d, zone) for d in pool])
+    else:
+        stride = len(pool) // n_take
+        for i in range(n_take):
+            offset = random.randint(0, max(stride - 1, 0))
+            idx = min(i * stride + offset, len(pool) - 1)
+            sampled.append((pool[idx], zone))
+random.shuffle(sampled)
+print(f"Sampled {len(sampled)} dates")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Step 3: Mission Plan Agent (inline LLM call)
+# MAGIC ## Step 3: Prompt — C + D
 
 # COMMAND ----------
 
 w = WorkspaceClient()
 
-# System prompt — backtest mode emphasizes look-ahead 금지
-SYSTEM_PROMPT_BACKTEST = """You are **Crude Compass Mission Plan Agent** — a decision-support copilot for Korean petroleum refinery (K-Petroleum) procurement managers.
+SYSTEM_PROMPT_V6 = """You are **Crude Compass Mission Plan Agent** for K-Petroleum refinery.
 
-## ⚠️ BACKTEST MODE — CRITICAL CONSTRAINT
-You are evaluating signals at a HISTORICAL date. You have access ONLY to data BEFORE the given date.
-DO NOT assume any knowledge of events AFTER the given date.
-Reason based purely on the signals provided.
+## ⚠️ BACKTEST MODE
+Use ONLY data BEFORE the given date. DO NOT assume any post-date knowledge.
 
-## 역할
-1. Pattern Score 분석 → Bidirectional Mission 권고 (HEDGE / OPPORTUNITY)
-2. 또는 시그널 약함 → STAY (no_action)
-3. Confidence Score 함께 산출
+## K-Petroleum baseline (한국 정유사 실제)
+- 평시 default: Term 75% / Spot 25%
+- HEDGE 권고: Term 90% (target_pct=90)
+- OPP 권고: Spot 45% (target_pct=45)
 
-## Bidirectional Score → Action
-- Pattern Score 70+ → HEDGE Mission (Term 비중 ↑, e.g. 60% → 75%)
-- Pattern Score 30 이하 → OPP Mission (Spot 비중 ↑, e.g. 40% → 60%)
-- 30~70 → STAY (no action, action_type=continue)
+## Decision framework
 
-## K-Petroleum baseline mix
-- 평시 default: Term 60% / Spot 40%
-- HEDGE 권고 시: Term 75% / Spot 25% (target_pct = 75)
-- OPP 권고 시: Term 40% / Spot 60% (target_pct = 60, 즉 Spot 60)
+You receive THREE structured inputs:
 
-## Output: STRICT JSON ONLY
+### 1) Pattern Score + raw signal counts (90일 누적)
+### 2) Recent vs older signal balance (RECENCY weighting)
+- "최근 7일" 신호가 "31-90일" 신호와 방향이 다르면 = regime shift
+- 최근 신호에 더 높은 weight 주기
+### 3) Structured market indicators (정량 데이터, 추론 X)
+- EIA inventory delta (최근 4주 평균) — positive = build (bearish), negative = draw (bullish)
+- OPEC supply-demand gap — positive = oversupply (bearish), negative = undersupply (bullish)
+- Dubai 7-day momentum (%) — recent price trend
+- Dubai 30-day volatility (%) — uncertainty level
+
+## Decision logic
+- Pattern Score 70+ + 최근 신호 bullish 우세 + structured 일관 → HEDGE
+- Pattern Score 30- + 최근 신호 bearish 우세 + structured 일관 → OPPORTUNITY
+- 최근 신호와 누적 신호 방향 충돌 → STAY (recent shift 신호 더 가중)
+- Structured 정량 데이터가 Pattern Score와 모순 → STAY 또는 confidence ↓
+
+## CRITICAL — Self-check before output
+1. Reasoning에서 인용한 신호 방향이 권고 방향과 일치하는지 확인
+   (예: OPP 권고면 reasoning에 bearish 증거 인용해야지, "지정학 리스크 지속" 같은 bullish 증거 X)
+2. Structured 데이터가 추천 방향 지지하는지 확인
+3. 일관성 깨지면 confidence_score 하향 또는 STAY 전환
+
+## Output: STRICT JSON ONLY (no markdown)
 
 {
   "action_type": "new_mission" | "continue",
   "mission_type": "HEDGE" | "OPPORTUNITY" | "NONE",
-  "target_pct": <int, HEDGE면 Term %, OPP면 Spot %>,
+  "target_pct": <int>,
   "duration_days": <int, 7-90>,
   "confidence_score": <0-100>,
-  "reasoning": "한국어 3-5문장 — 어떤 시그널 catch했는지"
-}
-
-If STAY: {"action_type": "continue", "mission_type": "NONE", "target_pct": null, "duration_days": null, "confidence_score": <0-100>, "reasoning": "..."}
-
-JSON만 반환. markdown code fence (```) 도 금지."""
+  "reasoning": "한국어 3-5문장. 최근 7일 시그널과 정량 데이터를 명시적으로 인용"
+}"""
 
 
-def call_llm(as_of_date, pattern_score, bullish, bearish, sig_count, cv_bonus, top_signals_text):
-    """Mission Plan Agent inline call. Returns dict or None."""
+def fetch_context(as_of_date):
+    """시간 버킷 + structured fields 포함."""
+    # Pattern Score
+    ps_rows = spark.sql(f"""
+        SELECT pattern_score, bullish, bearish, sig_count, cross_val_bonus
+        FROM _bt_pattern_daily WHERE as_of_date = DATE'{as_of_date}'
+    """).collect()
+    if not ps_rows: return None
+    ps = ps_rows[0]
+
+    # ⭐ C — Signals grouped by recency
+    # Last 7d / 8-30d / 31-90d
+    sig_buckets = spark.sql(f"""
+        SELECT
+            CASE
+                WHEN DATEDIFF(DATE'{as_of_date}', event_date) <= 7 THEN '1_recent_7d'
+                WHEN DATEDIFF(DATE'{as_of_date}', event_date) <= 30 THEN '2_mid_30d'
+                ELSE '3_old_60_90d'
+            END AS bucket,
+            direction, category, signal_type,
+            COUNT(*) AS n,
+            ROUND(AVG(raw_intensity), 0) AS avg_imp
+        FROM _bt_signals
+        WHERE event_date BETWEEN DATE'{as_of_date}' - INTERVAL 90 DAYS AND DATE'{as_of_date}'
+          AND direction IN ('bullish', 'bearish')
+        GROUP BY bucket, direction, category, signal_type
+        ORDER BY bucket, direction DESC, n DESC
+    """).collect()
+
+    # Top signals per bucket (text)
+    bucket_texts = {"1_recent_7d": [], "2_mid_30d": [], "3_old_60_90d": []}
+    for r in sig_buckets:
+        if len(bucket_texts[r.bucket]) < 4:  # cap per bucket
+            bucket_texts[r.bucket].append(
+                f"  - {r.direction:7s} {r.category:12s} {r.signal_type:14s} (n={r.n}, avg_imp={int(r.avg_imp)})"
+            )
+
+    # Bucket direction balance
+    bucket_balance = spark.sql(f"""
+        SELECT
+            CASE
+                WHEN DATEDIFF(DATE'{as_of_date}', event_date) <= 7 THEN 'recent_7d'
+                WHEN DATEDIFF(DATE'{as_of_date}', event_date) <= 30 THEN 'mid_30d'
+                ELSE 'old_60_90d'
+            END AS bucket,
+            SUM(CASE WHEN direction='bullish' THEN 1 ELSE 0 END) AS bull,
+            SUM(CASE WHEN direction='bearish' THEN 1 ELSE 0 END) AS bear
+        FROM _bt_signals
+        WHERE event_date BETWEEN DATE'{as_of_date}' - INTERVAL 90 DAYS AND DATE'{as_of_date}'
+          AND direction IN ('bullish', 'bearish')
+        GROUP BY bucket
+    """).collect()
+    balance_text = {r.bucket: f"bull={r.bull}, bear={r.bear}" for r in bucket_balance}
+
+    # ⭐ D — Structured fields
+    # EIA 최근 4주 평균
+    eia = spark.sql(f"""
+        SELECT AVG(CAST(delta_vs_prev_wk AS DOUBLE)) AS eia_4wk_avg
+        FROM crude_compass.bronze.eia_inventory
+        WHERE inventory_type='commercial'
+          AND week_ending BETWEEN DATE'{as_of_date}' - INTERVAL 28 DAYS AND DATE'{as_of_date}'
+          AND delta_vs_prev_wk IS NOT NULL
+    """).collect()
+    eia_4wk = float(eia[0].eia_4wk_avg) if eia and eia[0].eia_4wk_avg is not None else None
+
+    # OPEC latest
+    opec = spark.sql(f"""
+        SELECT CAST(saudi_production_kbbl_d AS DOUBLE) AS saudi,
+               CAST(opec_total_kbbl_d AS DOUBLE) AS opec_total,
+               CAST(forecast_demand_kbbl_d AS DOUBLE) AS demand
+        FROM crude_compass.bronze.opec_momr_parsed
+        WHERE saudi_production_kbbl_d IS NOT NULL
+          AND TO_DATE(CONCAT(report_month, '-01'), 'yyyy-MM-dd') <= DATE'{as_of_date}'
+        ORDER BY report_month DESC LIMIT 1
+    """).collect()
+    opec_gap = None
+    if opec:
+        o = opec[0]
+        if o.opec_total and o.demand:
+            opec_gap = o.opec_total - o.demand  # positive = oversupply (bearish)
+
+    # Dubai 7-day momentum + 30-day vol
+    dubai = spark.sql(f"""
+        WITH d AS (
+            SELECT price_date, dubai_close FROM _bt_dubai
+            WHERE price_date BETWEEN DATE'{as_of_date}' - INTERVAL 35 DAYS AND DATE'{as_of_date}'
+        ),
+        returns AS (
+            SELECT price_date, dubai_close,
+                   dubai_close / LAG(dubai_close) OVER (ORDER BY price_date) - 1 AS r
+            FROM d
+        )
+        SELECT
+            (SELECT dubai_close FROM d ORDER BY price_date DESC LIMIT 1) AS p_now,
+            (SELECT dubai_close FROM d WHERE price_date <= DATE'{as_of_date}' - INTERVAL 7 DAYS ORDER BY price_date DESC LIMIT 1) AS p_7d_ago,
+            (SELECT STDDEV_SAMP(r) * 100 FROM returns WHERE r IS NOT NULL) AS vol_30d
+    """).collect()
+    momentum_7d = None
+    vol_30d = None
+    if dubai and dubai[0].p_now and dubai[0].p_7d_ago:
+        momentum_7d = (dubai[0].p_now / dubai[0].p_7d_ago - 1) * 100
+        vol_30d = float(dubai[0].vol_30d) if dubai[0].vol_30d else None
+
+    # Dubai outcomes
+    out_rows = spark.sql(f"""
+        SELECT
+            (SELECT dubai_close FROM _bt_dubai WHERE price_date = DATE'{as_of_date}') AS d0,
+            (SELECT dubai_close FROM _bt_dubai WHERE price_date >= DATE'{as_of_date}' + INTERVAL 7 DAYS  ORDER BY price_date LIMIT 1) AS d7,
+            (SELECT dubai_close FROM _bt_dubai WHERE price_date >= DATE'{as_of_date}' + INTERVAL 30 DAYS ORDER BY price_date LIMIT 1) AS d30,
+            (SELECT dubai_close FROM _bt_dubai WHERE price_date >= DATE'{as_of_date}' + INTERVAL 90 DAYS ORDER BY price_date LIMIT 1) AS d90
+    """).collect()[0]
+
+    daily_rows = spark.sql(f"""
+        SELECT price_date, dubai_close FROM _bt_dubai
+        WHERE price_date > DATE'{as_of_date}' AND price_date <= DATE'{as_of_date}' + INTERVAL 90 DAYS
+        ORDER BY price_date
+    """).collect()
+    daily_dubai = [(r.price_date, float(r.dubai_close)) for r in daily_rows]
+
+    return {
+        "pattern_score": float(ps.pattern_score),
+        "bullish": float(ps.bullish), "bearish": float(ps.bearish),
+        "sig_count": int(ps.sig_count), "cv_bonus": float(ps.cross_val_bonus),
+        "bucket_texts": bucket_texts, "balance": balance_text,
+        "eia_4wk": eia_4wk, "opec_gap": opec_gap,
+        "momentum_7d": momentum_7d, "vol_30d": vol_30d,
+        "dubai_0": float(out_rows.d0) if out_rows.d0 else None,
+        "dubai_7d": float(out_rows.d7) if out_rows.d7 else None,
+        "dubai_30d": float(out_rows.d30) if out_rows.d30 else None,
+        "dubai_90d": float(out_rows.d90) if out_rows.d90 else None,
+        "daily_dubai": daily_dubai,
+    }
+
+
+def call_llm_v6(as_of_date, ctx):
+    # Build prompt
+    recent_text = "\n".join(ctx["bucket_texts"]["1_recent_7d"]) or "  (no signals)"
+    mid_text = "\n".join(ctx["bucket_texts"]["2_mid_30d"]) or "  (no signals)"
+    old_text = "\n".join(ctx["bucket_texts"]["3_old_60_90d"]) or "  (no signals)"
+
+    eia_str = f"{ctx['eia_4wk']:+.0f} kbbl/wk avg" if ctx['eia_4wk'] is not None else "N/A"
+    eia_interp = ""
+    if ctx['eia_4wk'] is not None:
+        if ctx['eia_4wk'] > 5000: eia_interp = " (강한 build = bearish)"
+        elif ctx['eia_4wk'] < -5000: eia_interp = " (강한 draw = bullish)"
+        elif ctx['eia_4wk'] > 1000: eia_interp = " (mild build)"
+        elif ctx['eia_4wk'] < -1000: eia_interp = " (mild draw)"
+        else: eia_interp = " (neutral)"
+
+    opec_str = "N/A"
+    opec_interp = ""
+    if ctx['opec_gap'] is not None:
+        opec_str = f"{ctx['opec_gap']:+.0f} kbbl/d"
+        if ctx['opec_gap'] > 500: opec_interp = " (oversupply = bearish)"
+        elif ctx['opec_gap'] < -500: opec_interp = " (undersupply = bullish)"
+        else: opec_interp = " (balanced)"
+
+    momentum_str = f"{ctx['momentum_7d']:+.2f}%" if ctx['momentum_7d'] is not None else "N/A"
+    vol_str = f"{ctx['vol_30d']:.2f}%" if ctx['vol_30d'] is not None else "N/A"
+
     user_msg = f"""## Backtest date: {as_of_date}
 
-**Pattern Score**: {pattern_score:.1f}
-- bullish_score: {bullish:.1f}
-- bearish_score: {bearish:.1f}
-- cross_val_bonus: {cv_bonus:.1f}
-- signal_count_90d: {sig_count}
+## 1) Pattern Score (90일 누적 z-norm)
+- Pattern Score: {ctx['pattern_score']:.1f}
+- bullish_score: {ctx['bullish']:.1f}, bearish_score: {ctx['bearish']:.1f}
+- cross_val_bonus: {ctx['cv_bonus']:.1f}, total_signals_90d: {ctx['sig_count']}
 
-## Top signals (last 90d before {as_of_date}, importance desc)
-{top_signals_text}
+## 2) ⭐ Recency-weighted signals
+### 최근 7일 (가장 중요 — regime shift catch)
+- Direction balance: {ctx['balance'].get('recent_7d', 'no data')}
+- Top:
+{recent_text}
 
-→ Recommend action (HEDGE / OPPORTUNITY / continue). Return JSON only.
-Remember: do NOT use any information after {as_of_date}."""
+### 8-30일
+- Direction balance: {ctx['balance'].get('mid_30d', 'no data')}
+- Top:
+{mid_text}
+
+### 31-90일 (background context)
+- Direction balance: {ctx['balance'].get('old_60_90d', 'no data')}
+- Top:
+{old_text}
+
+## 3) ⭐ Structured market indicators
+- **EIA 최근 4주 평균 재고 변화**: {eia_str}{eia_interp}
+- **OPEC supply - demand (latest monthly)**: {opec_str}{opec_interp}
+- **Dubai 7-day momentum**: {momentum_str}
+- **Dubai 30-day volatility**: {vol_str}
+
+→ Recommend HEDGE / OPPORTUNITY / continue.
+Critical: 최근 7일 시그널이 31-90일과 충돌 시 STAY 고려. Structured 데이터가 Pattern Score와 모순 시 confidence ↓.
+JSON only."""
 
     try:
         resp = w.serving_endpoints.query(
             name=LLM_ENDPOINT,
             messages=[
-                ChatMessage(role=ChatMessageRole.SYSTEM, content=SYSTEM_PROMPT_BACKTEST),
+                ChatMessage(role=ChatMessageRole.SYSTEM, content=SYSTEM_PROMPT_V6),
                 ChatMessage(role=ChatMessageRole.USER, content=user_msg),
             ],
-            max_tokens=600,
-            temperature=0.0,
+            max_tokens=700, temperature=0.0,
         )
         raw = resp.choices[0].message.content if resp.choices else "{}"
-        # strip markdown fence
         raw = raw.strip()
         fence = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", raw)
         if fence: raw = fence.group(1)
@@ -300,119 +474,47 @@ Remember: do NOT use any information after {as_of_date}."""
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Step 4: Loop — fetch context + LLM + outcome per date
-
-# COMMAND ----------
-
-def fetch_context(as_of_date):
-    """Fetch Pattern Score + top signals + Dubai outcome for as_of_date."""
-    # Pattern Score
-    ps_rows = spark.sql(f"""
-        SELECT pattern_score, bullish, bearish, sig_count, cross_val_bonus
-        FROM _llm_pattern_daily WHERE as_of_date = DATE'{as_of_date}'
-    """).collect()
-    if not ps_rows:
-        return None
-    ps = ps_rows[0]
-
-    # Top signals (D-90 ~ D)
-    sig_rows = spark.sql(f"""
-        SELECT DATE(published_at) AS d, direction, category, importance, source, title
-        FROM crude_compass.bronze.news_articles
-        WHERE source_type='gdelt_backtest'
-          AND DATE(published_at) BETWEEN DATE'{as_of_date}' - INTERVAL 90 DAYS AND DATE'{as_of_date}'
-          AND importance >= 60
-        ORDER BY importance DESC LIMIT 15
-    """).collect()
-    signals_text = "\n".join([
-        f"- {r.d} · {r.source} · {r.category} · imp={r.importance} · {r.direction} · {(r.title or '')[:80]}"
-        for r in sig_rows
-    ]) or "(no high-importance signals)"
-
-    # Dubai at signal + outcomes
-    dubai_rows = spark.sql(f"""
-        SELECT
-            (SELECT dubai_close FROM _llm_dubai WHERE price_date = DATE'{as_of_date}') AS d0,
-            (SELECT dubai_close FROM _llm_dubai WHERE price_date >= DATE'{as_of_date}' + INTERVAL 7 DAYS  ORDER BY price_date LIMIT 1) AS d7,
-            (SELECT dubai_close FROM _llm_dubai WHERE price_date >= DATE'{as_of_date}' + INTERVAL 30 DAYS ORDER BY price_date LIMIT 1) AS d30,
-            (SELECT dubai_close FROM _llm_dubai WHERE price_date >= DATE'{as_of_date}' + INTERVAL 90 DAYS ORDER BY price_date LIMIT 1) AS d90
-    """).collect()[0]
-
-    # Daily Dubai for cost simulation
-    daily_rows = spark.sql(f"""
-        SELECT price_date, dubai_close FROM _llm_dubai
-        WHERE price_date > DATE'{as_of_date}' AND price_date <= DATE'{as_of_date}' + INTERVAL 90 DAYS
-        ORDER BY price_date
-    """).collect()
-    daily_dubai = [(r.price_date, float(r.dubai_close)) for r in daily_rows]
-
-    return {
-        "pattern_score": float(ps.pattern_score),
-        "bullish": float(ps.bullish),
-        "bearish": float(ps.bearish),
-        "sig_count": int(ps.sig_count),
-        "cv_bonus": float(ps.cross_val_bonus),
-        "signals_text": signals_text,
-        "dubai_0": float(dubai_rows.d0) if dubai_rows.d0 else None,
-        "dubai_7d": float(dubai_rows.d7) if dubai_rows.d7 else None,
-        "dubai_30d": float(dubai_rows.d30) if dubai_rows.d30 else None,
-        "dubai_90d": float(dubai_rows.d90) if dubai_rows.d90 else None,
-        "daily_dubai": daily_dubai,
-    }
-
-
 def simulate_cost(term_pct, term_anchor, daily_spot_prices):
-    """Mix cost over duration."""
     if not daily_spot_prices: return None
     spot_pct = (100 - term_pct) / 100.0
     spot_avg = sum(p for _, p in daily_spot_prices) / len(daily_spot_prices)
     return (term_pct / 100.0) * term_anchor + spot_pct * spot_avg
 
-
-def compute_saving(action_type, mission_type, target_pct, duration_days, dubai_at_signal, daily_dubai, horizon_days):
-    """AI 권고 따랐을 때 vs default mix cost saving %.
-
-    Positive = 권고가 default 대비 비용 절감 (good for K-Petroleum)
-    """
+def compute_saving(action_type, mission_type, target_pct, dubai_at_signal, daily_dubai, horizon_days):
     if dubai_at_signal is None or not daily_dubai: return None
-
-    # Limit to horizon
     window = [(d, p) for d, p in daily_dubai if (d - daily_dubai[0][0]).days + 1 <= horizon_days]
     if not window: return None
-
     term_anchor = dubai_at_signal * (1 - TERM_DISCOUNT)
     default_cost = simulate_cost(DEFAULT_TERM_PCT, term_anchor, window)
-
-    # AI 권고에 따른 mix
-    if action_type in ("continue", "pause", "abort", None):
-        return 0.0  # No action taken
+    if not default_cost: return None
+    if action_type in ("continue", "pause", "abort", None): return 0.0
     if mission_type == "HEDGE":
         new_term = target_pct if target_pct else HEDGE_TERM_PCT
     elif mission_type == "OPPORTUNITY":
-        # target_pct는 OPP 시 Spot %
         new_term = (100 - target_pct) if target_pct else OPP_TERM_PCT
-    else:
-        return 0.0
-
+    else: return 0.0
     mission_cost = simulate_cost(new_term, term_anchor, window)
-    if not mission_cost or default_cost == 0: return None
+    if not mission_cost: return None
     return (default_cost - mission_cost) / default_cost * 100
 
 # COMMAND ----------
 
-# Loop — Smoke test 또는 Full
+# MAGIC %md
+# MAGIC ## Step 4: Loop
+
+# COMMAND ----------
+
 import time as _time
-run_id = f"llm_backtest_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}"
-print(f"run_id = {run_id}")
-print(f"Processing {len(sampled_dates)} dates...")
+run_id = f"llm_v6_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}"
+print(f"run_id={run_id}, processing {len(sampled)}...")
 
 results_rows = []
 t0 = _time.time()
-for idx, d in enumerate(sampled_dates):
-    if idx % 10 == 0 and idx > 0:
+for idx, (d, zone) in enumerate(sampled):
+    if idx % 20 == 0 and idx > 0:
         elapsed = _time.time() - t0
-        print(f"  [{idx}/{len(sampled_dates)}] {elapsed:.0f}s elapsed, ETA {elapsed/idx*(len(sampled_dates)-idx):.0f}s")
+        eta = elapsed / idx * (len(sampled) - idx)
+        print(f"  [{idx}/{len(sampled)}] {elapsed:.0f}s, ETA {eta:.0f}s")
 
     ctx = fetch_context(d)
     if ctx is None:
@@ -421,7 +523,8 @@ for idx, d in enumerate(sampled_dates):
             "pattern_score": None, "bullish_score": None, "bearish_score": None,
             "cross_val_bonus": None, "signal_count_90d": None,
             "action_type": None, "mission_type": None, "target_pct": None,
-            "duration_days": None, "confidence_score": None, "reasoning": None,
+            "duration_days": None, "confidence_score": None,
+            "reasoning": f"[zone={zone}] no_context",
             "dubai_at_signal": None, "dubai_7d": None, "dubai_30d": None, "dubai_90d": None,
             "cost_saving_7d": None, "cost_saving_30d": None, "cost_saving_90d": None,
             "llm_error": "no_context",
@@ -429,21 +532,18 @@ for idx, d in enumerate(sampled_dates):
         })
         continue
 
-    # Call LLM
-    llm_out = call_llm(d, ctx["pattern_score"], ctx["bullish"], ctx["bearish"],
-                       ctx["sig_count"], ctx["cv_bonus"], ctx["signals_text"])
+    llm_out = call_llm_v6(d, ctx)
     err = llm_out.get("_error") if "_error" in llm_out else None
     action = llm_out.get("action_type")
     mission = llm_out.get("mission_type")
     target_pct = llm_out.get("target_pct")
     dur = llm_out.get("duration_days") or 30
     conf = llm_out.get("confidence_score")
-    reason = llm_out.get("reasoning", "")[:500]
+    reason = f"[zone={zone}][v6] {(llm_out.get('reasoning') or '')[:480]}"
 
-    # Compute saving per horizon
-    s7  = compute_saving(action, mission, target_pct, dur, ctx["dubai_0"], ctx["daily_dubai"], 7)
-    s30 = compute_saving(action, mission, target_pct, dur, ctx["dubai_0"], ctx["daily_dubai"], 30)
-    s90 = compute_saving(action, mission, target_pct, dur, ctx["dubai_0"], ctx["daily_dubai"], 90)
+    s7 = compute_saving(action, mission, target_pct, ctx["dubai_0"], ctx["daily_dubai"], 7)
+    s30 = compute_saving(action, mission, target_pct, ctx["dubai_0"], ctx["daily_dubai"], 30)
+    s90 = compute_saving(action, mission, target_pct, ctx["dubai_0"], ctx["daily_dubai"], 90)
 
     results_rows.append({
         "run_id": run_id, "sample_idx": idx, "as_of_date": d,
@@ -461,15 +561,11 @@ for idx, d in enumerate(sampled_dates):
     })
 
 elapsed = _time.time() - t0
-print(f"✅ {len(results_rows)} records processed in {elapsed:.0f}s")
+print(f"✅ {len(results_rows)} records in {elapsed:.0f}s")
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Step 5: Write to gold.llm_backtest_predictions
-
-# COMMAND ----------
-
+# Write
 from pyspark.sql.types import (
     StructType, StructField, StringType, IntegerType,
     DateType, DecimalType, TimestampType
@@ -507,67 +603,45 @@ schema = StructType([
     StructField("computed_at", TimestampType(), False),
 ])
 
-typed = []
-for r in results_rows:
-    typed.append((
-        r["run_id"], r["sample_idx"], r["as_of_date"],
-        _dec(r["pattern_score"], 5, 2),
-        _dec(r["bullish_score"], 8, 2),
-        _dec(r["bearish_score"], 8, 2),
-        _dec(r["cross_val_bonus"], 5, 2),
-        r["signal_count_90d"],
-        r["action_type"], r["mission_type"], r["target_pct"], r["duration_days"],
-        _dec(r["confidence_score"], 5, 2),
-        r["reasoning"],
-        _dec(r["dubai_at_signal"], 8, 2),
-        _dec(r["dubai_7d"], 8, 2),
-        _dec(r["dubai_30d"], 8, 2),
-        _dec(r["dubai_90d"], 8, 2),
-        _dec(r["cost_saving_7d"], 6, 3),
-        _dec(r["cost_saving_30d"], 6, 3),
-        _dec(r["cost_saving_90d"], 6, 3),
-        r["llm_error"], r["computed_at"],
-    ))
+typed = [(
+    r["run_id"], r["sample_idx"], r["as_of_date"],
+    _dec(r["pattern_score"], 5, 2), _dec(r["bullish_score"], 8, 2),
+    _dec(r["bearish_score"], 8, 2), _dec(r["cross_val_bonus"], 5, 2),
+    r["signal_count_90d"],
+    r["action_type"], r["mission_type"], r["target_pct"], r["duration_days"],
+    _dec(r["confidence_score"], 5, 2), r["reasoning"],
+    _dec(r["dubai_at_signal"], 8, 2), _dec(r["dubai_7d"], 8, 2),
+    _dec(r["dubai_30d"], 8, 2), _dec(r["dubai_90d"], 8, 2),
+    _dec(r["cost_saving_7d"], 6, 3), _dec(r["cost_saving_30d"], 6, 3),
+    _dec(r["cost_saving_90d"], 6, 3),
+    r["llm_error"], r["computed_at"],
+) for r in results_rows]
 
 df_out = spark.createDataFrame(typed, schema=schema)
 df_out.write.mode("append").saveAsTable(TARGET_TABLE)
-print(f"✅ {len(typed)} rows appended to {TARGET_TABLE}")
+print(f"✅ {len(typed)} rows appended")
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Step 6: Aggregate metrics
-
-# COMMAND ----------
-
+# Quick summary
 summary = spark.sql(f"""
-    SELECT
-        action_type,
-        mission_type,
-        COUNT(*) AS n,
-        ROUND(AVG(confidence_score), 1) AS avg_conf,
-        ROUND(AVG(cost_saving_7d), 3) AS avg_save_7d,
-        ROUND(AVG(cost_saving_30d), 3) AS avg_save_30d,
-        ROUND(AVG(cost_saving_90d), 3) AS avg_save_90d,
-        ROUND(SUM(CASE WHEN cost_saving_30d > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS hit_30d_pct
+    SELECT mission_type, COUNT(*) AS n,
+           ROUND(AVG(confidence_score), 1) AS avg_conf,
+           ROUND(AVG(cost_saving_30d), 3) AS s30,
+           ROUND(SUM(CASE WHEN cost_saving_30d > 0 THEN 1 ELSE 0 END)*100.0/COUNT(*), 1) AS hit_30d
     FROM {TARGET_TABLE}
-    WHERE run_id = '{run_id}'
-    GROUP BY action_type, mission_type
-    ORDER BY action_type, mission_type
+    WHERE run_id = '{run_id}' AND action_type = 'new_mission'
+    GROUP BY mission_type ORDER BY mission_type
 """).collect()
-
-print(f"\n=== Backtest v4 summary (run_id={run_id}) ===")
-print(f"{'action':<14} {'mission':<13} {'n':>3} {'avg_conf':>9} {'save_7d':>9} {'save_30d':>9} {'save_90d':>9} {'hit_30d':>9}")
+print("\n=== v6 Summary ===")
 for r in summary:
-    print(f"{(r.action_type or '-'):<14} {(r.mission_type or '-'):<13} {r.n:>3} "
-          f"{r.avg_conf or 0:>9} {r.avg_save_7d or 0:>9} {r.avg_save_30d or 0:>9} "
-          f"{r.avg_save_90d or 0:>9} {r.hit_30d_pct or 0:>9}%")
+    print(f"  {r.mission_type or '-':<13} n={r.n} conf={r.avg_conf} s30={r.s30} hit30={r.hit_30d}%")
 
 # COMMAND ----------
 
 dbutils.notebook.exit(json.dumps({
-    "run_id": run_id,
-    "n_samples": len(results_rows),
+    "run_id": run_id, "n_samples": len(results_rows),
     "errors": sum(1 for r in results_rows if r["llm_error"]),
     "elapsed_s": round(elapsed, 0),
+    "n_per_zone": N_PER_ZONE,
 }))

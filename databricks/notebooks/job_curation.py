@@ -266,7 +266,7 @@ agg AS (
     FROM signals
 ),
 cross_val AS (
-    -- v6 backtest와 동일 *15 (signal_type 다양성 보상). signal_type DISTINCT로 진짜 다양성 측정.
+    -- backtest와 동일 *15 (signal_type 다양성 보상). signal_type DISTINCT로 진짜 다양성 측정.
     SELECT
         SUM(CASE WHEN n >= 2 THEN 15 ELSE 0 END) AS cross_val_bonus
     FROM (

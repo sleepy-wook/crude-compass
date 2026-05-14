@@ -30,7 +30,7 @@
 | **A9** | **GDELT (감지층) + RSS 보강층 (이벤트 드리븐)** 패턴 | RSS 11 source 직접 fetch 대신 GDELT tone score → alert 시점에만 RSS Knowledge Assistant 입력. 효율 + tone 자동화 |
 | **A10** | **Document Intelligence 시연** (`ai_parse_document()`) — OPEC MOMR PDF | `bronze.opec_momr_parsed` 적재. Technical Capability 추가 점수. |
 | **A11** | **시간 감쇠 시그널별 람다 차등 + UC Function 분리** | `crude_compass.functions.weighted_signal()` 실제 SQL UDF. Genie + curation + backtest 공통 호출. |
-| **A12** | **Backtest 시점 슬라이더 (frontend WhatIf) + Confidence Score UI 노출** | UI 컴포넌트 작동 (실 데이터 v6 298건). Delta Time Travel SQL은 scope-out. |
+| **A12** | **Backtest 시점 슬라이더 (frontend WhatIf) + Confidence Score UI 노출** | UI 컴포넌트 작동 (실 데이터 298건). Delta Time Travel SQL은 scope-out. |
 
 ---
 
@@ -231,15 +231,15 @@ FastAPI broadcast:
 | 2 | **Lakebase Postgres** | **real** | `db/lakebase.py` OAuth pool (max_lifetime=3000), `LakebaseMissionStore` repo, missions DDL. `USE_LAKEBASE=true` flag. |
 | 3 | **Genie Space** | **code real, registration D-2** | `services/genie.py` SDK 호출 + 4-tier fallback (live → fallback_data → fallback_text → fallback). `GENIE_SPACE_ID` env. |
 | 4 | **AgentBricks Knowledge Assistant** | **D-2 manual** | UC Volume에 OPEC MOMR PDF 1-3개 적재 + Knowledge Assistant endpoint. 공식 AgentBricks 충족 1개 |
-| 5 | **Foundation Model API** | **real** | `databricks-claude-haiku-4-5` 직접 호출 — mission_plan.py + recommend_now + backtest v6 3곳. |
+| 5 | **Foundation Model API** | **real** | `databricks-claude-haiku-4-5` 직접 호출 — mission_plan.py + recommend_now + backtest 3곳. |
 | 6 | **Document Intelligence** | **real** | `ai_parse_document()` SQL 한 줄 — `bronze.opec_momr_parsed` 적재 (35 PDF 처리). |
 | 7 | **UC Function** | **real** | `crude_compass.functions.weighted_signal()` 람다 차등 시간 감쇠. curation + backtest 공통. |
 | 8 | **Lakeflow Jobs** | **real** | 16 YAML, AIS + OilPrice UNPAUSED 자동 5분 cron. |
-| 9 | **Backtest v6** | **real** | 298건 stratified samples, 75% hit rate, 7년 4개월. `gold.llm_backtest_predictions` 적재. |
+| 9 | **Backtest** | **real** | 298건 stratified samples, 75% hit rate, 7년 4개월. `gold.llm_backtest_predictions` 적재. |
 | - | ~~Supervisor Agent~~ | **scope-out** | 미등록. backend orchestration으로 대체 (Mission Plan + Genie + Knowledge Assistant 백엔드 호출). |
 | - | ~~Custom Agent~~ | **scope-out** | Foundation Model API 직접 호출이 cost-effective. Agent Bricks Custom Agent 등록은 Sprint 5 swap. |
 | - | ~~MLflow tracking~~ | **scope-out** | Delta append만, MLflow run tracking 미구현. |
-| - | ~~Self-Critique Agent~~ | **mock** | What-If 페이지 v6 backtest 결과 그대로 표시 (75% hit, 298건 등). |
+| - | ~~Self-Critique Agent~~ | **mock** | What-If 페이지 backtest 결과 그대로 표시 (75% hit, 298건 등). |
 
 ### Mission Plan Agent (Agent 3) — Real 구현
 
