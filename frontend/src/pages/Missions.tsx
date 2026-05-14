@@ -61,7 +61,7 @@ export function MissionsList() {
               <h3 className="font-display text-lg font-semibold text-ink mb-1.5 line-clamp-2">
                 {m.goal_text}
               </h3>
-              <p className="text-sm text-ink-2 leading-relaxed line-clamp-2 mb-4">
+              <p className="text-sm text-ink-2 leading-relaxed line-clamp-3 mb-4">
                 {m.reasoning}
               </p>
 
