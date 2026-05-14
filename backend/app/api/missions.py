@@ -24,6 +24,7 @@ from app.schemas.mission import (
     MissionStatus,
     MissionType,
     MissionUrgency,
+    SignalContext,
     PivotEntry,
 )
 from app.services.mission_plan import call_mission_plan_agent
@@ -267,11 +268,15 @@ async def recommend(payload: MissionPlanInput) -> dict:
 # Demo-friendly: no-body wrapper (자동 demo signals + active mission 추론)
 # ────────────────────────────────────────────────────────────────────────
 class RecommendNowRequest(BaseModel):
-    """Discovery '지금 새 추천 생성' 버튼이 호출. 모두 optional override."""
+    """Discovery '지금 새 추천 생성' 버튼이 호출. 모두 optional override.
+
+    default: silver.signal_events_decayed 최근 30일 top 20 자동 fetch.
+    fetch 실패 또는 use_demo_signals=true 시 hardcoded _DEMO_SIGNALS fallback.
+    """
     pattern_score: float | None = None
     bullish_score: float | None = None
     bearish_score: float | None = None
-    use_demo_signals: bool = True  # False면 빈 signals → LLM 추론에 의존
+    use_demo_signals: bool = False  # ⭐ default 변경: silver fetch 사용
 
 
 # 데모 narrative anchor signals (시나리오 §14 Phase 4 핵심 시그널)
@@ -311,31 +316,126 @@ _DEMO_SIGNALS = [
 ]
 
 
+def _fetch_top_signals_from_silver(limit: int = 20) -> list[SignalContext]:
+    """silver.signal_events_decayed 최근 30일 |weighted_contribution| top N → SignalContext.
+
+    실패 시 RuntimeError raise. 호출자가 fallback 처리.
+    """
+    import asyncio  # noqa: F401 (caller threads)
+    from datetime import datetime
+    from app.api.pattern import _q  # 같은 Databricks SQL helper 재사용
+    from app.schemas.mission import SignalContext
+
+    sql = f"""
+      SELECT
+        s.signal_id,
+        CAST(s.event_date AS STRING) AS event_date_iso,
+        s.signal_type,
+        s.direction,
+        CAST(s.raw_intensity AS DOUBLE) AS importance,
+        COALESCE(a.category,
+          CASE s.signal_type
+            WHEN 'eia_inventory' THEN 'supply'
+            WHEN 'opec_momr'     THEN 'demand'
+            WHEN 'fx_krw_usd'    THEN 'macro'
+            WHEN 'ais_traffic'   THEN 'geopolitical'
+            WHEN 'price_spike'   THEN 'market'
+            ELSE 'unknown'
+          END) AS category,
+        COALESCE(a.title,
+          CONCAT(s.signal_type, ' ', CAST(s.event_date AS STRING),
+                 ' weighted=', CAST(s.weighted_contribution AS STRING))) AS title
+      FROM crude_compass.silver.signal_events_decayed s
+      LEFT JOIN crude_compass.bronze.news_articles a
+        ON s.signal_id = a.article_id AND s.signal_type = 'news_tone'
+      WHERE s.event_date >= CURRENT_DATE() - INTERVAL 30 DAYS
+        AND s.direction != 'neutral'
+      ORDER BY ABS(s.weighted_contribution) DESC
+      LIMIT {limit}
+    """
+    rows = _q(sql, timeout="20s")
+    out: list[SignalContext] = []
+    for r in rows:
+        try:
+            event_dt = datetime.fromisoformat(str(r[1])).replace(tzinfo=timezone.utc)
+        except Exception:
+            event_dt = datetime.now(timezone.utc)
+        out.append(SignalContext(
+            signal_id=str(r[0]),
+            published_at=event_dt,
+            source=str(r[2]),
+            direction=str(r[3]),
+            importance=int(float(r[4] or 0)),
+            category=str(r[5]),
+            title=(str(r[6])[:200] if r[6] else f"{r[2]} signal"),
+        ))
+    return out
+
+
+def _fetch_latest_pattern_score() -> dict | None:
+    """gold.daily_risk_score 최신 1행 — pattern_score/bullish/bearish/signal_count_90d/cross_val."""
+    from app.api.pattern import _q
+    sql = """
+      SELECT
+        CAST(pattern_score AS DOUBLE),
+        CAST(bullish_score AS DOUBLE),
+        CAST(bearish_score AS DOUBLE),
+        CAST(cross_val_bonus AS DOUBLE),
+        CAST(signal_count_90d AS INT)
+      FROM crude_compass.silver.pattern_scores_daily
+      ORDER BY date DESC
+      LIMIT 1
+    """
+    rows = _q(sql, timeout="15s")
+    if not rows:
+        return None
+    r = rows[0]
+    return {
+        "pattern_score": float(r[0] or 0),
+        "bullish_score": float(r[1] or 0),
+        "bearish_score": float(r[2] or 0),
+        "cross_val_bonus": float(r[3] or 0),
+        "signal_count_90d": int(r[4] or 0),
+    }
+
+
 @router.post("/recommend_now")
 async def recommend_now(body: RecommendNowRequest = RecommendNowRequest()) -> dict:
     """No-body wrapper for demo '지금 새 추천 생성' button.
 
-    내부에서 (a) demo signals seed (b) active mission (있으면) (c) Pattern Score override
-    → MissionPlanInput 구성 → LLM 호출 → 결과 반환.
+    Flow:
+      1. silver 최근 30일 top 20 signals 자동 fetch (use_demo_signals=False default)
+      2. 실패 또는 비어있으면 _DEMO_SIGNALS hardcoded fallback
+      3. gold.daily_risk_score 최신 pattern/bullish/bearish 자동 채움
+      4. active mission 있으면 Pivot 검토 candidate
+      5. LLM 호출 → MissionPlanOutput
 
-    LLM cold start ~5-10s 예상. frontend는 mutation pending spinner.
+    Response.signals_source = 'silver' | 'demo_fallback' — 평가위원 검증용.
     """
+    import asyncio
+    import logging
     from datetime import datetime
-    from app.schemas.mission import SignalContext
 
-    # default values for demo (Phase 4 narrative와 일치 — Pattern Score 82 = HEDGE zone)
-    pattern_score = body.pattern_score if body.pattern_score is not None else 82.0
-    bullish_score = body.bullish_score if body.bullish_score is not None else 78.0
-    bearish_score = body.bearish_score if body.bearish_score is not None else 22.0
+    logger = logging.getLogger(__name__)
 
-    # active mission 있으면 Pivot 검토 candidate
-    store = get_store()
-    actives = await store.get_active()
-    active_mission = actives[0] if actives else None
+    top_signals: list[SignalContext] = []
+    pattern_meta: dict | None = None
+    signals_source = "demo_fallback"
 
-    # top_signals — demo 모드 시 hardcoded narrative anchor
-    top_signals = []
-    if body.use_demo_signals:
+    if not body.use_demo_signals:
+        try:
+            top_signals = await asyncio.to_thread(_fetch_top_signals_from_silver, 20)
+            if top_signals:
+                signals_source = "silver"
+        except Exception as e:
+            logger.warning("silver fetch failed → demo fallback: %s", e)
+        try:
+            pattern_meta = await asyncio.to_thread(_fetch_latest_pattern_score)
+        except Exception as e:
+            logger.warning("pattern score fetch failed: %s", e)
+
+    # silver 비어있거나 실패 → hardcoded fallback
+    if not top_signals:
         now = datetime.now(timezone.utc)
         top_signals = [
             SignalContext(
@@ -349,13 +449,34 @@ async def recommend_now(body: RecommendNowRequest = RecommendNowRequest()) -> di
             )
             for s in _DEMO_SIGNALS
         ]
+        signals_source = "demo_fallback"
+
+    # pattern/bullish/bearish: explicit override > silver pattern_meta > demo default 82/78/22
+    pattern_score = (
+        body.pattern_score if body.pattern_score is not None
+        else (pattern_meta["pattern_score"] if pattern_meta else 82.0)
+    )
+    bullish_score = (
+        body.bullish_score if body.bullish_score is not None
+        else (pattern_meta["bullish_score"] if pattern_meta else 78.0)
+    )
+    bearish_score = (
+        body.bearish_score if body.bearish_score is not None
+        else (pattern_meta["bearish_score"] if pattern_meta else 22.0)
+    )
+    cross_val_bonus = (pattern_meta["cross_val_bonus"] if pattern_meta else 15.0)
+    signal_count_90d = (pattern_meta["signal_count_90d"] if pattern_meta else len(top_signals))
+
+    store = get_store()
+    actives = await store.get_active()
+    active_mission = actives[0] if actives else None
 
     payload = MissionPlanInput(
         pattern_score=pattern_score,
         bullish_score=bullish_score,
         bearish_score=bearish_score,
-        cross_val_bonus=15.0 if body.use_demo_signals else 0.0,
-        signal_count_90d=len(top_signals),
+        cross_val_bonus=cross_val_bonus,
+        signal_count_90d=signal_count_90d,
         top_signals=top_signals,
         active_mission=active_mission,
     )
@@ -389,10 +510,14 @@ async def recommend_now(body: RecommendNowRequest = RecommendNowRequest()) -> di
             "mission": mission.model_dump(mode="json"),
             "confidence_score": result.confidence_score,
             "llm_endpoint": "databricks-claude-haiku-4-5",
+            "signals_source": signals_source,  # 'silver' | 'demo_fallback'
+            "signal_count": len(top_signals),
         }
 
     return {
         "action": result.action_type,
         "output": result.model_dump(mode="json"),
         "llm_endpoint": "databricks-claude-haiku-4-5",
+        "signals_source": signals_source,
+        "signal_count": len(top_signals),
     }

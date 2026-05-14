@@ -47,66 +47,161 @@ print(f"run_id: {run_id}")
 
 step1_sql = f"""
 INSERT INTO crude_compass.silver.signal_events_decayed
+WITH
+  -- 1. GDELT news (감지층, λ=0.046)
+  news_signals AS (
+    SELECT
+      DATE(published_at) AS event_date,
+      'news_tone' AS signal_type,
+      article_id AS signal_id,
+      CAST(importance AS DOUBLE) AS raw_intensity,
+      direction,
+      CASE tier WHEN 'A' THEN 1.0 WHEN 'B' THEN 0.8 ELSE 0.7 END AS source_credibility
+    FROM crude_compass.bronze.news_articles
+    WHERE importance >= 50
+      AND DATE(published_at) >= CURRENT_DATE() - INTERVAL 90 DAYS
+  ),
+  -- 2. EIA weekly inventory (fundamentals, λ=0.012)
+  eia_signals AS (
+    SELECT
+      week_ending AS event_date,
+      'eia_inventory' AS signal_type,
+      CONCAT('eia_', series_id, '_', CAST(week_ending AS STRING)) AS signal_id,
+      LEAST(100.0, 60.0 + ABS(CAST(delta_vs_prev_wk AS DOUBLE)) / 500.0) AS raw_intensity,
+      CASE WHEN delta_vs_prev_wk > 0 THEN 'bearish'
+           WHEN delta_vs_prev_wk < 0 THEN 'bullish' ELSE 'neutral' END AS direction,
+      1.0 AS source_credibility
+    FROM crude_compass.bronze.eia_inventory
+    WHERE inventory_type = 'commercial'
+      AND ABS(delta_vs_prev_wk) > 2000
+      AND week_ending >= CURRENT_DATE() - INTERVAL 90 DAYS
+  ),
+  -- 3. OPEC MOMR monthly (fundamentals, λ=0.012)
+  opec_signals AS (
+    SELECT
+      TO_DATE(CONCAT(report_month, '-01'), 'yyyy-MM-dd') AS event_date,
+      'opec_momr' AS signal_type,
+      CONCAT('opec_', report_month) AS signal_id,
+      70.0 AS raw_intensity,
+      'bullish' AS direction,
+      1.0 AS source_credibility
+    FROM crude_compass.bronze.opec_momr_parsed
+    WHERE forecast_demand_kbbl_d IS NOT NULL
+      AND saudi_production_kbbl_d IS NOT NULL
+      AND forecast_demand_kbbl_d > saudi_production_kbbl_d * 11.5
+      AND TO_DATE(CONCAT(report_month, '-01'), 'yyyy-MM-dd') >= CURRENT_DATE() - INTERVAL 90 DAYS
+  ),
+  -- 4. FX KRW/USD daily delta (macro, λ=0.023)
+  fx_signals AS (
+    SELECT
+      date AS event_date,
+      'fx_krw_usd' AS signal_type,
+      CONCAT('fx_', CAST(date AS STRING)) AS signal_id,
+      55.0 AS raw_intensity,
+      CASE WHEN rate - LAG(rate) OVER (ORDER BY date) > rate * 0.005 THEN 'bullish'
+           WHEN rate - LAG(rate) OVER (ORDER BY date) < -rate * 0.005 THEN 'bearish'
+           ELSE 'neutral' END AS direction,
+      0.8 AS source_credibility
+    FROM crude_compass.bronze.fx_rates
+    WHERE pair = 'USD/KRW'
+      AND date >= CURRENT_DATE() - INTERVAL 90 DAYS
+  ),
+  -- 5. AIS K-Petroleum 5척 daily aggregate (leading, λ=0.023, D-7)
+  ais_daily AS (
+    SELECT
+      DATE(fetched_at) AS event_date,
+      COUNT(DISTINCT CASE WHEN in_hormuz_bbox THEN mmsi END) AS hormuz_count,
+      COUNT(DISTINCT CASE WHEN status = 'stranded' THEN mmsi END) AS stranded_count,
+      AVG(CAST(speed_knots AS DOUBLE)) AS avg_speed,
+      COUNT(*) AS row_count
+    FROM crude_compass.bronze.ais_positions
+    WHERE DATE(fetched_at) >= CURRENT_DATE() - INTERVAL 90 DAYS
+    GROUP BY DATE(fetched_at)
+    HAVING COUNT(*) >= 5
+  ),
+  ais_signals AS (
+    SELECT
+      event_date,
+      'ais_traffic' AS signal_type,
+      CONCAT('ais_', CAST(event_date AS STRING)) AS signal_id,
+      -- 정체(stranded) + 호르무즈 통과량 감소 = bullish 강도
+      LEAST(100.0, 50.0 + stranded_count * 15.0
+            + GREATEST(0, 3 - hormuz_count) * 10.0) AS raw_intensity,
+      CASE WHEN stranded_count >= 2 OR hormuz_count <= 2 THEN 'bullish'
+           WHEN hormuz_count >= 4 AND stranded_count = 0 THEN 'bearish'
+           ELSE 'neutral' END AS direction,
+      0.7 AS source_credibility
+    FROM ais_daily
+  ),
+  -- 6. oil_prices 5min spike count daily aggregate (reactive, λ=0.046)
+  spike_daily AS (
+    SELECT
+      DATE(fetched_at) AS event_date,
+      SUM(CASE WHEN delta_pct_5min >= 2.0 THEN 1 ELSE 0 END) AS up_spikes,
+      SUM(CASE WHEN delta_pct_5min <= -2.0 THEN 1 ELSE 0 END) AS down_spikes,
+      MAX(CAST(ABS(delta_pct_5min) AS DOUBLE)) AS max_abs_delta
+    FROM crude_compass.bronze.oil_prices
+    WHERE ticker IN ('BRENT_CRUDE_USD', 'DUBAI_CRUDE_USD')
+      AND delta_pct_5min IS NOT NULL
+      AND DATE(fetched_at) >= CURRENT_DATE() - INTERVAL 90 DAYS
+    GROUP BY DATE(fetched_at)
+    HAVING SUM(CASE WHEN ABS(delta_pct_5min) >= 2.0 THEN 1 ELSE 0 END) > 0
+  ),
+  spike_signals AS (
+    SELECT
+      event_date,
+      'price_spike' AS signal_type,
+      CONCAT('spike_', CAST(event_date AS STRING)) AS signal_id,
+      LEAST(100.0, 60.0 + (up_spikes + down_spikes) * 5.0 + max_abs_delta * 3.0) AS raw_intensity,
+      CASE WHEN up_spikes > down_spikes THEN 'bullish'
+           WHEN down_spikes > up_spikes THEN 'bearish'
+           ELSE 'neutral' END AS direction,
+      1.0 AS source_credibility
+    FROM spike_daily
+  ),
+  unioned AS (
+    SELECT * FROM news_signals WHERE direction IN ('bullish','bearish','neutral')
+    UNION ALL SELECT * FROM eia_signals WHERE direction != 'neutral'
+    UNION ALL SELECT * FROM opec_signals
+    UNION ALL SELECT * FROM fx_signals WHERE direction != 'neutral'
+    UNION ALL SELECT * FROM ais_signals WHERE direction != 'neutral'
+    UNION ALL SELECT * FROM spike_signals WHERE direction != 'neutral'
+  )
 SELECT
-    DATE(published_at) AS event_date,
-    -- signal_type 매핑 (시그널 source 기반)
-    CASE
-        WHEN source LIKE 'GDELT_opec%'    THEN 'opec_momr'
-        WHEN source LIKE 'GDELT_eia%'     THEN 'eia_inventory'
-        WHEN source LIKE 'GDELT_%'        THEN 'news_tone'
-        WHEN source LIKE 'OPEC%'          THEN 'opec_momr'
-        WHEN source LIKE 'EIA%'           THEN 'eia_inventory'
-        WHEN source LIKE 'AIS%'           THEN 'ais_traffic'
-        WHEN source LIKE 'OilPriceAPI%'   THEN 'price_spike'
-        WHEN source LIKE 'ECOS%'          THEN 'fx_krw_usd'
-        ELSE 'news_tone'
-    END AS signal_type,
-    article_id AS signal_id,
-    CAST(importance AS DECIMAL(6, 2)) AS raw_intensity,
-    direction,
-    -- Source credibility (Tier A=1.0, B=0.8)
-    CAST(CASE tier WHEN 'A' THEN 1.0 WHEN 'B' THEN 0.8 ELSE 0.7 END AS DECIMAL(3, 2)) AS source_credibility,
-    -- days_ago (current run 시점 기준)
-    CAST(DATEDIFF(CURRENT_DATE(), DATE(published_at)) AS INT) AS days_ago,
-    -- 람다 (signal_type별)
-    CAST(CASE
-        WHEN source LIKE 'GDELT_opec%' OR source LIKE 'OPEC%'    THEN 0.012
-        WHEN source LIKE 'GDELT_eia%'  OR source LIKE 'EIA%'     THEN 0.012
-        WHEN source LIKE 'AIS%'                                  THEN 0.023
-        WHEN source LIKE 'OilPriceAPI%'                          THEN 0.046
-        WHEN source LIKE 'ECOS%'                                 THEN 0.023
+  event_date,
+  signal_type,
+  signal_id,
+  CAST(raw_intensity AS DECIMAL(6, 2)) AS raw_intensity,
+  direction,
+  CAST(source_credibility AS DECIMAL(3, 2)) AS source_credibility,
+  CAST(DATEDIFF(CURRENT_DATE(), event_date) AS INT) AS days_ago,
+  CAST(CASE signal_type
+        WHEN 'eia_inventory' THEN 0.012
+        WHEN 'opec_momr'     THEN 0.012
+        WHEN 'fx_krw_usd'    THEN 0.023
+        WHEN 'ais_traffic'   THEN 0.023
+        WHEN 'price_spike'   THEN 0.046
         ELSE 0.046
-    END AS DECIMAL(6, 4)) AS lambda_used,
-    -- applied_weight = exp(-λ × days_ago)
-    CAST(EXP(-CASE
-        WHEN source LIKE 'GDELT_opec%' OR source LIKE 'OPEC%'    THEN 0.012
-        WHEN source LIKE 'GDELT_eia%'  OR source LIKE 'EIA%'     THEN 0.012
-        WHEN source LIKE 'AIS%'                                  THEN 0.023
-        WHEN source LIKE 'OilPriceAPI%'                          THEN 0.046
-        WHEN source LIKE 'ECOS%'                                 THEN 0.023
+       END AS DECIMAL(6, 4)) AS lambda_used,
+  CAST(EXP(-CASE signal_type
+        WHEN 'eia_inventory' THEN 0.012
+        WHEN 'opec_momr'     THEN 0.012
+        WHEN 'fx_krw_usd'    THEN 0.023
+        WHEN 'ais_traffic'   THEN 0.023
+        WHEN 'price_spike'   THEN 0.046
         ELSE 0.046
-    END * DATEDIFF(CURRENT_DATE(), DATE(published_at))) AS DECIMAL(6, 4)) AS applied_weight,
-    -- weighted_contribution: UC function × direction sign
-    CAST(
-        crude_compass.functions.weighted_signal(
-            CAST(importance AS DOUBLE),
-            CAST(DATEDIFF(CURRENT_DATE(), DATE(published_at)) AS INT),
-            CASE
-                WHEN source LIKE 'GDELT_opec%' OR source LIKE 'OPEC%'   THEN 'opec_momr'
-                WHEN source LIKE 'GDELT_eia%'  OR source LIKE 'EIA%'    THEN 'eia_inventory'
-                WHEN source LIKE 'AIS%'                                 THEN 'ais_traffic'
-                WHEN source LIKE 'OilPriceAPI%'                         THEN 'price_spike'
-                WHEN source LIKE 'ECOS%'                                THEN 'fx_krw_usd'
-                ELSE 'news_tone'
-            END,
-            CAST(CASE tier WHEN 'A' THEN 1.0 WHEN 'B' THEN 0.8 ELSE 0.7 END AS DOUBLE)
-        ) * CASE direction WHEN 'bullish' THEN 1 WHEN 'bearish' THEN -1 ELSE 0 END
-    AS DECIMAL(8, 2)) AS weighted_contribution,
-    current_timestamp() AS computed_at,
-    '{run_id}' AS job_run_id
-FROM crude_compass.bronze.news_articles
-WHERE importance >= 50
-  AND DATE(published_at) >= CURRENT_DATE() - INTERVAL 90 DAYS
+       END * DATEDIFF(CURRENT_DATE(), event_date)) AS DECIMAL(6, 4)) AS applied_weight,
+  CAST(
+    crude_compass.functions.weighted_signal(
+      CAST(raw_intensity AS DOUBLE),
+      CAST(DATEDIFF(CURRENT_DATE(), event_date) AS INT),
+      signal_type,
+      CAST(source_credibility AS DOUBLE)
+    ) * CASE direction WHEN 'bullish' THEN 1 WHEN 'bearish' THEN -1 ELSE 0 END
+  AS DECIMAL(8, 2)) AS weighted_contribution,
+  current_timestamp() AS computed_at,
+  '{run_id}' AS job_run_id
+FROM unioned
 """
 
 # Idempotent: run_id별 중복 적재. 기존 run_id 있으면 스킵하고 다시 적재.
@@ -145,9 +240,21 @@ WITH signals AS (
     SELECT
         s.weighted_contribution,
         s.direction,
-        a.category
+        s.signal_type,
+        -- non-news signal_type은 news_articles에 join 안 됨 → fallback 매핑
+        COALESCE(a.category,
+          CASE s.signal_type
+            WHEN 'eia_inventory' THEN 'supply'
+            WHEN 'opec_momr'     THEN 'demand'
+            WHEN 'fx_krw_usd'    THEN 'macro'
+            WHEN 'ais_traffic'   THEN 'geopolitical'
+            WHEN 'price_spike'   THEN 'market'
+            ELSE 'unknown'
+          END
+        ) AS category
     FROM crude_compass.silver.signal_events_decayed s
-    JOIN crude_compass.bronze.news_articles a ON s.signal_id = a.article_id
+    LEFT JOIN crude_compass.bronze.news_articles a
+      ON s.signal_id = a.article_id AND s.signal_type = 'news_tone'
     WHERE s.job_run_id = '{run_id}'
 ),
 agg AS (
@@ -159,10 +266,11 @@ agg AS (
     FROM signals
 ),
 cross_val AS (
+    -- v6 backtest와 동일 *15 (signal_type 다양성 보상). signal_type DISTINCT로 진짜 다양성 측정.
     SELECT
-        SUM(CASE WHEN n >= 2 THEN 5 ELSE 0 END) AS cross_val_bonus
+        SUM(CASE WHEN n >= 2 THEN 15 ELSE 0 END) AS cross_val_bonus
     FROM (
-        SELECT category, direction, COUNT(*) AS n
+        SELECT category, direction, COUNT(DISTINCT signal_type) AS n
         FROM signals
         WHERE direction IN ('bullish', 'bearish')
         GROUP BY category, direction
