@@ -38,19 +38,33 @@ cd backend && uv lock --check && uv sync
 
 ## 2. Apps Deploy
 
+⚠️ **2026-05 정정**: `--source-code-path .` (local) **안 됨**. 반드시 `databricks sync`로
+Workspace path에 업로드 후 그 path를 `--source-code-path` 인자로 사용.
+
 ### 2.1 첫 배포 (App 생성)
 ```bash
-# project root에서 실행
+# (0) frontend build
+cd frontend && npm run build && cd ..
+
+# (1) App 생성 (1회만)
 databricks --profile crude-compass apps create crude-compass
+
+# (2) local → Workspace sync (필수)
+databricks --profile crude-compass sync . \
+  /Workspace/Users/hyeongwook.lee@lginnotek.com/databricks_apps/crude-compass
+
+# (3) deploy (Workspace path 사용)
 databricks --profile crude-compass apps deploy crude-compass \
-  --source-code-path . \
-  --description "Crude Compass — Pre-emptive Bidirectional Decision Agent"
+  --source-code-path /Workspace/Users/hyeongwook.lee@lginnotek.com/databricks_apps/crude-compass
 ```
 
 ### 2.2 재배포 (코드 변경 후)
 ```bash
 cd frontend && npm run build && cd ..
-databricks --profile crude-compass apps deploy crude-compass --source-code-path .
+databricks --profile crude-compass sync . \
+  /Workspace/Users/hyeongwook.lee@lginnotek.com/databricks_apps/crude-compass
+databricks --profile crude-compass apps deploy crude-compass \
+  --source-code-path /Workspace/Users/hyeongwook.lee@lginnotek.com/databricks_apps/crude-compass
 ```
 
 ### 2.3 배포 상태 확인

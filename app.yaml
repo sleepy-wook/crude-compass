@@ -1,14 +1,26 @@
 # Databricks Apps deployment manifest — Crude Compass
 #
-# Deploy:
-#   databricks --profile crude-compass apps deploy crude-compass --source-code-path .
+# Deploy (정확한 절차, 2026-05 docs 검증):
+#   # (0) frontend build
+#   cd frontend && npm run build && cd ..
+#   # (1) App 생성 (1회만)
+#   databricks --profile crude-compass apps create crude-compass
+#   # (2) local → Workspace sync (필수 — --source-code-path .는 안 됨)
+#   databricks --profile crude-compass sync . \
+#     /Workspace/Users/<your-email>/databricks_apps/crude-compass
+#   # (3) deploy (--source-code-path는 Workspace path)
+#   databricks --profile crude-compass apps deploy crude-compass \
+#     --source-code-path /Workspace/Users/<your-email>/databricks_apps/crude-compass
 #
 # Public URL: https://crude-compass-<workspace-id>.databricksapps.com
 # Slack Interactivity URL → Slack app config "Request URL":
 #   https://<public-url>/api/slack/interactive
 #
-# Secrets: Workspace UI → App → "Resources" tab → "Add secret"
-# Scope=crude, Key 모두 명시. valueFrom으로 환경변수에 inject.
+# Resources (App overview → "Resources" 탭 → "Add resource"):
+# - Secret resource × 11 (lakebase_* / slack_* / genie_space_id / *_api_key) — scope=crude
+# - Genie space resource (D-2 등록 후) — key=genie_space_id, permission=Can run
+# - Serving endpoint resource × 2 (databricks-claude-haiku-4-5, KA endpoint after D-2)
+# 매 resource 추가 후 재배포 필요.
 
 command:
   - uvicorn

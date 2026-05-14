@@ -134,10 +134,18 @@ LIMIT 30
 6. **Certified Queries** 탭: 위 5개 query 각각 추가
    - Query 1 → "Test" 1번 실행 후 "Certify" 클릭
    - Query 2-5 동일
-7. **Save Space** → URL의 `spaces/<ID>` 부분 복사 — 이게 `GENIE_SPACE_ID`
-8. `.env` 또는 Apps deploy 시 `GENIE_SPACE_ID=<id>` 환경변수 주입
-9. Backend `/api/genie/health` 호출 → `enabled: true` 확인 (live 모드)
-10. Frontend WhatIf 페이지 Genie widget → 자연어 질의 1회 시연
+7. **Save Space** → URL의 `/genie/rooms/<SPACE_ID>` 부분 복사 — 이게 `GENIE_SPACE_ID`
+   - ⚠️ 2026-05 docs: URL path가 `/genie/rooms/` (구버전 `/spaces/` 아님)
+8. **App Resources 추가** (Workspace UI → Apps → crude-compass → Resources → Add resource):
+   - Type: **Genie space**, permission: **Can run**, resource key: `genie_space_id`
+9. **App 재배포** (resource 변경 시 필수):
+   ```
+   databricks apps deploy crude-compass --source-code-path /Workspace/.../crude-compass
+   ```
+10. **권한 확인**: App service principal에 catalog 권한 별도 grant
+    - Catalog Explorer → `crude_compass` → Permissions → app SP에 USE CATALOG / USE SCHEMA / SELECT
+11. `curl https://<apps-url>/api/genie/health` → `enabled: true` 확인 (live 모드)
+12. Frontend WhatIf 페이지 Genie widget → 자연어 질의 1회 시연
 
 ## 평가위원 narrate 시 활용
 
