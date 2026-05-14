@@ -424,6 +424,65 @@ Databricks Genie Space 자연어 질의 — live 호출 또는 graceful fallback
 
 ---
 
+## 7.5 Reactive Trigger (Phase 6 — OilPriceAPI spike)
+
+### `POST /api/reactive/demo-spike`
+데모용 인위 spike alert trigger — bronze 데이터 변경 없이 EventBus `reactive.alert` 이벤트만 발행.
+`DEMO_MODE=true` 필요 (production 404).
+
+**Query params**: `ticker` (default `BRENT_CRUDE_USD`), `delta` (default 2.5)
+
+**Response 200**:
+```json
+{
+  "demo": true,
+  "broadcast": "reactive.alert",
+  "ticker": "BRENT_CRUDE_USD",
+  "delta_pct_5min": 2.5
+}
+```
+
+데모 시 narrator 1줄: "Brent 5% spike 감지하면 즉시 alert. 시연합니다." → curl POST → frontend 우상단 toast 즉시 표시.
+
+---
+
+### `POST /api/reactive/check-spike`
+시나리오 §15 Reactive Trigger — bronze.oil_prices 최근 1h 내 |delta_pct_5min| ≥ 2% spike scan.
+
+Spike 발견 시 **EventBus `reactive.alert` event broadcast** → WebSocket frontend toast + Slack push.
+
+**Response 200**:
+```json
+{
+  "checked_at": "2026-05-14T12:34:56Z",
+  "spikes_found": 1,
+  "latest_spike": {
+    "ticker": "BRENT_CRUDE_USD",
+    "price_usd": 108.50,
+    "delta_pct_5min": 2.45,
+    "fetched_at": "2026-05-14T12:30:00Z"
+  },
+  "bus_published": true
+}
+```
+
+**Event schema** (`reactive.alert`):
+```json
+{
+  "type": "reactive.alert",
+  "title": "🚨 BRENT_CRUDE_USD +2.45% spike",
+  "body": "현재 가격 $108.50. 5분 단위 bullish 시그널 감지. 진행 중 Mission Pivot 검토 권고.",
+  "ticker": "BRENT_CRUDE_USD",
+  "price_usd": 108.50,
+  "delta_pct_5min": 2.45,
+  "direction": "bullish"
+}
+```
+
+**Threshold**: `SPIKE_THRESHOLD_PCT = 2.0` (절대값). Lookback 1 hour.
+
+---
+
 ## 7.4 Fleet Endpoints (K-Petroleum 5척 lifecycle)
 
 ### `GET /api/fleet/positions`

@@ -168,4 +168,14 @@ export type WSEvent =
   | { type: "mission.pivoted"; mission: Mission; pivot?: PivotEntry }
   | { type: "mission.updated"; mission: Mission }
   | { type: "pattern.changed"; pattern_score: number; mission_type: MissionType }
-  | { type: "reactive.alert"; title: string; body: string; related_mission_id?: string };
+  | {
+      type: "reactive.alert";
+      title: string;
+      body: string;
+      related_mission_id?: string;
+      // Phase 6 OilPriceAPI spike payload
+      ticker?: string;
+      price_usd?: number;
+      delta_pct_5min?: number;
+      direction?: "bullish" | "bearish";
+    };
