@@ -121,6 +121,44 @@ CREATE INDEX IF NOT EXISTS idx_discovery_date
     ON discovery_feed_items (feed_date DESC);
 
 -- ────────────────────────────────────────────────────────────────────
+-- 5. backtest_predictions  (AI-generated batch output)
+-- ────────────────────────────────────────────────────────────────────
+-- LLM (Foundation Model API) backtest run의 predictions 결과.
+-- AI-generated content → operational OLTP (정석 Lakebase).
+-- Read pattern: WhatIf 페이지 진입 시 300 rows fetch (ms latency 필요).
+-- Write pattern: backtest notebook batch (1 run = ~300 INSERT).
+CREATE TABLE IF NOT EXISTS backtest_predictions (
+    id                BIGSERIAL    PRIMARY KEY,
+    run_id            VARCHAR(80)  NOT NULL,
+    as_of_date        DATE         NOT NULL,
+    zone              VARCHAR(10),
+    pattern_score     NUMERIC(5,2),
+    confidence_score  NUMERIC(5,2),
+    action_type       VARCHAR(20),
+    mission_type      VARCHAR(20),
+    target_pct        INT,
+    duration_days     INT,
+    saving_7d_pct     NUMERIC(8,4),
+    saving_30d_pct    NUMERIC(8,4),
+    saving_90d_pct    NUMERIC(8,4),
+    dubai_at_signal_usd  NUMERIC(8,2),
+    dubai_30d_usd     NUMERIC(8,2),
+    dubai_90d_usd     NUMERIC(8,2),
+    reasoning         TEXT,
+    computed_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT chk_bt_zone CHECK (zone IS NULL OR zone IN ('HIGH', 'MID', 'LOW')),
+    CONSTRAINT chk_bt_action CHECK (action_type IS NULL OR action_type IN ('new_mission', 'continue', 'no_action')),
+    CONSTRAINT chk_bt_mission_type CHECK (mission_type IS NULL OR mission_type IN ('HEDGE', 'OPPORTUNITY'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_backtest_run_date
+    ON backtest_predictions (run_id, as_of_date DESC);
+
+CREATE INDEX IF NOT EXISTS idx_backtest_as_of
+    ON backtest_predictions (as_of_date DESC);
+
+-- ────────────────────────────────────────────────────────────────────
 -- Smoke test query (Sprint 1 day 2 검증용)
 -- ────────────────────────────────────────────────────────────────────
 -- SELECT

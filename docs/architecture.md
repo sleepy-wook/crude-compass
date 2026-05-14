@@ -235,7 +235,7 @@ FastAPI broadcast:
 | 6 | **Document Intelligence** | **real** | `ai_parse_document()` SQL 한 줄 — `bronze.opec_momr_parsed` 적재 (35 PDF 처리). |
 | 7 | **UC Function** | **real** | `crude_compass.functions.weighted_signal()` 람다 차등 시간 감쇠. curation + backtest 공통. |
 | 8 | **Lakeflow Jobs** | **real** | 16 YAML, AIS + OilPrice UNPAUSED 자동 5분 cron. |
-| 9 | **Backtest** | **real** | 298건 stratified samples, 75% hit rate, 7년 4개월. `gold.llm_backtest_predictions` 적재. |
+| 9 | **Backtest** | **real** | 300건 stratified samples, 75% hit rate, 7년 4개월. Lakebase `backtest_predictions` 적재 (AI-generated content → OLTP). |
 | - | ~~Supervisor Agent~~ | **scope-out** | 미등록. backend orchestration으로 대체 (Mission Plan + Genie + Knowledge Assistant 백엔드 호출). |
 | - | ~~Custom Agent~~ | **scope-out** | Foundation Model API 직접 호출이 cost-effective. Agent Bricks Custom Agent 등록은 Sprint 5 swap. |
 | - | ~~MLflow tracking~~ | **scope-out** | Delta append만, MLflow run tracking 미구현. |

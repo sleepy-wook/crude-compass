@@ -30,7 +30,9 @@ import json
 import random
 import re
 from datetime import datetime, timezone, date, timedelta
+from decimal import Decimal
 
+import psycopg
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
 
@@ -53,7 +55,14 @@ if SMOKE_TEST:
     N_PER_ZONE = 5
 
 LLM_ENDPOINT = "databricks-claude-haiku-4-5"
-TARGET_TABLE = "crude_compass.gold.llm_backtest_predictions"  # 다음 commit에서 Lakebase로 이동
+
+# Target: Lakebase Postgres `backtest_predictions` (AI-generated content 정석 OLTP).
+# Schema: databricks/schemas/lakebase.sql §5
+# Connection: dbutils.secrets scope=crude — same lakebase_* keys Apps에서 사용
+LAKEBASE_HOST = dbutils.secrets.get(scope="crude", key="lakebase_host")
+LAKEBASE_DATABASE = dbutils.secrets.get(scope="crude", key="lakebase_database")
+LAKEBASE_USER = dbutils.secrets.get(scope="crude", key="lakebase_user")
+LAKEBASE_ENDPOINT_PATH = dbutils.secrets.get(scope="crude", key="lakebase_endpoint_path")
 
 # K-Petroleum baseline mix
 DEFAULT_TERM_PCT = 75
@@ -211,7 +220,7 @@ print(f"Sampled {len(sampled)} dates")
 
 w = WorkspaceClient()
 
-SYSTEM_PROMPT_V6 = """You are **Crude Compass Mission Plan Agent** for K-Petroleum refinery.
+SYSTEM_PROMPT = """You are **Crude Compass Mission Plan Agent** for K-Petroleum refinery.
 
 ## ⚠️ BACKTEST MODE
 Use ONLY data BEFORE the given date. DO NOT assume any post-date knowledge.
@@ -393,7 +402,7 @@ def fetch_context(as_of_date):
     }
 
 
-def call_llm_v6(as_of_date, ctx):
+def call_llm(as_of_date, ctx):
     # Build prompt
     recent_text = "\n".join(ctx["bucket_texts"]["1_recent_7d"]) or "  (no signals)"
     mid_text = "\n".join(ctx["bucket_texts"]["2_mid_30d"]) or "  (no signals)"
@@ -456,7 +465,7 @@ JSON only."""
         resp = w.serving_endpoints.query(
             name=LLM_ENDPOINT,
             messages=[
-                ChatMessage(role=ChatMessageRole.SYSTEM, content=SYSTEM_PROMPT_V6),
+                ChatMessage(role=ChatMessageRole.SYSTEM, content=SYSTEM_PROMPT),
                 ChatMessage(role=ChatMessageRole.USER, content=user_msg),
             ],
             max_tokens=700, temperature=0.0,
@@ -505,7 +514,7 @@ def compute_saving(action_type, mission_type, target_pct, dubai_at_signal, daily
 # COMMAND ----------
 
 import time as _time
-run_id = f"llm_v6_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}"
+run_id = f"llm_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}"
 print(f"run_id={run_id}, processing {len(sampled)}...")
 
 results_rows = []
@@ -519,44 +528,41 @@ for idx, (d, zone) in enumerate(sampled):
     ctx = fetch_context(d)
     if ctx is None:
         results_rows.append({
-            "run_id": run_id, "sample_idx": idx, "as_of_date": d,
-            "pattern_score": None, "bullish_score": None, "bearish_score": None,
-            "cross_val_bonus": None, "signal_count_90d": None,
-            "action_type": None, "mission_type": None, "target_pct": None,
-            "duration_days": None, "confidence_score": None,
+            "run_id": run_id, "as_of_date": d, "zone": zone,
+            "pattern_score": None, "confidence_score": None,
+            "action_type": None, "mission_type": None,
+            "target_pct": None, "duration_days": None,
+            "saving_7d_pct": None, "saving_30d_pct": None, "saving_90d_pct": None,
+            "dubai_at_signal_usd": None, "dubai_30d_usd": None, "dubai_90d_usd": None,
             "reasoning": f"[zone={zone}] no_context",
-            "dubai_at_signal": None, "dubai_7d": None, "dubai_30d": None, "dubai_90d": None,
-            "cost_saving_7d": None, "cost_saving_30d": None, "cost_saving_90d": None,
-            "llm_error": "no_context",
             "computed_at": datetime.now(timezone.utc),
         })
         continue
 
-    llm_out = call_llm_v6(d, ctx)
-    err = llm_out.get("_error") if "_error" in llm_out else None
+    llm_out = call_llm(d, ctx)
     action = llm_out.get("action_type")
     mission = llm_out.get("mission_type")
     target_pct = llm_out.get("target_pct")
     dur = llm_out.get("duration_days") or 30
     conf = llm_out.get("confidence_score")
-    reason = f"[zone={zone}][v6] {(llm_out.get('reasoning') or '')[:480]}"
+    reason_text = llm_out.get("reasoning") or llm_out.get("_error") or ""
+    reason = f"[zone={zone}] {reason_text[:480]}"
 
     s7 = compute_saving(action, mission, target_pct, ctx["dubai_0"], ctx["daily_dubai"], 7)
     s30 = compute_saving(action, mission, target_pct, ctx["dubai_0"], ctx["daily_dubai"], 30)
     s90 = compute_saving(action, mission, target_pct, ctx["dubai_0"], ctx["daily_dubai"], 90)
 
     results_rows.append({
-        "run_id": run_id, "sample_idx": idx, "as_of_date": d,
+        "run_id": run_id, "as_of_date": d, "zone": zone,
         "pattern_score": ctx["pattern_score"],
-        "bullish_score": ctx["bullish"], "bearish_score": ctx["bearish"],
-        "cross_val_bonus": ctx["cv_bonus"], "signal_count_90d": ctx["sig_count"],
+        "confidence_score": conf,
         "action_type": action, "mission_type": mission,
         "target_pct": target_pct if isinstance(target_pct, int) else None,
-        "duration_days": dur, "confidence_score": conf, "reasoning": reason,
-        "dubai_at_signal": ctx["dubai_0"], "dubai_7d": ctx["dubai_7d"],
-        "dubai_30d": ctx["dubai_30d"], "dubai_90d": ctx["dubai_90d"],
-        "cost_saving_7d": s7, "cost_saving_30d": s30, "cost_saving_90d": s90,
-        "llm_error": err,
+        "duration_days": dur,
+        "saving_7d_pct": s7, "saving_30d_pct": s30, "saving_90d_pct": s90,
+        "dubai_at_signal_usd": ctx["dubai_0"],
+        "dubai_30d_usd": ctx["dubai_30d"], "dubai_90d_usd": ctx["dubai_90d"],
+        "reasoning": reason,
         "computed_at": datetime.now(timezone.utc),
     })
 
@@ -565,83 +571,78 @@ print(f"✅ {len(results_rows)} records in {elapsed:.0f}s")
 
 # COMMAND ----------
 
-# Write
-from pyspark.sql.types import (
-    StructType, StructField, StringType, IntegerType,
-    DateType, DecimalType, TimestampType
-)
-from decimal import Decimal
-
-def _dec(v, prec=5, scale=2):
+# Write — Lakebase Postgres (AI-generated content → OLTP)
+# OAuth token (60min lifetime) → psycopg connect → executemany INSERT
+def _dec(v, scale):
     if v is None: return None
     try: return Decimal(str(round(float(v), scale)))
     except (ValueError, TypeError): return None
 
-schema = StructType([
-    StructField("run_id", StringType(), False),
-    StructField("sample_idx", IntegerType(), False),
-    StructField("as_of_date", DateType(), False),
-    StructField("pattern_score", DecimalType(5, 2), True),
-    StructField("bullish_score", DecimalType(8, 2), True),
-    StructField("bearish_score", DecimalType(8, 2), True),
-    StructField("cross_val_bonus", DecimalType(5, 2), True),
-    StructField("signal_count_90d", IntegerType(), True),
-    StructField("action_type", StringType(), True),
-    StructField("mission_type", StringType(), True),
-    StructField("target_pct", IntegerType(), True),
-    StructField("duration_days", IntegerType(), True),
-    StructField("confidence_score", DecimalType(5, 2), True),
-    StructField("reasoning", StringType(), True),
-    StructField("dubai_at_signal", DecimalType(8, 2), True),
-    StructField("dubai_7d", DecimalType(8, 2), True),
-    StructField("dubai_30d", DecimalType(8, 2), True),
-    StructField("dubai_90d", DecimalType(8, 2), True),
-    StructField("cost_saving_7d", DecimalType(6, 3), True),
-    StructField("cost_saving_30d", DecimalType(6, 3), True),
-    StructField("cost_saving_90d", DecimalType(6, 3), True),
-    StructField("llm_error", StringType(), True),
-    StructField("computed_at", TimestampType(), False),
-])
+w_sdk = WorkspaceClient()
+credential = w_sdk.postgres.generate_database_credential(endpoint=LAKEBASE_ENDPOINT_PATH)
+if not credential.token:
+    raise RuntimeError("Lakebase OAuth token empty")
 
-typed = [(
-    r["run_id"], r["sample_idx"], r["as_of_date"],
-    _dec(r["pattern_score"], 5, 2), _dec(r["bullish_score"], 8, 2),
-    _dec(r["bearish_score"], 8, 2), _dec(r["cross_val_bonus"], 5, 2),
-    r["signal_count_90d"],
+conninfo = (
+    f"host={LAKEBASE_HOST} port=5432 dbname={LAKEBASE_DATABASE} "
+    f"user={LAKEBASE_USER} sslmode=require"
+)
+
+insert_sql = """
+    INSERT INTO backtest_predictions (
+        run_id, as_of_date, zone, pattern_score, confidence_score,
+        action_type, mission_type, target_pct, duration_days,
+        saving_7d_pct, saving_30d_pct, saving_90d_pct,
+        dubai_at_signal_usd, dubai_30d_usd, dubai_90d_usd,
+        reasoning, computed_at
+    ) VALUES (
+        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+    )
+"""
+
+rows_tuples = [(
+    r["run_id"], r["as_of_date"], r["zone"],
+    _dec(r["pattern_score"], 2), _dec(r["confidence_score"], 2),
     r["action_type"], r["mission_type"], r["target_pct"], r["duration_days"],
-    _dec(r["confidence_score"], 5, 2), r["reasoning"],
-    _dec(r["dubai_at_signal"], 8, 2), _dec(r["dubai_7d"], 8, 2),
-    _dec(r["dubai_30d"], 8, 2), _dec(r["dubai_90d"], 8, 2),
-    _dec(r["cost_saving_7d"], 6, 3), _dec(r["cost_saving_30d"], 6, 3),
-    _dec(r["cost_saving_90d"], 6, 3),
-    r["llm_error"], r["computed_at"],
+    _dec(r["saving_7d_pct"], 4), _dec(r["saving_30d_pct"], 4), _dec(r["saving_90d_pct"], 4),
+    _dec(r["dubai_at_signal_usd"], 2), _dec(r["dubai_30d_usd"], 2), _dec(r["dubai_90d_usd"], 2),
+    r["reasoning"], r["computed_at"],
 ) for r in results_rows]
 
-df_out = spark.createDataFrame(typed, schema=schema)
-df_out.write.mode("append").saveAsTable(TARGET_TABLE)
-print(f"✅ {len(typed)} rows appended")
+with psycopg.connect(conninfo, password=credential.token) as conn:
+    with conn.cursor() as cur:
+        cur.executemany(insert_sql, rows_tuples)
+    conn.commit()
+
+print(f"✅ {len(rows_tuples)} rows inserted into Lakebase backtest_predictions")
 
 # COMMAND ----------
 
-# Quick summary
-summary = spark.sql(f"""
-    SELECT mission_type, COUNT(*) AS n,
-           ROUND(AVG(confidence_score), 1) AS avg_conf,
-           ROUND(AVG(cost_saving_30d), 3) AS s30,
-           ROUND(SUM(CASE WHEN cost_saving_30d > 0 THEN 1 ELSE 0 END)*100.0/COUNT(*), 1) AS hit_30d
-    FROM {TARGET_TABLE}
-    WHERE run_id = '{run_id}' AND action_type = 'new_mission'
-    GROUP BY mission_type ORDER BY mission_type
-""").collect()
-print("\n=== v6 Summary ===")
-for r in summary:
-    print(f"  {r.mission_type or '-':<13} n={r.n} conf={r.avg_conf} s30={r.s30} hit30={r.hit_30d}%")
+# Quick summary (in-Python from results_rows — Lakebase select 불필요)
+from collections import defaultdict
+
+groups = defaultdict(list)
+for r in results_rows:
+    if r["action_type"] == "new_mission":
+        groups[r["mission_type"] or "-"].append(r)
+
+print("\n=== Summary ===")
+for mt, rs in sorted(groups.items()):
+    n = len(rs)
+    confs = [r["confidence_score"] for r in rs if r["confidence_score"] is not None]
+    s30s = [r["saving_30d_pct"] for r in rs if r["saving_30d_pct"] is not None]
+    avg_conf = round(sum(confs) / len(confs), 1) if confs else None
+    avg_s30 = round(sum(s30s) / len(s30s), 3) if s30s else None
+    hit = round(sum(1 for s in s30s if s > 0) * 100.0 / len(s30s), 1) if s30s else None
+    print(f"  {mt:<13} n={n} conf={avg_conf} s30={avg_s30} hit30={hit}%")
+
+n_errors = sum(1 for r in results_rows if r["reasoning"] and "no_context" in r["reasoning"])
 
 # COMMAND ----------
 
 dbutils.notebook.exit(json.dumps({
     "run_id": run_id, "n_samples": len(results_rows),
-    "errors": sum(1 for r in results_rows if r["llm_error"]),
+    "errors": n_errors,
     "elapsed_s": round(elapsed, 0),
     "n_per_zone": N_PER_ZONE,
 }))

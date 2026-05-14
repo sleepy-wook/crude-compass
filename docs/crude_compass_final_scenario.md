@@ -278,12 +278,13 @@ K-Petroleum 5척 (시나리오 §4 가상 fleet)은 `bronze.ais_positions`에 se
 
 **Gold** (medallion BI-ready):
 - `daily_risk_score` (0-100, 일별 1행, 매일 야간 배치 — Lakebase Sync 후보)
-- `llm_backtest_predictions` (backtest 298 rows, 7년 stratified)
-- `backtest_results` (run-level 요약)
+- `daily_risk_score_sync` (Lakehouse Sync mirror of Lakebase — Genie/Dashboard read path)
 - D-3 신규 view 9개 예정 (oil_prices_wide / fleet_current_state / signal_contribution_30d / ...)
 
-⚠️ 2026-05-15 정리: `mission_outcomes` / `landing_cost_scenarios` / `backtest_risk_score`
-3개 dead tables DROP (시나리오 narrative만 약속됐고 코드 0건 사용). medallion gold 정직 정리.
+⚠️ 2026-05-15 정리:
+- `mission_outcomes` / `landing_cost_scenarios` / `backtest_risk_score` 3개 dead tables DROP (시나리오 narrative만 약속됐고 코드 0건 사용)
+- `llm_backtest_predictions` UC Delta → Lakebase Postgres `backtest_predictions` migration
+  (AI-generated content는 OLTP에 두는 것이 medallion 정석. WhatIf 페이지 ms latency 요구도 충족.)
 
 ### Lakebase Postgres (OLTP)
 

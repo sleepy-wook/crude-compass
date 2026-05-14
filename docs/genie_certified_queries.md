@@ -19,7 +19,7 @@
 - bronze.ais_positions
 - silver.signal_events_decayed
 - silver.pattern_scores_daily
-- gold.llm_backtest_predictions
+- gold.daily_risk_score_sync  (Lakehouse Sync mirror of Lakebase daily_risk_score)
 
 **Instructions** (Genie Space settings → Instructions):
 
@@ -104,23 +104,29 @@ ORDER BY week_ending DESC
 
 ---
 
-## 5. v6 Backtest 75% hit rate 검증 (최근 30 시점)
+## 5. 최근 30일 Pattern Score 추이 (HEDGE/MID/OPP zone 분류)
 
 ```sql
 SELECT
-  as_of_date,
-  mission_type,
+  date,
   pattern_score,
-  confidence_score,
-  target_pct,
-  saving_30d_pct AS realized_saving_pct
-FROM crude_compass.gold.llm_backtest_predictions
-WHERE saving_30d_pct IS NOT NULL
-ORDER BY as_of_date DESC
-LIMIT 30
+  mission_type,
+  bullish_score,
+  bearish_score,
+  CASE
+    WHEN pattern_score >= 70 THEN 'HEDGE'
+    WHEN pattern_score <= 30 THEN 'OPPORTUNITY'
+    ELSE 'MID'
+  END AS zone
+FROM crude_compass.gold.daily_risk_score_sync
+WHERE date >= CURRENT_DATE() - INTERVAL 30 DAYS
+ORDER BY date DESC
 ```
 
-**Expected**: 30 rows showing HEDGE/OPP recommendation vs actual 30-day saving.
+**Expected**: 30 rows showing daily Pattern Score + bullish/bearish breakdown + zone.
+
+> Backtest predictions(300건, 75% hit rate)는 Lakebase Postgres에 적재됨 (`backtest_predictions` table).
+> Apps의 `/api/backtest/results` endpoint로 조회. Genie 직접 query 대신 Apps WhatIf 페이지로 시연.
 
 ---
 

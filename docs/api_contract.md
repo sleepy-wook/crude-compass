@@ -261,7 +261,7 @@ LLM Mission Plan Agent 호출 (full body 버전).
 ## 4. Pattern Score Endpoints
 
 ### 4.1 `GET /api/pattern-score/current`
-현재 Pattern Score + 최근 30일 시계열.
+현재 Pattern Score + 최근 30일 시계열 (Databricks SQL warehouse → silver.pattern_scores_daily).
 
 **Response 200**:
 ```json
@@ -276,8 +276,64 @@ LLM Mission Plan Agent 호출 (full body 버전).
   },
   "history": [
     { "date": "2026-04-09", "pattern_score": 48.0 },
-    ...30 entries...
     { "date": "2026-05-08", "pattern_score": 82.0 }
+  ]
+}
+```
+
+### 4.2 `GET /api/pattern-score/history?days=90`
+지난 N일 Pattern Score history (default 90).
+
+---
+
+## 4.5 Backtest Endpoints (Lakebase OLTP)
+
+> AI-generated content — Lakebase Postgres `backtest_predictions` table.
+> Read pattern: WhatIf 페이지 진입 시 300 rows fetch (ms latency).
+
+### `GET /api/backtest/results`
+Latest run summary + breakdown (zone, confidence).
+
+**Response 200**:
+```json
+{
+  "summary": {
+    "run_id": "llm_20260512T164854",
+    "n_total": 300, "n_active": 245,
+    "n_hedge": 198, "n_opp": 47,
+    "avg_save_pct": 0.626,
+    "hit_rate_pct": 74.9
+  },
+  "by_zone": [
+    {"zone": "HIGH", "mission_type": "HEDGE", "n": 89, "avg_save_pct": 1.12, "hit_rate_pct": 81.2}
+  ],
+  "by_confidence": [
+    {"conf_bin": "80-100", "n": 65, "avg_save_pct": 1.34, "hit_rate_pct": 83.0}
+  ]
+}
+```
+
+### `GET /api/backtest/predictions?limit=300`
+Latest run의 sample predictions (frontend WhatIf 슬라이더).
+
+**Response 200**:
+```json
+{
+  "predictions": [
+    {
+      "as_of_date": "2025-11-12",
+      "pattern_score": 85.5,
+      "confidence_score": 78.0,
+      "action_type": "new_mission",
+      "mission_type": "HEDGE",
+      "target_pct": 75,
+      "duration_days": 28,
+      "saving_7d_pct": 0.32,
+      "saving_30d_pct": 1.18,
+      "saving_90d_pct": 1.55,
+      "dubai_at_signal_usd": 55.83,
+      "dubai_30d_usd": 61.74
+    }
   ]
 }
 ```

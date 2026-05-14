@@ -113,84 +113,53 @@ async def pattern_history(days: int = 90) -> dict:
 
 
 # ────────────────────────────────────────────────────────────────────────
-# /api/backtest/results — LLM Mission Plan Agent backtest summary
+# /api/backtest/* — LLM Mission Plan Agent backtest from Lakebase
+# (AI-generated content 정석: Lakebase OLTP)
 # ────────────────────────────────────────────────────────────────────────
 @router.get("/backtest/results")
 async def backtest_results() -> dict:
-    """gold.llm_backtest_predictions summary."""
+    """Lakebase backtest_predictions latest run summary."""
+    import asyncio
+    from app.db import lakebase
+    from app.db.repositories import backtest as bt_repo
+
+    def _sync():
+        with lakebase.acquire() as conn:
+            summary = bt_repo.get_summary(conn)
+            by_zone = bt_repo.get_zone_breakdown(conn)
+            by_conf = bt_repo.get_confidence_breakdown(conn)
+        return summary, by_zone, by_conf
+
     try:
-        # latest run_id
-        latest_run = _q("""
-            SELECT run_id FROM crude_compass.gold.llm_backtest_predictions
-            WHERE run_id LIKE 'llm_%'
-            ORDER BY computed_at DESC LIMIT 1
-        """)
-        if not latest_run:
+        summary, by_zone, by_conf = await asyncio.to_thread(_sync)
+        if not summary:
             return {"summary": None, "by_zone": [], "by_confidence": []}
-        run_id = latest_run[0][0]
-
-        # Overall summary
-        summary = _q(f"""
-            SELECT COUNT(*) AS n_total,
-                   SUM(CASE WHEN action_type='new_mission' THEN 1 ELSE 0 END) AS n_active,
-                   SUM(CASE WHEN mission_type='HEDGE' AND action_type='new_mission' THEN 1 ELSE 0 END) AS n_hedge,
-                   SUM(CASE WHEN mission_type='OPPORTUNITY' AND action_type='new_mission' THEN 1 ELSE 0 END) AS n_opp,
-                   ROUND(AVG(CASE WHEN action_type='new_mission' THEN cost_saving_30d END), 3) AS avg_save,
-                   ROUND(SUM(CASE WHEN action_type='new_mission' AND cost_saving_30d > 0 THEN 1 ELSE 0 END)*100.0/
-                         NULLIF(SUM(CASE WHEN action_type='new_mission' THEN 1 ELSE 0 END), 0), 1) AS hit
-            FROM crude_compass.gold.llm_backtest_predictions
-            WHERE run_id = '{run_id}'
-        """)
-        s = summary[0] if summary else None
-        summary_dict = {
-            "run_id": run_id,
-            "n_total": int(s[0]) if s else 0,
-            "n_active": int(s[1]) if s else 0,
-            "n_hedge": int(s[2]) if s else 0,
-            "n_opp": int(s[3]) if s else 0,
-            "avg_save_pct": float(s[4]) if s and s[4] else None,
-            "hit_rate_pct": float(s[5]) if s and s[5] else None,
-        } if s else None
-
-        # By zone
-        by_zone = _q(f"""
-            SELECT CASE WHEN pattern_score >= 70 THEN 'HIGH'
-                        WHEN pattern_score <= 30 THEN 'LOW' ELSE 'MID' END AS zone,
-                   mission_type, COUNT(*) AS n,
-                   ROUND(AVG(cost_saving_30d), 3) AS save,
-                   ROUND(SUM(CASE WHEN cost_saving_30d > 0 THEN 1 ELSE 0 END)*100.0/COUNT(*), 1) AS hit
-            FROM crude_compass.gold.llm_backtest_predictions
-            WHERE run_id = '{run_id}' AND action_type='new_mission'
-            GROUP BY zone, mission_type ORDER BY zone
-        """)
-
-        # By confidence
-        by_conf = _q(f"""
-            SELECT CASE WHEN confidence_score >= 90 THEN '90-100'
-                        WHEN confidence_score >= 80 THEN '80-89'
-                        WHEN confidence_score >= 70 THEN '70-79'
-                        ELSE '<70' END AS conf_bin,
-                   COUNT(*) AS n,
-                   ROUND(AVG(cost_saving_30d), 3) AS save,
-                   ROUND(SUM(CASE WHEN cost_saving_30d > 0 THEN 1 ELSE 0 END)*100.0/COUNT(*), 1) AS hit
-            FROM crude_compass.gold.llm_backtest_predictions
-            WHERE run_id = '{run_id}' AND action_type='new_mission'
-            GROUP BY conf_bin ORDER BY MAX(confidence_score) DESC
-        """)
-
         return {
-            "summary": summary_dict,
+            "summary": {
+                "run_id": summary.get("run_id"),
+                "n_total": int(summary.get("n_total") or 0),
+                "n_active": int(summary.get("n_active") or 0),
+                "n_hedge": int(summary.get("n_hedge") or 0),
+                "n_opp": int(summary.get("n_opp") or 0),
+                "avg_save_pct": float(summary["avg_save_pct"]) if summary.get("avg_save_pct") is not None else None,
+                "hit_rate_pct": float(summary["hit_rate_pct"]) if summary.get("hit_rate_pct") is not None else None,
+            },
             "by_zone": [
-                {"zone": r[0], "mission_type": r[1], "n": int(r[2]),
-                 "avg_save_pct": float(r[3]) if r[3] else None,
-                 "hit_rate_pct": float(r[4]) if r[4] else None}
-                for r in by_zone
+                {
+                    "zone": r["zone"],
+                    "mission_type": r["mission_type"],
+                    "n": int(r["n"]),
+                    "avg_save_pct": float(r["avg_save_pct"]) if r.get("avg_save_pct") is not None else None,
+                    "hit_rate_pct": float(r["hit_rate_pct"]) if r.get("hit_rate_pct") is not None else None,
+                } for r in by_zone
             ],
             "by_confidence": [
-                {"conf_bin": r[0], "n": int(r[1]),
-                 "avg_save_pct": float(r[2]) if r[2] else None,
-                 "hit_rate_pct": float(r[3]) if r[3] else None}
-                for r in by_conf
+                {
+                    "conf_bin": r["conf_bin"],
+                    "n": int(r["n"]),
+                    "avg_save_pct": float(r["avg_save_pct"]) if r.get("avg_save_pct") is not None else None,
+                    "hit_rate_pct": float(r["hit_rate_pct"]) if r.get("hit_rate_pct") is not None else None,
+                } for r in by_conf
             ],
         }
     except Exception as e:
@@ -199,41 +168,32 @@ async def backtest_results() -> dict:
 
 @router.get("/backtest/predictions")
 async def backtest_predictions(limit: int = 50) -> dict:
-    """Sample predictions (latest)."""
-    try:
-        latest_run = _q("""
-            SELECT run_id FROM crude_compass.gold.llm_backtest_predictions
-            WHERE run_id LIKE 'llm_%'
-            ORDER BY computed_at DESC LIMIT 1
-        """)
-        if not latest_run:
-            return {"predictions": []}
-        run_id = latest_run[0][0]
+    """Lakebase backtest_predictions — latest run sample (WhatIf slider용)."""
+    import asyncio
+    from app.db import lakebase
+    from app.db.repositories import backtest as bt_repo
 
-        rows = _q(f"""
-            SELECT as_of_date, pattern_score, confidence_score,
-                   action_type, mission_type, target_pct, duration_days,
-                   ROUND(cost_saving_7d, 3), ROUND(cost_saving_30d, 3),
-                   ROUND(cost_saving_90d, 3),
-                   dubai_at_signal, dubai_30d
-            FROM crude_compass.gold.llm_backtest_predictions
-            WHERE run_id = '{run_id}' AND action_type = 'new_mission'
-            ORDER BY as_of_date DESC LIMIT {min(limit, 500)}
-        """)
+    def _sync():
+        with lakebase.acquire() as conn:
+            return bt_repo.list_predictions(conn, limit=min(limit, 500))
+
+    try:
+        rows = await asyncio.to_thread(_sync)
         return {
             "predictions": [
                 {
-                    "as_of_date": str(r[0]),
-                    "pattern_score": float(r[1]) if r[1] else None,
-                    "confidence_score": float(r[2]) if r[2] else None,
-                    "action_type": r[3], "mission_type": r[4],
-                    "target_pct": int(r[5]) if r[5] else None,
-                    "duration_days": int(r[6]) if r[6] else None,
-                    "saving_7d_pct": float(r[7]) if r[7] else None,
-                    "saving_30d_pct": float(r[8]) if r[8] else None,
-                    "saving_90d_pct": float(r[9]) if r[9] else None,
-                    "dubai_at_signal_usd": float(r[10]) if r[10] else None,
-                    "dubai_30d_usd": float(r[11]) if r[11] else None,
+                    "as_of_date": str(r["as_of_date"]),
+                    "pattern_score": float(r["pattern_score"]) if r.get("pattern_score") is not None else None,
+                    "confidence_score": float(r["confidence_score"]) if r.get("confidence_score") is not None else None,
+                    "action_type": r.get("action_type"),
+                    "mission_type": r.get("mission_type"),
+                    "target_pct": int(r["target_pct"]) if r.get("target_pct") is not None else None,
+                    "duration_days": int(r["duration_days"]) if r.get("duration_days") is not None else None,
+                    "saving_7d_pct": float(r["saving_7d_pct"]) if r.get("saving_7d_pct") is not None else None,
+                    "saving_30d_pct": float(r["saving_30d_pct"]) if r.get("saving_30d_pct") is not None else None,
+                    "saving_90d_pct": float(r["saving_90d_pct"]) if r.get("saving_90d_pct") is not None else None,
+                    "dubai_at_signal_usd": float(r["dubai_at_signal_usd"]) if r.get("dubai_at_signal_usd") is not None else None,
+                    "dubai_30d_usd": float(r["dubai_30d_usd"]) if r.get("dubai_30d_usd") is not None else None,
                 } for r in rows
             ]
         }
