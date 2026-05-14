@@ -11,6 +11,7 @@ import { api } from "../lib/api";
 import { formatPct, formatScore, missionTypeLabel, relativeTime } from "../lib/utils";
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
 import { Term } from "../components/Glossary";
+import { FleetLifecycleSection } from "../components/FleetLifecycleSection";
 import type { Mission, PatternScoreCurrent } from "../lib/types";
 
 
@@ -141,6 +142,9 @@ export function Discovery() {
           )}
         </section>
       )}
+
+      {/* K-Petroleum 5척 lifecycle (시나리오 §4) */}
+      <FleetLifecycleSection />
 
       {/* Pattern Score Card */}
       <section className="mb-8">

@@ -110,6 +110,33 @@ export interface BacktestPrediction {
   dubai_30d_usd: number | null;
 }
 
+/** Fleet — K-Petroleum 5척 lifecycle (docs/api_contract.md §7.4) */
+export type FleetZone =
+  | "hormuz"
+  | "red_sea"
+  | "indian_ocean"
+  | "korean_waters"
+  | "gulf_of_mexico"
+  | "transit"
+  | "unknown";
+
+export interface FleetVessel {
+  mmsi: string;
+  vessel_name: string | null;
+  lat: number | null;
+  lon: number | null;
+  speed_knots: number | null;
+  heading_deg: number | null;
+  in_hormuz_bbox: boolean | null;
+  status: string | null;
+  fetched_at: string | null;
+  zone: FleetZone;
+}
+
+export interface FleetPositionsResponse {
+  vessels: FleetVessel[];
+}
+
 /** Genie 자연어 질의 — docs/api_contract.md §7.3 */
 export type GenieSource =
   | "live"            // Genie Conversation API 정상 호출

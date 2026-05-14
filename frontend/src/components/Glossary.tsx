@@ -1,5 +1,5 @@
 /**
- * Glossary — 7개 핵심 용어 hover tooltip.
+ * Glossary — 8개 핵심 용어 hover tooltip.
  *
  * 사용:
  *   <Term name="PATTERN_SCORE">위기 신호 점수</Term>
@@ -49,6 +49,11 @@ export const GLOSSARY: Record<string, { label: string; definition: string }> = {
     label: "Dubai유",
     definition:
       "Dubai유 — 한국 정유사 원유 수입 핵심 벤치마크 (한국석유공사 OPINET 일별 종가).",
+  },
+  KPETRO_FLEET: {
+    label: "K-Petroleum 5척",
+    definition:
+      "가상 K-Petroleum chartered VLCC 5척 (KPETRO_001~005 익명화). AIS 공개 데이터 (IMO mandate) 기반 실시간 위치 모니터링. 실제 회사 식별 X — 시나리오 §4 가상 정유사 narrative.",
   },
 };
 
@@ -123,7 +128,7 @@ export function GlossaryModal({ open, onClose }: GlossaryModalProps) {
         <header className="sticky top-0 bg-paper border-b border-line-1 px-6 py-4 flex items-center justify-between">
           <div>
             <h2 id="glossary-title" className="font-display text-xl font-semibold text-ink">
-              핵심 용어 7개
+              핵심 용어 8개
             </h2>
             <p className="text-xs text-ink-3 mt-1">
               한국 정유사 원유 조달 의사결정에 사용되는 용어

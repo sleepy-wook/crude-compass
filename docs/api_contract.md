@@ -424,6 +424,54 @@ Databricks Genie Space 자연어 질의 — live 호출 또는 graceful fallback
 
 ---
 
+## 7.4 Fleet Endpoints (K-Petroleum 5척 lifecycle)
+
+### `GET /api/fleet/positions`
+시나리오 §4 K-Petroleum 가상 fleet 5척 (KPETRO_001~005) 실시간 위치 + zone 분류.
+
+`bronze.ais_positions` 의 `mmsi LIKE 'KPETRO_%'` 최신 1행씩 (QUALIFY ROW_NUMBER).
+5 fixed slot 보장 — 미적재 vessel은 placeholder (zone='unknown').
+
+**Response 200**:
+```json
+{
+  "vessels": [
+    {
+      "mmsi": "KPETRO_001",
+      "vessel_name": "VLCC KPETRO_001",
+      "lat": 28.58,
+      "lon": -94.25,
+      "speed_knots": 0.3,
+      "heading_deg": null,
+      "in_hormuz_bbox": false,
+      "status": "anchored",
+      "fetched_at": "2026-05-14T11:09:28Z",
+      "zone": "gulf_of_mexico"
+    },
+    {
+      "mmsi": "KPETRO_002",
+      "vessel_name": null,
+      "lat": null, "lon": null,
+      "speed_knots": null, "heading_deg": null,
+      "in_hormuz_bbox": null,
+      "status": "no_data",
+      "fetched_at": null,
+      "zone": "unknown"
+    }
+  ]
+}
+```
+
+**Zone enum**: `hormuz | red_sea | indian_ocean | korean_waters | gulf_of_mexico | transit | unknown`
+
+**비고**:
+- 5분 cron (`crude-compass-ais-batch-dev`)으로 매 5분 bronze 적재
+- VLCC AIS 보고 빈도 ~6분 — 데이터 미적재 vessel은 1-2 cron 안에 채워짐
+- vessel_name 도 anonymize 처리 (`VLCC KPETRO_NNN`)
+- AIS public open data (IMO mandate) + 가상 K-Petroleum narrative (시나리오 §4)
+
+---
+
 ## 8. Health / Meta
 
 ### 8.1 `GET /api/health`
