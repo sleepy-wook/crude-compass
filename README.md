@@ -11,13 +11,17 @@
 | 문서 | 내용 |
 |---|---|
 | [docs/crude_compass_final_scenario.md](docs/crude_compass_final_scenario.md) | 시나리오 (logic ground truth) |
-| [docs/crude_compass_final.html](docs/crude_compass_final.html) | 시각 mockup (목업 단일 페이지) |
-| [docs/phase1_research.md](docs/phase1_research.md) | 사전 조사 (해커톤·도구·호르무즈 fact) |
-| [docs/phase2_critique.md](docs/phase2_critique.md) | 시나리오 비평 (5축 점수 + MVP scope + 데모 risk) |
-| [docs/architecture.md](docs/architecture.md) | 시스템 architecture (4 Agent + 3+1 Job + Apps 3 페이지 + Slack Bot) |
+| [docs/progress_summary.md](docs/progress_summary.md) | 진행 상황 요약 (비기술자 친화) |
+| [docs/self_evaluation.md](docs/self_evaluation.md) | 자체 평가 기준 + milestone별 self-eval |
+| [docs/phase1_research.md](docs/phase1_research.md) | 사전 조사 (해커톤 공식 5축 + 도구 매트릭스) |
+| [docs/phase2_critique.md](docs/phase2_critique.md) | 시나리오 비평 (D-12 archive — 결론은 scenario에 반영됨) |
+| [docs/architecture.md](docs/architecture.md) | 시스템 architecture (4 Agent + 12 Job + Apps + Slack Bot) |
 | [docs/data_model.md](docs/data_model.md) | Bronze/Silver/Gold Delta + Lakebase Postgres DDL |
 | [docs/api_contract.md](docs/api_contract.md) | FastAPI route + Pydantic + TS 타입 |
 | [docs/sync_protocol.md](docs/sync_protocol.md) | Slack ↔ Apps 5초 SLA 동기화 protocol |
+| [docs/d2_runbook.md](docs/d2_runbook.md) | D-2 (5/16) workspace 작업 가이드 |
+| [docs/deploy_guide.md](docs/deploy_guide.md) | Databricks Apps 배포 가이드 |
+| [docs/genie_certified_queries.md](docs/genie_certified_queries.md) | Genie Space 등록용 5개 certified query |
 
 ## 디렉토리 구조
 
