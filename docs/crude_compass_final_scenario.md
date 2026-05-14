@@ -187,19 +187,27 @@ Pattern Score 30 이하 (기회) → OPPORTUNITY Mission Plan Agent 호출
 
 **왜 분리?** AIS Stream historical은 유료 (MarineTraffic/Spire 수백 USD/년) + 무료 historical 부재. OilPriceAPI도 realtime-only tier. 즉 **backtest 추가 자체가 데이터 부재로 불가능**.
 
-### 6.5.2 AIS Free tier 검증 결과 — narrative와 데이터 일치 (5/14)
+### 6.5.2 AIS 실데이터 검증 (5/14, 부분적)
 
-D-4 라이브 검증: AISStream Free tier WebSocket 글로벌 stream 20초 동안 **2,254 메시지** 수신.
-그 중 호르무즈 BBOX (24-28°N, 54-58°E) 메시지: **0건**.
+D-4 라이브 stream test:
+- 글로벌 20초 = 2,254 메시지 수신 (API key + WebSocket 연결 정상)
+- 호르무즈 BBOX (24-28°N, 54-58°E) stream 2회 (20s + 120s) = 0건
+- 한국 동남부 BBOX (33-38°N, 124-132°E) stream 15초 = 6 vessels (live)
 
-해석 (둘 다 valid, 데모 narrative 강화):
-1. **시나리오 narrative**: 2026년 미국-이란 전쟁 진행 → 호르무즈 통과 -93%. 우리 K-Petroleum 5척도 우회 (희망봉/수에즈). 즉 **vessels이 정말로 그 영역에 없음**.
-2. **Free tier 영역 제한**: AISStream Free tier가 Persian Gulf region 메시지 차단/제한. Production paid tier (Spire) 시 데이터 확보 가능.
+해석 (단정 X — 가능성):
+1. 시나리오 narrative 정합 — 미국-이란 긴장 호르무즈 우회로 vessels 실제 적음
+2. AISStream Free tier 시간대/region rate limit
+3. test 시간 부족 (120초로 미흡, 5-10분 stream 필요)
 
-→ **데이터 부재 자체가 시나리오 narrative 입증**. 평가위원에게: *"보세요. 호르무즈 BBOX에 vessels 0건. 이게 시나리오 narrative의 -93% 우회 신호 실증."*
+→ **"Free tier가 호르무즈 차단"으로 단정 X**. 형욱 검증 시 받은 적 있다면 시간대/AISStream 정책 변동 가능.
+production paid tier (Spire/MarineTraffic) 시 보장된다는 narrative만 안전.
 
-K-Petroleum 5척 lifecycle은 시나리오 §4 가상 fleet — `bronze.ais_positions`에 mock seed로 적재
-(MMSI `KPETRO_001`~`005`). 실시간 한국 항구 AIS는 background traffic으로 함께 적재.
+K-Petroleum 5척 (시나리오 §4 가상 fleet)은 `bronze.ais_positions`에 seed:
+- MMSI `KPETRO_001`~`005`
+- 호르무즈 우회 lifecycle (희망봉/수에즈) + 한국 항구 도착
+- 실시간 한국 항구 AIS (`ANON_*`) 와 hybrid
+
+⚠️ **K-Petroleum ≠ GS칼텍스/SK이노/S-Oil/현대오일뱅크**. 시나리오 §4 명시대로 모티브로만 사용, 익명 가상 정유사.
 
 **평가위원 질문 대비 답변**: "AIS는 historical 부재라 backtest 못 했지만 production 라이브 시연으로 검증합니다. 7년 backtest는 fundamentals + macro 4 source로 75% hit rate 확보, AIS/OilPriceAPI는 backtest로 측정 불가능한 D-7 leading + Reactive 영역을 커버합니다."
 
