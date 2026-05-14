@@ -101,6 +101,36 @@ export const api = {
   patternHistory: (days = 90) =>
     request<{ history: PatternHistory[] }>(`/api/pattern-score/history?days=${days}`),
 
+  opecLatest: () =>
+    request<{
+      latest: {
+        report_month: string;
+        saudi_kbbl_d: number | null;
+        iran_kbbl_d: number | null;
+        opec_total_kbbl_d: number | null;
+        forecast_demand_kbbl_d: number | null;
+        supply_demand_gap_kbbl_d: number | null;
+        market_balance: "oversupply" | "undersupply" | "balanced" | null;
+        saudi_delta_vs_prev?: number;
+      } | null;
+      prev: unknown;
+      source: string;
+    }>("/api/market/opec-latest"),
+
+  signalContribution: () =>
+    request<{
+      items: {
+        signal_type: string;
+        direction: "bullish" | "bearish" | "neutral";
+        n_signals: number;
+        total_contribution: number;
+        avg_raw_intensity: number | null;
+        avg_credibility: number | null;
+        share_pct: number;
+      }[];
+      window_days: number;
+    }>("/api/signals/contribution"),
+
   // backtest
   backtestResults: () => request<BacktestResults>("/api/backtest/results"),
   backtestPredictions: (limit = 50) =>

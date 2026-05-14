@@ -90,12 +90,12 @@ async def current_pattern_score() -> dict:
 
 @router.get("/pattern-score/history")
 async def pattern_history(days: int = 90) -> dict:
-    """Pattern Score history N일."""
+    """Pattern Score history N일. 6년 평시 가치 그래프 (시나리오 §14 Phase 7)는 days=2200."""
     try:
         rows = _q(f"""
             SELECT date, pattern_score, mission_type, bullish_score, bearish_score
             FROM crude_compass.gold.daily_risk_score
-            WHERE date >= CURRENT_DATE() - INTERVAL {min(days, 365)} DAYS
+            WHERE date >= CURRENT_DATE() - INTERVAL {min(days, 2200)} DAYS
             ORDER BY date
         """)
         return {
@@ -108,6 +108,89 @@ async def pattern_history(days: int = 90) -> dict:
                 } for r in rows
             ]
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)})
+
+
+# ────────────────────────────────────────────────────────────────────────
+# /api/market/opec-latest — Document Intelligence wow (시나리오 §9.6)
+# OPEC MOMR PDF → ai_parse_document() → bronze.opec_momr_parsed
+# Discovery 페이지 citation badge "OPEC MOMR 2026-03 · 사우디 10,110 kbbl/d"
+# ────────────────────────────────────────────────────────────────────────
+@router.get("/market/opec-latest")
+async def opec_latest() -> dict:
+    """Latest OPEC MOMR snapshot (gold.opec_demand_gap view).
+
+    시나리오 §14 Phase 4 narrator anchor: "OPEC MOMR 5월 사우디 추가 감산 시그널"
+    """
+    try:
+        rows = _q("""
+            SELECT report_month, saudi_production_kbbl_d, iran_production_kbbl_d,
+                   opec_total_kbbl_d, forecast_demand_kbbl_d,
+                   supply_demand_gap_kbbl_d, market_balance
+            FROM crude_compass.gold.opec_demand_gap
+            ORDER BY report_month DESC
+            LIMIT 2
+        """)
+        if not rows:
+            return {"latest": None, "prev": None}
+
+        def to_obj(r) -> dict:
+            return {
+                "report_month": r[0],
+                "saudi_kbbl_d": float(r[1]) if r[1] is not None else None,
+                "iran_kbbl_d": float(r[2]) if r[2] is not None else None,
+                "opec_total_kbbl_d": float(r[3]) if r[3] is not None else None,
+                "forecast_demand_kbbl_d": float(r[4]) if r[4] is not None else None,
+                "supply_demand_gap_kbbl_d": float(r[5]) if r[5] is not None else None,
+                "market_balance": r[6],
+            }
+
+        latest = to_obj(rows[0])
+        prev = to_obj(rows[1]) if len(rows) > 1 else None
+        # Saudi delta (latest - prev) — 사우디 감산/증산 시그널
+        if prev and latest["saudi_kbbl_d"] is not None and prev["saudi_kbbl_d"] is not None:
+            latest["saudi_delta_vs_prev"] = round(
+                latest["saudi_kbbl_d"] - prev["saudi_kbbl_d"], 2
+            )
+        return {"latest": latest, "prev": prev, "source": "ai_parse_document() · OPEC MOMR PDF"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)})
+
+
+# ────────────────────────────────────────────────────────────────────────
+# /api/signals/contribution — gold.signal_contribution_30d view (D-3 추가)
+# 시나리오 §6.3 #2 "오늘 점수 82는 호르무즈 35%, 두바이 28% ..." anchor
+# ────────────────────────────────────────────────────────────────────────
+@router.get("/signals/contribution")
+async def signal_contribution() -> dict:
+    """최근 30일 signal_type × direction 기여도 (총합 % 환산).
+
+    Discovery 페이지 horizontal bar chart 데이터.
+    """
+    try:
+        rows = _q("""
+            SELECT signal_type, direction, n_signals, total_contribution,
+                   avg_raw_intensity, avg_credibility
+            FROM crude_compass.gold.signal_contribution_30d
+            ORDER BY ABS(total_contribution) DESC
+        """)
+        items = [
+            {
+                "signal_type": r[0],
+                "direction": r[1],
+                "n_signals": int(r[2]) if r[2] is not None else 0,
+                "total_contribution": float(r[3]) if r[3] is not None else 0.0,
+                "avg_raw_intensity": float(r[4]) if r[4] is not None else None,
+                "avg_credibility": float(r[5]) if r[5] is not None else None,
+            }
+            for r in rows
+        ]
+        # % share 계산 (절댓값 기준)
+        total_abs = sum(abs(x["total_contribution"]) for x in items) or 1.0
+        for x in items:
+            x["share_pct"] = round(abs(x["total_contribution"]) / total_abs * 100, 1)
+        return {"items": items, "window_days": 30}
     except Exception as e:
         raise HTTPException(status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)})
 

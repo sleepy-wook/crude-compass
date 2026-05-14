@@ -12,6 +12,10 @@ import { formatPct, formatScore, missionTypeLabel, relativeTime } from "../lib/u
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
 import { Term } from "../components/Glossary";
 import { FleetLifecycleSection } from "../components/FleetLifecycleSection";
+import { HormuzMap } from "../components/HormuzMap";
+import { SignalContribution } from "../components/SignalContribution";
+import { PatternScoreLine } from "../components/PatternScoreLine";
+import { OpecCitation } from "../components/OpecCitation";
 import type { Mission, PatternScoreCurrent } from "../lib/types";
 
 
@@ -143,6 +147,9 @@ export function Discovery() {
         </section>
       )}
 
+      {/* Persian Gulf map — K-Petroleum 5척 (시나리오 §6.5 leading indicator + §14 Phase 3) */}
+      <HormuzMap />
+
       {/* K-Petroleum 5척 lifecycle (시나리오 §4) */}
       <FleetLifecycleSection />
 
@@ -208,6 +215,16 @@ export function Discovery() {
           </div>
         )}
       </section>
+
+      {/* Pattern Score 30일 line + 6년 평시 가치 (시나리오 §14 Phase 7) */}
+      <PatternScoreLine days={30} variant="mini" />
+      <PatternScoreLine days={2200} variant="long" />
+
+      {/* Signal Contribution — 시나리오 §6.3 #2 + §14 Phase 3 핵심 wow */}
+      <SignalContribution />
+
+      {/* OPEC MOMR citation — Document Intelligence wow (§9.6) */}
+      <OpecCitation />
 
       {/* Active Missions Summary */}
       <section className="mb-8">

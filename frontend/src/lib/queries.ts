@@ -15,6 +15,8 @@ export const queryKeys = {
   backtestResults: ["backtest", "results"] as const,
   backtestPredictions: (limit: number) => ["backtest", "predictions", limit] as const,
   fleetPositions: ["fleet", "positions"] as const,
+  signalContribution: ["signals", "contribution"] as const,
+  opecLatest: ["market", "opec-latest"] as const,
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -66,6 +68,30 @@ export function useBacktestPredictions(limit = 50) {
   return useQuery({
     queryKey: queryKeys.backtestPredictions(limit),
     queryFn: () => api.backtestPredictions(limit),
+    staleTime: 3600_000,
+  });
+}
+
+export function useSignalContribution() {
+  return useQuery({
+    queryKey: queryKeys.signalContribution,
+    queryFn: () => api.signalContribution(),
+    staleTime: 60_000,
+  });
+}
+
+export function usePatternHistory(days: number) {
+  return useQuery({
+    queryKey: queryKeys.patternHistory(days),
+    queryFn: () => api.patternHistory(days),
+    staleTime: 60_000,
+  });
+}
+
+export function useOpecLatest() {
+  return useQuery({
+    queryKey: queryKeys.opecLatest,
+    queryFn: () => api.opecLatest(),
     staleTime: 3600_000,
   });
 }

@@ -282,7 +282,53 @@ LLM Mission Plan Agent 호출 (full body 버전).
 ```
 
 ### 4.2 `GET /api/pattern-score/history?days=90`
-지난 N일 Pattern Score history (default 90).
+지난 N일 Pattern Score history (default 90, max 2200 — 6년 평시 가치 그래프 §14 Phase 7).
+
+### 4.3 `GET /api/signals/contribution`
+최근 30일 signal_type × direction 기여도 (`gold.signal_contribution_30d` view).
+시나리오 §6.3 #2 "오늘 점수 82는 호르무즈 35%, 두바이 28% ..." anchor.
+
+### 4.4 `GET /api/market/opec-latest`
+최신 OPEC MOMR snapshot (`gold.opec_demand_gap` view). Document Intelligence wow (§9.6) citation badge용.
+시나리오 §14 Phase 4 narrator anchor "OPEC MOMR 사우디 추가 감산 시그널".
+
+**Response 200**:
+```json
+{
+  "latest": {
+    "report_month": "2026-03",
+    "saudi_kbbl_d": 10110.0,
+    "iran_kbbl_d": 3176.0,
+    "opec_total_kbbl_d": 28630.0,
+    "forecast_demand_kbbl_d": 105590.0,
+    "supply_demand_gap_kbbl_d": -76960.0,
+    "market_balance": "undersupply",
+    "saudi_delta_vs_prev": 24.0
+  },
+  "prev": { /* same shape, 직전 월 */ },
+  "source": "ai_parse_document() · OPEC MOMR PDF"
+}
+```
+
+**Response 200**:
+```json
+{
+  "window_days": 30,
+  "items": [
+    {
+      "signal_type": "news_tone",
+      "direction": "bullish",
+      "n_signals": 412,
+      "total_contribution": 187.5,
+      "avg_raw_intensity": 68.0,
+      "avg_credibility": 0.85,
+      "share_pct": 35.2
+    }
+  ]
+}
+```
+
+`share_pct` = absolute(total_contribution) / sum(all abs) × 100. Bar chart bar 길이 = share_pct.
 
 ---
 

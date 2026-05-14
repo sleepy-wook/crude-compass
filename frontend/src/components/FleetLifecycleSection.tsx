@@ -97,7 +97,8 @@ export function FleetLifecycleSection() {
       </div>
       <p className="text-xs text-ink-3 mb-3">
         AIS 공개 데이터 (IMO mandate) + <code className="text-[11px]">KPETRO_NNN</code> 익명화 표시.
-        시나리오 §4 가상 fleet narrative.
+        VLCC fleet 평시 운용 패턴상 일부 vessel은 docking/maintenance로 idle —
+        실데이터 그대로 표시 (시나리오 §6.5.2).
       </p>
 
       {isLoading && (
