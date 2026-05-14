@@ -139,6 +139,11 @@ export interface Mission {
 }
 ```
 
+### 2.1b `GET /api/missions/all`
+모든 mission (active + completed + aborted). 히스토리 페이지 또는 데모 시점 reset 확인용.
+
+**Response 200**: `{ missions: Mission[] }`
+
 ### 2.2 `GET /api/missions/{mission_id}`
 단일 mission.
 
@@ -191,6 +196,36 @@ export interface Mission {
 
 **Request**: `{ version: int, target_pct?: int, duration_days?: int }`
 **Response 200**: `Mission`
+
+### 2.7 `POST /api/missions/recommend`
+LLM Mission Plan Agent 호출 (full body 버전).
+
+**Request**: `MissionPlanInput` (pattern_score / bullish / bearish / cross_val_bonus / signal_count_90d / top_signals[] / active_mission?)
+**Response 200**:
+- `action_type='new_mission'` → `{ action: "new_mission", mission: Mission, confidence_score }`
+- 기타 → `{ action: pivot|pause|abort|continue, output: MissionPlanOutput }`
+**Response 500**: `{ code: "LLM_CALL_FAILED" }`
+
+### 2.8 `POST /api/missions/recommend_now`
+**Demo-friendly wrapper** — no body 또는 optional override. Discovery '지금 새 추천 생성' 버튼.
+내부에서 (a) demo narrative signals seed, (b) active mission 자동 추출, (c) LLM 호출.
+
+**Request** (모두 optional):
+```json
+{
+  "pattern_score": 82.0,
+  "bullish_score": 78.0,
+  "bearish_score": 22.0,
+  "use_demo_signals": true   // false면 빈 signals → LLM 추론에 의존
+}
+```
+
+**Response 200**:
+- `action='new_mission'` → `{ action, mission: Mission, confidence_score, llm_endpoint }`
+  · mission.source = `"agent"` (provenance: LLM-generated)
+- 기타 → `{ action, output: MissionPlanOutput, llm_endpoint }`
+
+**LLM 응답시간**: cold start 5-10초. frontend는 mutation pending spinner. WS 'mission.proposed' event로 자동 list 업데이트.
 
 ---
 

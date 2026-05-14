@@ -111,6 +111,24 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ question, conversation_id: conversationId ?? null }),
     }),
+
+  // Mission Plan Agent — '지금 새 추천 생성' demo wrapper
+  missionRecommendNow: (overrides?: {
+    pattern_score?: number;
+    bullish_score?: number;
+    bearish_score?: number;
+    use_demo_signals?: boolean;
+  }) =>
+    request<{
+      action: string;
+      mission?: Mission;
+      output?: Record<string, unknown>;
+      confidence_score?: number;
+      llm_endpoint: string;
+    }>("/api/missions/recommend_now", {
+      method: "POST",
+      body: JSON.stringify(overrides ?? {}),
+    }),
 };
 
 export { ApiError };

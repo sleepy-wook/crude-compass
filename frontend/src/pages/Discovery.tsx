@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   useBacktestResults,
   useMissionsActive,
   usePatternCurrent,
+  queryKeys,
 } from "../lib/queries";
+import { api } from "../lib/api";
 import { formatPct, formatScore, missionTypeLabel, relativeTime } from "../lib/utils";
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
 import { Term } from "../components/Glossary";
@@ -58,6 +62,24 @@ export function Discovery() {
   const cur = pattern.data?.current;
   const activeMissions = missions.data?.missions || [];
   const today = buildTodayDecision(cur, activeMissions);
+  const qc = useQueryClient();
+  const [recommendError, setRecommendError] = useState<string | null>(null);
+
+  // '지금 새 추천 생성' — Mission Plan Agent 라이브 호출 (5-10s cold start)
+  const recommendMut = useMutation({
+    mutationFn: () =>
+      api.missionRecommendNow({
+        pattern_score: cur?.pattern_score ?? undefined,
+        bullish_score: cur?.bullish_score ?? undefined,
+        bearish_score: cur?.bearish_score ?? undefined,
+      }),
+    onSuccess: () => {
+      setRecommendError(null);
+      // WS event로 자동 update되지만, fallback으로 명시적 invalidate
+      qc.invalidateQueries({ queryKey: queryKeys.missionsActive });
+    },
+    onError: (err: Error) => setRecommendError(err.message || "LLM 호출 실패"),
+  });
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -77,17 +99,46 @@ export function Discovery() {
           <div
             className={
               today.tone === "crisis"
-                ? "bg-crisis-50 border border-crisis-100 text-crisis-700 rounded-lg px-5 py-4"
+                ? "bg-crisis-50 border border-crisis-100 text-crisis-700 rounded-lg px-5 py-4 flex items-start justify-between gap-4"
                 : today.tone === "opp"
-                ? "bg-opportunity-50 border border-opportunity-100 text-opportunity-700 rounded-lg px-5 py-4"
-                : "bg-panel border border-line-1 text-ink-2 rounded-lg px-5 py-4"
+                ? "bg-opportunity-50 border border-opportunity-100 text-opportunity-700 rounded-lg px-5 py-4 flex items-start justify-between gap-4"
+                : "bg-panel border border-line-1 text-ink-2 rounded-lg px-5 py-4 flex items-start justify-between gap-4"
             }
           >
-            <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">
-              오늘의 1줄 의사결정
+            <div className="flex-1">
+              <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">
+                오늘의 1줄 의사결정
+              </div>
+              <div className="text-base font-medium leading-relaxed">{today.text}</div>
             </div>
-            <div className="text-base font-medium leading-relaxed">{today.text}</div>
+            {/* Mission Plan Agent 라이브 호출 버튼 — 평가위원 앞에서 LLM 시연 */}
+            <button
+              type="button"
+              onClick={() => recommendMut.mutate()}
+              disabled={recommendMut.isPending}
+              className="shrink-0 px-4 py-2 rounded-md bg-ink text-white text-xs font-medium hover:bg-ink-2 disabled:opacity-50 transition-colors whitespace-nowrap"
+              title="Databricks Foundation Model API (Claude Haiku) — 5-10초 cold start"
+            >
+              {recommendMut.isPending ? "🤖 AI 분석 중..." : "🤖 지금 새 추천 생성"}
+            </button>
           </div>
+          {recommendError && (
+            <div className="mt-2 text-xs text-crisis-700">
+              에러: {recommendError}
+            </div>
+          )}
+          {recommendMut.data && recommendMut.data.action !== "new_mission" && (
+            <div className="mt-2 text-xs text-ink-3">
+              AI 응답: action={recommendMut.data.action} (현재 시그널 상 새 mission 권고 X)
+              · LLM={recommendMut.data.llm_endpoint}
+            </div>
+          )}
+          {recommendMut.isSuccess && recommendMut.data?.mission && (
+            <div className="mt-2 text-xs text-opportunity-700">
+              ✅ 새 Mission 생성: {recommendMut.data.mission.goal_text} (신뢰도 {recommendMut.data.confidence_score?.toFixed(0)}/100)
+              · 진행 중 미션 목록 자동 update.
+            </div>
+          )}
         </section>
       )}
 

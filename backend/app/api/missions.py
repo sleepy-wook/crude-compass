@@ -261,3 +261,138 @@ async def recommend(payload: MissionPlanInput) -> dict:
                 "confidence_score": result.confidence_score}
 
     return {"action": result.action_type, "output": result.model_dump(mode="json")}
+
+
+# ────────────────────────────────────────────────────────────────────────
+# Demo-friendly: no-body wrapper (자동 demo signals + active mission 추론)
+# ────────────────────────────────────────────────────────────────────────
+class RecommendNowRequest(BaseModel):
+    """Discovery '지금 새 추천 생성' 버튼이 호출. 모두 optional override."""
+    pattern_score: float | None = None
+    bullish_score: float | None = None
+    bearish_score: float | None = None
+    use_demo_signals: bool = True  # False면 빈 signals → LLM 추론에 의존
+
+
+# 데모 narrative anchor signals (시나리오 §14 Phase 4 핵심 시그널)
+_DEMO_SIGNALS = [
+    {
+        "signal_id": "demo_hormuz_001",
+        "source": "GDELT_hormuz",
+        "direction": "bullish",
+        "importance": 88,
+        "category": "geopolitical",
+        "title": "Iran 제재 추가 + UK Maritime alerts 호르무즈 통과 우려 (멘션 +280%)",
+    },
+    {
+        "signal_id": "demo_eia_001",
+        "source": "EIA_inventory",
+        "direction": "bullish",
+        "importance": 72,
+        "category": "supply",
+        "title": "EIA 주간 재고 -5.2M bbl surprise (예상 -1.5M)",
+    },
+    {
+        "signal_id": "demo_opec_001",
+        "source": "OPEC_momr",
+        "direction": "bullish",
+        "importance": 75,
+        "category": "demand",
+        "title": "OPEC MOMR 5월호 — 사우디 추가 감산 시그널 + 글로벌 수요 +1.8mb/d 상향",
+    },
+    {
+        "signal_id": "demo_russia_001",
+        "source": "GDELT_russia",
+        "direction": "bullish",
+        "importance": 68,
+        "category": "geopolitical",
+        "title": "Russia-Ukraine 휴전 협상 결렬 시그널",
+    },
+]
+
+
+@router.post("/recommend_now")
+async def recommend_now(body: RecommendNowRequest = RecommendNowRequest()) -> dict:
+    """No-body wrapper for demo '지금 새 추천 생성' button.
+
+    내부에서 (a) demo signals seed (b) active mission (있으면) (c) Pattern Score override
+    → MissionPlanInput 구성 → LLM 호출 → 결과 반환.
+
+    LLM cold start ~5-10s 예상. frontend는 mutation pending spinner.
+    """
+    from datetime import datetime
+    from app.schemas.mission import SignalContext
+
+    # default values for demo (Phase 4 narrative와 일치 — Pattern Score 82 = HEDGE zone)
+    pattern_score = body.pattern_score if body.pattern_score is not None else 82.0
+    bullish_score = body.bullish_score if body.bullish_score is not None else 78.0
+    bearish_score = body.bearish_score if body.bearish_score is not None else 22.0
+
+    # active mission 있으면 Pivot 검토 candidate
+    store = get_store()
+    actives = await store.get_active()
+    active_mission = actives[0] if actives else None
+
+    # top_signals — demo 모드 시 hardcoded narrative anchor
+    top_signals = []
+    if body.use_demo_signals:
+        now = datetime.now(timezone.utc)
+        top_signals = [
+            SignalContext(
+                signal_id=s["signal_id"],
+                published_at=now,
+                source=s["source"],
+                direction=s["direction"],
+                importance=s["importance"],
+                category=s["category"],
+                title=s["title"],
+            )
+            for s in _DEMO_SIGNALS
+        ]
+
+    payload = MissionPlanInput(
+        pattern_score=pattern_score,
+        bullish_score=bullish_score,
+        bearish_score=bearish_score,
+        cross_val_bonus=15.0 if body.use_demo_signals else 0.0,
+        signal_count_90d=len(top_signals),
+        top_signals=top_signals,
+        active_mission=active_mission,
+    )
+
+    # 기존 recommend logic 재사용
+    result = call_mission_plan_agent(payload)
+    if result is None:
+        raise HTTPException(status_code=500, detail={"code": "LLM_CALL_FAILED"})
+
+    if result.action_type == "new_mission":
+        bus = get_bus()
+        mission = Mission(
+            mission_id=uuid4(),
+            mission_type=result.mission_type,
+            status=MissionStatus.PROPOSED,
+            goal_text=result.goal_text,
+            pattern_score=result.pattern_score,
+            reasoning=result.reasoning,
+            simulation_roi=result.simulation_roi,
+            urgency=result.urgency,
+            target_pct=result.target_pct,
+            duration_days=result.duration_days,
+            created_at=_now(),
+            version=1,
+            source="agent",  # provenance: LLM-generated (vs demo_inject)
+        )
+        await store.create(mission)
+        await bus.publish({"type": "mission.proposed", "mission": mission.model_dump(mode="json")})
+        return {
+            "action": "new_mission",
+            "mission": mission.model_dump(mode="json"),
+            "confidence_score": result.confidence_score,
+            "llm_endpoint": "databricks-claude-haiku-4-5",
+        }
+
+    return {
+        "action": result.action_type,
+        "output": result.model_dump(mode="json"),
+        "llm_endpoint": "databricks-claude-haiku-4-5",
+    }

@@ -193,7 +193,14 @@ def call_mission_plan_agent(input_data: MissionPlanInput) -> MissionPlanOutput |
 
     Sprint 3: 직접 호출. Sprint 4: Agent Bricks Custom Agent endpoint으로 wrapping.
     """
-    w = WorkspaceClient()
+    # Local dev: DATABRICKS_CONFIG_PROFILE=crude-compass (LLM endpoint 등록된 profile).
+    # Apps deploy: workspace env auto-injection이라 profile 무관.
+    import os
+    profile = os.getenv("DATABRICKS_CONFIG_PROFILE", "crude-compass")
+    try:
+        w = WorkspaceClient(profile=profile)
+    except Exception:
+        w = WorkspaceClient()  # fallback to default env
 
     user_msg = f"""## Current state
 
@@ -226,7 +233,9 @@ def call_mission_plan_agent(input_data: MissionPlanInput) -> MissionPlanOutput |
         data = json.loads(content)
         return MissionPlanOutput.model_validate(data)
     except Exception as e:
-        print(f"⚠️  Mission Plan Agent failed: {type(e).__name__}: {e}")
+        import logging
         import traceback
-        traceback.print_exc()
+        logger = logging.getLogger(__name__)
+        logger.error("Mission Plan Agent failed: %s: %s", type(e).__name__, e)
+        logger.error("traceback: %s", traceback.format_exc())
         return None
