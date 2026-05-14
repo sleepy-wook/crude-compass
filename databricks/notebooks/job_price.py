@@ -25,6 +25,7 @@
 import json
 import time
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import httpx
 from pyspark.sql import Row
@@ -75,7 +76,8 @@ for ticker in TICKERS:
     rows.append(Row(
         fetched_at=now,
         ticker=ticker,
-        price_usd=price,
+        # DecimalType(8,2) field — Decimal 명시 (Spark Connect는 float→Decimal auto coerce 안 함)
+        price_usd=Decimal(f"{price:.2f}"),
         delta_pct_5min=None,  # 아래에서 spike 계산
         source="OilPriceAPI",
         raw_response=json.dumps(data)[:2000],
