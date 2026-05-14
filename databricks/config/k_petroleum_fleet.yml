@@ -1,0 +1,58 @@
+# K-Petroleum 가상 정유사 chartered VLCC 5척 fleet config
+#
+# 시나리오 §4 "가상 VLCC 5척 (#001-#005, AIS open data 기반)" 실증.
+# phase2_critique I8 "AIS open data → 가상 회사 풀 시뮬" 정합.
+#
+# 실데이터: SK Shipping operated VLCC fleet (한국 flag, Crude Oil Tanker, 299k+ DWT).
+# SK Innovation = charterer (소유주 X, 2018 SK이노→SK Shipping 매각 분리).
+# AIS public data (IMO mandate) 활용 + KPETRO_<NNN> anonymize 표시.
+#
+# 검증 (5/14 VesselFinder):
+# - 5척 모두 Crude Oil Tanker, 한국 flag (440/441), DWT 299k-313k
+# - Persian Gulf → Ulsan route (UNIVERSAL CREATOR: Yanbu→Onsan 항해 중)
+# - C. CHALLENGER 313k DWT (VLCC)
+#
+# Source: NamuWiki SK해운, VesselFinder, TradeWinds (SK Shipping fleet 공개)
+# Note: production paid tier (Spire/MarineTraffic)에서 SK 자체 fleet API로 즉시 전환 가능
+#
+# 사용:
+# - job_ais.py 가 본 파일 로드 → MMSI list → AISStream FiltersShipMMSI subscribe
+# - 매 5분 cron — 5척이 어디 있든 (호르무즈/인도양/한국 항만) 위치 적재
+# - bronze.ais_positions의 mmsi 컬럼은 anonymized (KPETRO_001~005)
+
+fleet:
+  - anonymize_id: KPETRO_001
+    mmsi: "441450000"
+    imo: "9595620"
+    operator_internal: "SK Shipping"
+    charterer_inferred: "SK Innovation"
+    dwt: 313918
+    built: 2013
+  - anonymize_id: KPETRO_002
+    mmsi: "440266000"
+    imo: "9837597"
+    operator_internal: "SK Shipping"
+    charterer_inferred: "SK Innovation"
+    dwt: 299981
+    built: 2019
+  - anonymize_id: KPETRO_003
+    mmsi: "440274000"
+    imo: "9837602"
+    operator_internal: "SK Shipping"
+    charterer_inferred: "SK Innovation"
+    dwt: 299981
+    built: 2019
+  - anonymize_id: KPETRO_004
+    mmsi: "440271000"
+    imo: "9837614"
+    operator_internal: "SK Shipping"
+    charterer_inferred: "SK Innovation"
+    dwt: 299981
+    built: 2019
+  - anonymize_id: KPETRO_005
+    mmsi: "440265000"
+    imo: "9837626"
+    operator_internal: "SK Shipping"
+    charterer_inferred: "SK Innovation"
+    dwt: 299981
+    built: 2019

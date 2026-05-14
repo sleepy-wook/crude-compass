@@ -40,22 +40,28 @@ nest_asyncio.apply()
 WS_URL = "wss://stream.aisstream.io/v0/stream"
 TARGET_TABLE = "crude_compass.bronze.ais_positions"
 
-# ⚠️ AISStream Free tier 검증 (5/14): Persian Gulf 영역 메시지 차단됨 (2,254건 global
-# stream 중 호르무즈 0건 확정). production은 paid Spire/MarineTraffic 가정.
-# 우리 데모는 한국 항구 inbound vessel 모니터링 — 한국 정유사 cargo lifecycle narrative.
-#
-# 시나리오 §6.5.1 Production-only narrative와 정합: "AIS historical/free 모두 제한,
-# 우리는 realtime production 시연 + Open Data Democratization 가치 입증".
+# K-Petroleum 가상 fleet — 시나리오 §4 "AIS open data 기반" 실증
+# 실데이터: SK Shipping operated VLCC fleet (한국 flag 440/441, DWT 299k-313k, VLCC)
+# 검증 5/14 VesselFinder. config: databricks/config/k_petroleum_fleet.yml
+# anonymize 매핑: MMSI → KPETRO_<NNN> (UI/저장 시점)
+KPETRO_FLEET = {
+    "441450000": "KPETRO_001",  # C. CHALLENGER, 313,918 DWT, built 2013
+    "440266000": "KPETRO_002",  # UNIVERSAL LEADER, 299,981 DWT, built 2019
+    "440274000": "KPETRO_003",  # UNIVERSAL WINNER, 299,981 DWT, built 2019
+    "440271000": "KPETRO_004",  # UNIVERSAL PARTNER, 299,981 DWT, built 2019
+    "440265000": "KPETRO_005",  # UNIVERSAL CREATOR, 299,981 DWT, built 2019
+}
+KPETRO_MMSI_LIST = list(KPETRO_FLEET.keys())
 
-# 한국 동남부 항구 영역 (Incheon/Yeosu/Ulsan/Busan) — free tier 작동 검증됨
-KOREA_COAST_BBOX = [[[33.0, 124.0], [38.0, 132.0]]]
+# 호르무즈 BBOX (시나리오 §6.5 leading indicator) + 한국 항구 BBOX
+# FiltersShipMMSI + BoundingBoxes는 AND. 5척이 어디 있든 잡으려면 글로벌 bbox 필요.
+GLOBAL_BBOX = [[[-90.0, -180.0], [90.0, 180.0]]]
 
-# 호르무즈 bbox — production paid tier 시 활성화 (현재 free tier 차단)
-HORMUZ_BBOX_PROD = [[[24.0, 54.0], [28.0, 58.0]]]
+# 호르무즈 bbox — 향후 background traffic 분석용
+HORMUZ_BBOX = [[[24.0, 54.0], [28.0, 58.0]]]
 
-# 한국 항구 UN/LOCODE (귀항 cargo)
+# 한국 항구 UN/LOCODE (cargo lifecycle 분류)
 KOREA_PORTS = {"KRYSU", "KRUSN", "KRDSN", "KRINC"}
-# 중동 항구 (출항 cargo - 한국에서 lift 위해 가는 중)
 ME_PORTS = {"SARTA", "SAJUM", "KWMEA", "AEFJR", "AEKHF", "AEJED"}
 
 api_key = dbutils.secrets.get(scope="crude", key="aisstream_api_key")
@@ -101,18 +107,18 @@ def classify_status(speed_knots: float, lat: float, lon: float) -> str:
 
 # COMMAND ----------
 
-async def collect_ais(timeout_seconds: int = 30) -> list[dict]:
-    """WebSocket 30초 collect — continuous 대체.
+async def collect_ais(timeout_seconds: int = 60) -> list[dict]:
+    """WebSocket collect — K-Petroleum 5척 fleet (FiltersShipMMSI) 글로벌 추적.
 
-    BBOX: 한국 동남부 항구 영역 (Free tier 작동). 호르무즈는 paid production tier에서.
+    5척이 어디 있든 (호르무즈/인도양/한국 항만) 위치 보고. BBOX는 global.
     """
     out: list[dict] = []
     try:
         async with websockets.connect(WS_URL, open_timeout=10) as ws:
             await ws.send(json.dumps({
                 "APIKey": api_key,
-                "BoundingBoxes": KOREA_COAST_BBOX,
-                # ShipStaticData (Type 5) + PositionReport (Type 1,2,3) 모두 받음
+                "BoundingBoxes": GLOBAL_BBOX,
+                "FiltersShipMMSI": KPETRO_MMSI_LIST,
                 "FilterMessageTypes": ["PositionReport", "ShipStaticData"],
             }))
             t_start = time.monotonic()
@@ -133,9 +139,10 @@ async def collect_ais(timeout_seconds: int = 30) -> list[dict]:
 
 # COMMAND ----------
 
-print("🌊 Hormuz bbox AIS collection (30s timeout)")
-messages = asyncio.run(collect_ais(30))
-print(f"  ✅ {len(messages)} raw messages received")
+print(f"[K-Petroleum fleet] 5척 MMSI subscribe (180s collection — VLCC AIS report freq ~6min)")
+print(f"  MMSI: {KPETRO_MMSI_LIST}")
+messages = asyncio.run(collect_ais(180))
+print(f"  raw messages received: {len(messages)}")
 
 # COMMAND ----------
 
@@ -174,21 +181,20 @@ for msg in messages:
     rec["lat"] = rec["lat"] or float(meta.get("latitude", 0))
     rec["lon"] = rec["lon"] or float(meta.get("longitude", 0))
 
-# Filter: KOREA_COAST_BBOX (free tier 작동 영역) + tanker (ship_type 80-89 또는 unknown)
-# 호르무즈는 production paid tier 시 in_hormuz() 분기 활성화.
+# Filter: K-Petroleum 5척 (FiltersShipMMSI로 이미 server-side filter됨)
+# anonymize 매핑: 9-digit MMSI → KPETRO_<NNN>
+# 시나리오 §4 "AIS open data 기반 가상 VLCC 5척" + phase2_critique I8 정합
 rows = []
 for mmsi, r in positions.items():
     if not (r["lat"] and r["lon"]):
         continue
-    # 한국 항구 영역 OR 호르무즈 (paid tier 시) — 둘 중 하나라도 매칭
-    if not (in_korea_coast(r["lat"], r["lon"]) or in_hormuz(r["lat"], r["lon"])):
+    # 우리 fleet 5척만 매칭 (FiltersShipMMSI 이미 적용됐지만 안전 double-check)
+    anon_id = KPETRO_FLEET.get(mmsi)
+    if anon_id is None:
         continue
-    # tanker only (또는 ship_type 정보 없을 때 일단 포함 — Sprint 3 보강)
-    is_tanker = r.get("ship_type") is None or 80 <= r["ship_type"] <= 89
 
-    # MMSI 가명 처리 (시나리오 § 18 익명화)
-    mmsi_anon = f"ANON_{abs(hash(mmsi)) % 100000:05d}"
-    vessel_name_anon = f"VLCC_{mmsi_anon}" if r.get("vessel_name") else None
+    # vessel_name도 anonymize (실제 이름 노출 X)
+    vessel_name_anon = f"VLCC {anon_id}"
 
     status = classify_status(r["speed_knots"] or 0, r["lat"], r["lon"])
 
@@ -198,118 +204,23 @@ for mmsi, r in positions.items():
     in_hormuz_flag = in_hormuz(r["lat"], r["lon"])
     rows.append(Row(
         fetched_at=now,
-        mmsi=mmsi_anon,
+        mmsi=anon_id,  # anonymized (KPETRO_001~005), 9-digit X
         vessel_name=vessel_name_anon,
         lat=float(r["lat"]),
         lon=float(r["lon"]),
         speed_knots=speed_dec,
         heading_deg=r.get("heading_deg") if r.get("heading_deg") != 511 else None,
-        in_hormuz_bbox=in_hormuz_flag,  # False면 한국 항구 영역
+        in_hormuz_bbox=in_hormuz_flag,
         status=status,
     ))
 
-print(f"  [vessels] {len(rows)} live AIS vessels in bbox (실시간 background traffic)")
-print(f"      transit: {sum(1 for r in rows if r.status == 'transit')}")
-print(f"      stranded: {sum(1 for r in rows if r.status == 'stranded')}")
-print(f"      anchored: {sum(1 for r in rows if r.status == 'anchored')}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## K-Petroleum 가상 VLCC 5척 (시나리오 §4 페르소나)
-# MAGIC
-# MAGIC 시나리오 narrative 핵심: 2026년 미국-이란 전쟁으로 호르무즈 통과 -93%.
-# MAGIC K-Petroleum 5척 (#001-#005)은 호르무즈 우회 + 한국 항구 도착 lifecycle.
-# MAGIC
-# MAGIC 익명화 (시나리오 §18): GS칼텍스/SK이노/S-Oil/현대오일뱅크 식별 정보 0,
-# MAGIC MMSI = `KPETRO_001` ~ `KPETRO_005` (가상 식별자).
-# MAGIC
-# MAGIC ⚠️ AISStream Free tier는 Persian Gulf 영역 메시지 차단 (5/14 검증: 2,254 글로벌
-# MAGIC 메시지 중 호르무즈 0건). 즉 시나리오 narrative ("호르무즈 통과 -93%")가 실제
-# MAGIC 데이터 결과와 정합 — 평가위원에게 강력한 narrative.
-
-# COMMAND ----------
-
-# K-Petroleum 5척 시나리오 lifecycle (호르무즈 우회 narrative)
-# 시나리오상 2026-05-14 현재: 3척 우회 중 (희망봉/수에즈), 1척 도착, 1척 출항 대기
-KPETRO_FLEET = [
-    {
-        # #001: 호르무즈 우회 — 희망봉 경로 (인도양 남부)
-        "mmsi": "KPETRO_001",
-        "vessel_name": "VLCC K-001 (희망봉 우회)",
-        "lat": -34.5,  # 희망봉 부근
-        "lon": 18.5,
-        "speed_knots": Decimal("12.5"),
-        "heading_deg": 75,  # NE 한국 향
-        "in_hormuz_bbox": False,
-        "status": "transit",  # 우회 중
-    },
-    {
-        # #002: 수에즈 통과 후 인도양 (vs 호르무즈 우회)
-        "mmsi": "KPETRO_002",
-        "vessel_name": "VLCC K-002 (수에즈 경로)",
-        "lat": 15.0,  # 인도양 북부
-        "lon": 60.0,
-        "speed_knots": Decimal("14.0"),
-        "heading_deg": 90,  # E 한국 향
-        "in_hormuz_bbox": False,
-        "status": "transit",
-    },
-    {
-        # #003: 한국 도착 (Yeosu 정박)
-        "mmsi": "KPETRO_003",
-        "vessel_name": "VLCC K-003 (Yeosu 정박)",
-        "lat": 34.76,  # Yeosu
-        "lon": 127.74,
-        "speed_knots": Decimal("0.3"),
-        "heading_deg": None,
-        "in_hormuz_bbox": False,
-        "status": "anchored",
-    },
-    {
-        # #004: 한국 출항 대기 (Ulsan)
-        "mmsi": "KPETRO_004",
-        "vessel_name": "VLCC K-004 (Ulsan 출항대기)",
-        "lat": 35.5,  # Ulsan
-        "lon": 129.4,
-        "speed_knots": Decimal("0.5"),
-        "heading_deg": 200,  # 출항 방향 (S)
-        "in_hormuz_bbox": False,
-        "status": "anchored",
-    },
-    {
-        # #005: 호르무즈 우회 시도 → 봉쇄 영향으로 stranded (페르시아만 입구 정박)
-        # 시나리오 narrative의 "통과 -93%" 핵심 vessel
-        "mmsi": "KPETRO_005",
-        "vessel_name": "VLCC K-005 (호르무즈 봉쇄 영향 — 우회 대기)",
-        "lat": 25.5,  # Persian Gulf 입구 (Fujairah 부근)
-        "lon": 57.0,
-        "speed_knots": Decimal("0.2"),
-        "heading_deg": None,
-        "in_hormuz_bbox": True,  # 시나리오상 호르무즈 영향권
-        "status": "stranded",
-    },
-]
-
-for kpetro in KPETRO_FLEET:
-    rows.append(Row(
-        fetched_at=now,
-        mmsi=kpetro["mmsi"],
-        vessel_name=kpetro["vessel_name"],
-        lat=kpetro["lat"],
-        lon=kpetro["lon"],
-        speed_knots=kpetro["speed_knots"],
-        heading_deg=kpetro["heading_deg"],
-        in_hormuz_bbox=kpetro["in_hormuz_bbox"],
-        status=kpetro["status"],
-    ))
-
-print(f"\n  [K-Petroleum fleet] {len(KPETRO_FLEET)} virtual VLCC seeded (시나리오 §4)")
-print(f"      transit: 2척 (희망봉 우회 #001, 수에즈 경로 #002)")
-print(f"      anchored: 2척 (Yeosu #003, Ulsan #004)")
-print(f"      stranded: 1척 (#005 호르무즈 봉쇄 영향)")
-print(f"  Total rows to write: {len(rows)}")
-print(f"      safe: {sum(1 for r in rows if r.status == 'safe')}")
+print(f"\n[K-Petroleum fleet] {len(rows)}/{len(KPETRO_FLEET)} vessels with live AIS")
+for row in rows:
+    print(f"      {row.mmsi}: lat={row.lat:.2f} lon={row.lon:.2f} "
+          f"speed={row.speed_knots}kts status={row.status} hormuz={row.in_hormuz_bbox}")
+missing = set(KPETRO_FLEET.values()) - {r.mmsi for r in rows}
+if missing:
+    print(f"      ⚠️ no message during window: {missing}")
 
 # COMMAND ----------
 

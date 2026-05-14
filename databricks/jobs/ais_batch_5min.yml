@@ -10,14 +10,15 @@ resources:
       schedule:
         quartz_cron_expression: "0 0/5 * * * ?"
         timezone_id: Asia/Seoul
-        pause_status: PAUSED
+        pause_status: UNPAUSED  # 5/14 D-4: K-Petroleum 5척 lifecycle 누적 시작
 
       tasks:
         - task_key: ais_collect
           notebook_task:
             notebook_path: ../notebooks/job_ais.py
             source: WORKSPACE
-          timeout_seconds: 180
+          # 180s WebSocket collect + Spark write + serverless cold start 여유
+          timeout_seconds: 360
 
       max_concurrent_runs: 1
 
