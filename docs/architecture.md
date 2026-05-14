@@ -26,11 +26,11 @@
 | # | 결정 | 근거 |
 |---|---|---|
 | **A7** | **Track 1 Social Impact 유지** (Track 2 변경 X) | 우리는 자체 organizational data X (가상 K-Petroleum + 100% open public data). Track 1 명백 정합. Open Data Democratization narrative 강화 |
-| **A8** | **Agent Bricks 5 빌드 옵션 모두 활용** | Custom Agent on Apps + Supervisor Agent + Knowledge Assistant + Document Intelligence + Mission Plan Agent. 우리 Bidirectional Mission Plan은 차별화 유지 |
+| **A8** | **공식 4 features 모두 production-grade** (Apps + Lakebase + Genie + AgentBricks Knowledge Assistant) | Apps deploy + Lakebase OAuth pool + Genie 4-tier fallback + Knowledge Assistant 1개 (D-2 등록). Foundation Model API 직접 호출 (Mission Plan Agent). Supervisor/Multi-Agent는 scope-out. |
 | **A9** | **GDELT (감지층) + RSS 보강층 (이벤트 드리븐)** 패턴 | RSS 11 source 직접 fetch 대신 GDELT tone score → alert 시점에만 RSS Knowledge Assistant 입력. 효율 + tone 자동화 |
-| **A10** | **Document Intelligence 시연** (`ai_parse_document()`) — OPEC MOMR + JWC PDF | Agent Bricks 5 옵션 중 하나 추가 활용. Technical Capability ↑ |
-| **A11** | **시간 감쇠 시그널별 람다 차등 + UC Function 분리** | Genie도 동일 함수 호출 가능. 람다 자체 버전 관리 (Time Travel 비교) |
-| **A12** | **Time Travel 백테스트 슬라이더 + Confidence Score UI 노출** | 데모 wow + 임원 신뢰성 narrative |
+| **A10** | **Document Intelligence 시연** (`ai_parse_document()`) — OPEC MOMR PDF | `bronze.opec_momr_parsed` 적재. Technical Capability 추가 점수. |
+| **A11** | **시간 감쇠 시그널별 람다 차등 + UC Function 분리** | `crude_compass.functions.weighted_signal()` 실제 SQL UDF. Genie + curation + backtest 공통 호출. |
+| **A12** | **Backtest 시점 슬라이더 (frontend WhatIf) + Confidence Score UI 노출** | UI 컴포넌트 작동 (실 데이터 v6 298건). Delta Time Travel SQL은 scope-out. |
 
 ---
 
@@ -193,7 +193,7 @@ FastAPI broadcast:
 | 5 | eia_weekly | `0 18 * * 3` | should-have | EIA Open Data API 주간 재고 | `databricks/notebooks/job_eia.py` |
 | 6 | ecos_daily | `0 18 * * 1-5` | should-have | KRW/USD | `databricks/notebooks/job_ecos.py` |
 | 7 | **opec_momr_monthly** ⭐ | `0 0 12 * *` | optional | OPEC MOMR PDF fetch + `ai_parse_document()` | `databricks/notebooks/job_opec_momr.py` |
-| 8 | daily_curation_06:30 ⭐ | `30 6 * * *` | **real** ⭐ | Bidirectional Pattern Detection + Mission Plan trigger + Time Travel snapshot | `databricks/notebooks/job_curation.py` |
+| 8 | daily_curation_06:30 ⭐ | `30 6 * * *` | **real** ⭐ | Bidirectional Pattern Detection + Mission Plan trigger | `databricks/notebooks/job_curation.py` |
 | 9 | weekly_self_critique | `0 18 * * 0` | **mock stub** | Hard-coded 78%/71% backtest | `databricks/notebooks/job_critique_mock.py` |
 
 > Sprint 2 (5/11-13): 1·2·3·4·5·6 구현 + 7 (Document Intelligence 시연용). Sprint 3 (5/14-16): 8 + Mission Plan Agent + Mock backtest 산출.
@@ -207,29 +207,39 @@ FastAPI broadcast:
 
 ---
 
-## 4. Agent Bricks — Supervisor + 5 sub-agent (D-14 통합)
+## 4. AI Agent Architecture — 공식 4 features (정직 정리)
 
 ```
-[Custom Agent on Apps] (메인 entry, Lakebase 메모리, Slack ↔ Apps sync)
+[Apps + Lakebase] (Vite + FastAPI, Apps deploy, Lakebase OAuth pool)
    │
-   └─ [Supervisor Agent] (트래픽 컨트롤러, No-code UI)
-        ├ [Genie Space] — 정형 자연어 (certified queries + UC Function)
-        ├ [Knowledge Assistant] — OPEC MOMR + 가상 정유사 정책 RAG
-        ├ [UC Function] — 시간 감쇠 + 비중 시뮬 + 랜딩 코스트
-        ├ [Document Intelligence] — `ai_parse_document()` PDF 파싱
-        └ [Mission Plan Agent ⭐] — Bidirectional 양방향 Mission (우리 차별화)
+   ├─ [Slack Bolt mount] — Slack ↔ Apps 5초 sync
+   │
+   └─ [Mission Plan Agent — Foundation Model API ⭐]
+        │   w.serving_endpoints.query("databricks-claude-haiku-4-5")
+        │   chat completion (시스템 프롬프트 + signals input)
+        │   → Bidirectional Mission (HEDGE/OPP/Pivot)
+        │
+        ├ [Genie Space] — backend services/genie.py 4-tier fallback
+        ├ [Knowledge Assistant] — D-2 등록 (OPEC MOMR PDF RAG)
+        ├ [UC Function `weighted_signal()`] — curation + backtest 공통
+        └ [Document Intelligence `ai_parse_document()`] — opec_momr_parsed 적재
 ```
 
-| # | Agent / 빌드 옵션 | 상태 | 구현 |
+| # | Component | 상태 | 구현 |
 |---|---|---|---|
-| 1 | **Custom Agent on Apps** | **real** | 메인 entry. Lakebase 네이티브 통합 (대화 히스토리 자동 저장). Slack Bolt mount → Slack ↔ Apps 5초 sync |
-| 2 | **Supervisor Agent** | **얇게** | No-code UI 권장 (형욱님 부담 ↓). sub-agent 라우팅. Sprint 3 진입 시 등록 |
-| 3 | **Genie Space** | **real** | ≤30 테이블 (Bronze 5 + Silver 3 + Gold 4). certified queries + instructions + UC Function. Public Preview fallback (canned response 준비) |
-| 4 | **Knowledge Assistant** | **얇게** | UC Volume에 OPEC MOMR + 가상 정유사 조달 정책 PDF 1개 적재. RAG endpoint |
-| 5 | **Document Intelligence** | **시연** | `ai_parse_document()` SQL 한 줄 — `bronze.opec_momr_parsed` 적재. Sprint 2 day 5 1회 실행으로 시연 (월간이라 자주 안 필요) |
-| 6 | **Mission Plan Agent ⭐** | **real** | Agent Bricks Custom Agent. Bidirectional 양방향 Mission 생성. Foundation Model API (Claude Haiku 4.5) + scenario prompt. MLflow tracking |
-| 7 | UC Function (sub-agent 보조) | **real** | `crude_compass.functions.weighted_signal()`, `simulate_term_spot()`, `landing_cost()` — Genie + Mission Plan 공통 호출 |
-| 8 | Self-Critique | **mock** | What-If "어제 복기" 탭 hard-coded 78%/71%. 실제 산출은 `scripts/backtest_signals.py` (Sprint 3) 결과 hardcoded |
+| 1 | **Databricks Apps** | **real** | `app.yaml` + FastAPI + StaticFiles SPA fallback + secrets resource. D-2 deploy. |
+| 2 | **Lakebase Postgres** | **real** | `db/lakebase.py` OAuth pool (max_lifetime=3000), `LakebaseMissionStore` repo, missions DDL. `USE_LAKEBASE=true` flag. |
+| 3 | **Genie Space** | **code real, registration D-2** | `services/genie.py` SDK 호출 + 4-tier fallback (live → fallback_data → fallback_text → fallback). `GENIE_SPACE_ID` env. |
+| 4 | **AgentBricks Knowledge Assistant** | **D-2 manual** | UC Volume에 OPEC MOMR PDF 1-3개 적재 + Knowledge Assistant endpoint. 공식 AgentBricks 충족 1개 |
+| 5 | **Foundation Model API** | **real** | `databricks-claude-haiku-4-5` 직접 호출 — mission_plan.py + recommend_now + backtest v6 3곳. |
+| 6 | **Document Intelligence** | **real** | `ai_parse_document()` SQL 한 줄 — `bronze.opec_momr_parsed` 적재 (35 PDF 처리). |
+| 7 | **UC Function** | **real** | `crude_compass.functions.weighted_signal()` 람다 차등 시간 감쇠. curation + backtest 공통. |
+| 8 | **Lakeflow Jobs** | **real** | 16 YAML, AIS + OilPrice UNPAUSED 자동 5분 cron. |
+| 9 | **Backtest v6** | **real** | 298건 stratified samples, 75% hit rate, 7년 4개월. `gold.llm_backtest_predictions` 적재. |
+| - | ~~Supervisor Agent~~ | **scope-out** | 미등록. backend orchestration으로 대체 (Mission Plan + Genie + Knowledge Assistant 백엔드 호출). |
+| - | ~~Custom Agent~~ | **scope-out** | Foundation Model API 직접 호출이 cost-effective. Agent Bricks Custom Agent 등록은 Sprint 5 swap. |
+| - | ~~MLflow tracking~~ | **scope-out** | Delta append만, MLflow run tracking 미구현. |
+| - | ~~Self-Critique Agent~~ | **mock** | What-If 페이지 v6 backtest 결과 그대로 표시 (75% hit, 298건 등). |
 
 ### Mission Plan Agent (Agent 3) — Real 구현
 

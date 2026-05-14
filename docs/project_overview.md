@@ -182,7 +182,7 @@ Term 비중 60% → 75% (4주)
 - Apps 웹 화면 만들기 (Discovery / Mission / What-if 3페이지)
 - Slack Bot 연동 + WebSocket 실시간 sync
 - AI 대시보드 (Pattern Score 시계열 차트)
-- Databricks Workspace 설정 (Supervisor / Knowledge Assistant / Genie)
+- Databricks Workspace 설정 (Knowledge Assistant / Genie Space / Apps deploy)
 
 ### 📋 남은 일 (Sprint 5, 5/20-22)
 - 데모 영상 60% 미리 녹화 + 40% 라이브 시연
