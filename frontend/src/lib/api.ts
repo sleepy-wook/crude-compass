@@ -5,6 +5,7 @@
 import type {
   BacktestPrediction,
   BacktestResults,
+  GenieQueryResponse,
   Mission,
   PatternHistory,
   PatternScoreCurrent,
@@ -103,6 +104,13 @@ export const api = {
   backtestResults: () => request<BacktestResults>("/api/backtest/results"),
   backtestPredictions: (limit = 50) =>
     request<{ predictions: BacktestPrediction[] }>(`/api/backtest/predictions?limit=${limit}`),
+
+  // genie 자연어 질의
+  genieQuery: (question: string, conversationId?: string | null) =>
+    request<GenieQueryResponse>("/api/genie/query", {
+      method: "POST",
+      body: JSON.stringify({ question, conversation_id: conversationId ?? null }),
+    }),
 };
 
 export { ApiError };

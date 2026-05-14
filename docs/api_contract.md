@@ -352,6 +352,41 @@ Slack interactive button (Confirm / Reject / Pivot 등). Bolt action handler.
 > ⚠️ **데모용. Production rollout 시 disable** (env flag `DEMO_MODE=true`만 enable).
 > 시그널 inject (bronze table) → Pattern Score 재계산 → LLM 흐름은 Sprint 5에서 추가 예정.
 
+### 7.3 `POST /api/genie/query`
+Databricks Genie Space 자연어 질의 — live 호출 또는 graceful fallback.
+시나리오 §9.3 anchor. 평가위원 "Genie 어떻게 썼나요?" 질문 시 라이브 시연.
+
+**Request**:
+```json
+{
+  "question": "최근 7일 호르무즈 통과 유조선은?",
+  "conversation_id": null
+  // 또는 이전 응답의 conversation_id로 multi-turn 이어가기
+}
+```
+
+**Response 200** (항상 200, source field로 mode 구분):
+```json
+{
+  "answer": "최근 7일 호르무즈 BBOX 통과 유조선 N척 ...",
+  "sql": "SELECT count(*) ...",  // live 또는 fallback_data 시
+  "data": [{"vessels": 12, "latest": "2026-05-14T..."}],  // live 또는 fallback_data 시
+  "conversation_id": "conv_abc123",
+  "message_id": "msg_xyz789",
+  "source": "live"
+}
+```
+
+**Source enum** (transparency — UI에 항상 노출):
+- `live`: Genie Conversation API 정상 호출 (settings.genie_enabled=true)
+- `fallback_data`: GENIE_SPACE_ID 미설정 or SDK 실패 → Lakebase 직접 SQL 호출 + 결과 포맷팅
+- `fallback_text`: SQL 실패 → hardcoded 설명 텍스트
+- `fallback`: 키워드 매칭 실패 → generic meta-answer (예시 3가지 안내)
+
+**Timeout**: live 호출 8초 (cold start 대응). 초과 시 fallback 분기.
+
+**Health**: `GET /api/genie/health` → `{"enabled": bool, "space_id": str, "fallback_available": true}`
+
 ---
 
 ## 8. Health / Meta

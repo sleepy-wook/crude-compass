@@ -53,6 +53,15 @@ class Settings(BaseModel):
         """bot_token + signing_secret + default_channel 셋 다 채워졌을 때만 live."""
         return bool(self.slack_bot_token and self.slack_signing_secret and self.slack_default_channel)
 
+    # Genie Space (D-2 형욱 manual 등록 — Workspace UI에서 space_id 발급)
+    # 비어있으면 /api/genie/query는 fallback 모드로 graceful degrade.
+    genie_space_id: str = Field(default_factory=lambda: os.getenv("GENIE_SPACE_ID", ""))
+
+    @property
+    def genie_enabled(self) -> bool:
+        """Genie Space ID 등록되어 있으면 live SDK 호출."""
+        return bool(self.genie_space_id)
+
     # Databricks SDK는 환경변수 또는 ~/.databrickscfg 자동 로드
     # (DATABRICKS_HOST + DATABRICKS_TOKEN 또는 PROFILE)
 

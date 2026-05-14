@@ -110,6 +110,27 @@ export interface BacktestPrediction {
   dubai_30d_usd: number | null;
 }
 
+/** Genie 자연어 질의 — docs/api_contract.md §7.3 */
+export type GenieSource =
+  | "live"            // Genie Conversation API 정상 호출
+  | "fallback_data"   // Lakebase 직접 SQL → 결과 포맷팅
+  | "fallback_text"   // SQL 실패 → hardcoded 설명
+  | "fallback";       // 키워드 매칭 실패 → generic meta
+
+export interface GenieQueryRequest {
+  question: string;
+  conversation_id?: string | null;
+}
+
+export interface GenieQueryResponse {
+  answer: string;
+  sql: string | null;
+  data: Record<string, unknown>[] | null;
+  conversation_id: string | null;
+  message_id: string | null;
+  source: GenieSource;
+}
+
 /** WebSocket events — docs/api_contract.md §5 */
 export type WSEvent =
   | { type: "connected"; ts: number }

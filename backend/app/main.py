@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.api import demo as demo_api, missions, pattern, slack as slack_api
+from app.api import demo as demo_api, genie as genie_api, missions, pattern, slack as slack_api
 from app.core.config import get_settings
 from app.services.slack_bus_subscriber import run_slack_subscriber
 from app.services.slack_notify import get_notifier
@@ -72,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(missions.router)
     app.include_router(pattern.router)
     app.include_router(slack_api.router)
+    app.include_router(genie_api.router)
     app.include_router(ws_missions.router)
 
     # Demo router — DEMO_MODE=true 일 때만 mount (production 보호)
