@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
+import { GlossaryModal } from "./Glossary";
 import { cn } from "../lib/utils";
 import { useMissionsWebSocket } from "../lib/ws";
 
@@ -11,6 +13,7 @@ const navItems = [
 export function Sidebar() {
   const { status, lastEventAt } = useMissionsWebSocket();
   const elapsed = lastEventAt ? Math.floor((Date.now() - lastEventAt) / 1000) : null;
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
 
   return (
     <aside className="w-72 bg-sidebar-bg text-white flex flex-col h-screen sticky top-0">
@@ -50,6 +53,16 @@ export function Sidebar() {
         ))}
       </nav>
 
+      {/* Glossary trigger — 평가위원이 1 click에 7개 용어 풀이 */}
+      <button
+        type="button"
+        onClick={() => setGlossaryOpen(true)}
+        className="text-left w-full px-6 py-3 border-t border-sidebar-bg2 text-sm text-sidebar-muted hover:text-white hover:bg-sidebar-bg2 transition-colors flex items-center justify-between"
+      >
+        <span>핵심 용어 보기</span>
+        <span className="text-xs text-sidebar-muted2">7개 →</span>
+      </button>
+
       <div className="p-5 border-t border-sidebar-bg2">
         <div className="flex items-center gap-2 text-sm">
           <span
@@ -71,6 +84,8 @@ export function Sidebar() {
           </div>
         )}
       </div>
+
+      <GlossaryModal open={glossaryOpen} onClose={() => setGlossaryOpen(false)} />
     </aside>
   );
 }

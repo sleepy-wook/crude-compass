@@ -60,7 +60,7 @@ export function WhatIf() {
 
       {/* Time travel slider */}
       <section className="mb-6 bg-panel rounded-xl border border-line-1 p-6">
-        <div className="flex items-baseline justify-between mb-4">
+        <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-xs uppercase tracking-widest text-ink-3">
             시점 선택 ({sorted.length}개 중)
           </h2>
@@ -68,6 +68,10 @@ export function WhatIf() {
             {sorted[0]?.as_of_date} → {sorted[sorted.length - 1]?.as_of_date}
           </span>
         </div>
+        <p className="text-xs text-ink-3 mb-4 leading-relaxed">
+          이 backtest는 4 source × 7년 (GDELT / EIA / OPEC / FX + Dubai 종가).
+          <strong className="text-ink-2"> AIS · OilPriceAPI는 realtime-only이라 production 전용</strong> — backtest 데이터 자체가 없음.
+        </p>
 
         {sorted.length > 0 && (
           <>
@@ -77,12 +81,40 @@ export function WhatIf() {
               max={sorted.length - 1}
               value={idx ?? 0}
               onChange={(e) => setIdx(Number(e.target.value))}
-              className="w-full mb-4 accent-crisis-500"
+              className="w-full mb-3 accent-crisis-500"
             />
+            {/* Zone legend — slider 자체에 띠 추가 대신 명료한 인라인 legend */}
+            <div className="flex items-center justify-center gap-4 text-[11px] text-ink-3 mb-4">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-crisis-500" /> 위기 (70+)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-ink-4" /> 관망 (30~70)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-opportunity-500" /> 기회 (~30)
+              </span>
+            </div>
             <div className="text-center mb-6">
               <div className="text-xs text-ink-3 mb-1">선택된 시점</div>
-              <div className="font-display text-2xl font-semibold">
+              <div className="font-display text-2xl font-semibold flex items-center justify-center gap-3">
                 {current?.as_of_date}
+                {current && current.pattern_score != null && (() => {
+                  const ps = current.pattern_score;
+                  return (
+                    <span
+                      className={
+                        ps >= 70
+                          ? "text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-crisis-50 text-crisis-700 border border-crisis-100"
+                          : ps <= 30
+                          ? "text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-opportunity-50 text-opportunity-700 border border-opportunity-100"
+                          : "text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-line-1 text-ink-3 border border-line-2"
+                      }
+                    >
+                      {ps >= 70 ? "위기" : ps <= 30 ? "기회" : "관망"}
+                    </span>
+                  );
+                })()}
               </div>
             </div>
           </>

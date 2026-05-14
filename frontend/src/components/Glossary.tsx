@@ -12,7 +12,7 @@
  *
  * 페이지별 첫 등장에만 wrap, 두 번째 이후는 plain text 유지 (underline 도배 방지).
  */
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 export const GLOSSARY: Record<string, { label: string; definition: string }> = {
   PATTERN_SCORE: {
@@ -78,5 +78,89 @@ export function Term({ name, children, position = "top" }: TermProps) {
         <span className="block text-white/85">{entry.definition}</span>
       </span>
     </span>
+  );
+}
+
+
+// ════════════════════════════════════════════════════════════════════════
+// GlossaryModal — Sidebar '용어 보기 (7)' 버튼으로 trigger.
+// 전체 7개 entry를 한 화면에 노출하여 평가위원이 1 click에 용어 풀이 가능.
+// 자체 fixed inset-0 + backdrop, radix-ui 의존 무추가.
+// ════════════════════════════════════════════════════════════════════════
+interface GlossaryModalProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export function GlossaryModal({ open, onClose }: GlossaryModalProps) {
+  // ESC keydown → close
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="glossary-title"
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-ink/60 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      {/* Panel */}
+      <div className="relative z-10 w-full max-w-2xl max-h-[80vh] overflow-y-auto bg-paper rounded-xl shadow-2xl">
+        <header className="sticky top-0 bg-paper border-b border-line-1 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 id="glossary-title" className="font-display text-xl font-semibold text-ink">
+              핵심 용어 7개
+            </h2>
+            <p className="text-xs text-ink-3 mt-1">
+              한국 정유사 원유 조달 의사결정에 사용되는 용어
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-ink-3 hover:text-ink p-1 rounded-md hover:bg-line-1 transition-colors"
+            aria-label="닫기"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fillRule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        </header>
+        <div className="px-6 py-4 divide-y divide-line-1">
+          {Object.entries(GLOSSARY).map(([key, entry]) => (
+            <div key={key} className="py-4 first:pt-2 last:pb-2">
+              <div className="font-display text-base font-semibold text-ink mb-1">
+                {entry.label}
+                <span className="ml-2 text-[10px] uppercase tracking-wider text-ink-3 font-mono font-normal">
+                  {key}
+                </span>
+              </div>
+              <p className="text-sm text-ink-2 leading-relaxed">{entry.definition}</p>
+            </div>
+          ))}
+        </div>
+        <footer className="border-t border-line-1 px-6 py-3 text-xs text-ink-3 leading-relaxed">
+          이 시스템은 한국 정유사 원유 조달 의사결정 AI 비서입니다. 공개 데이터 7개 ·
+          Slack ↔ Apps 5초 sync · 7년 backtest 75% 적중. <kbd className="px-1.5 py-0.5 ml-1 bg-line-1 rounded text-[10px] font-mono">ESC</kbd> 또는 배경 클릭으로 닫기.
+        </footer>
+      </div>
+    </div>
   );
 }

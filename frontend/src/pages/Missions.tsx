@@ -31,52 +31,81 @@ export function MissionsList() {
       </header>
       {isLoading && <div className="text-ink-3">로딩 중...</div>}
       <div className="space-y-3">
-        {missions.map((m, i) => (
-          <Link
-            key={m.mission_id}
-            to={`/missions/${m.mission_id}`}
-            className="block bg-panel rounded-xl border border-line-1 p-5 hover:border-ink-3 transition-colors"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex gap-2 items-center">
-                <MissionTypePill type={m.mission_type} />
-                <StatusPill status={m.status} label={statusLabel(m.status)} />
-                {m.urgency === "urgent" && (
-                  <span className="text-[10px] uppercase tracking-wider bg-crisis-500 text-white px-2 py-0.5 rounded-full">
-                    Urgent
+        {missions.map((m, i) => {
+          // 얼마 row — simulation_roi best case 추출 (모든 시나리오 중 최대). 0 이하면 row 숨김.
+          const roiValues = Object.values(m.simulation_roi || {});
+          const roiBest = roiValues.length > 0 ? Math.max(...roiValues, 0) : 0;
+          return (
+            <Link
+              key={m.mission_id}
+              to={`/missions/${m.mission_id}`}
+              className="block bg-panel rounded-xl border border-line-1 p-6 hover:border-ink-3 transition-colors"
+            >
+              {/* (a) Top — badge 그룹 + version/time */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex gap-2 items-center">
+                  <MissionTypePill type={m.mission_type} />
+                  <StatusPill status={m.status} label={statusLabel(m.status)} />
+                  {m.urgency === "urgent" && (
+                    <span className="text-[10px] uppercase tracking-wider bg-crisis-500 text-white px-2 py-0.5 rounded-full">
+                      Urgent
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] font-mono text-ink-3">
+                  v{m.version} · {relativeTime(m.created_at)}
+                </span>
+              </div>
+
+              {/* (b) 무엇 / 왜 */}
+              <h3 className="font-display text-lg font-semibold text-ink mb-1.5 line-clamp-2">
+                {m.goal_text}
+              </h3>
+              <p className="text-sm text-ink-2 leading-relaxed line-clamp-2 mb-4">
+                {m.reasoning}
+              </p>
+
+              {/* (c) 얼마 — best 시나리오 절감액 highlighted */}
+              {roiBest > 0 && (
+                <div className="bg-paper border-l-2 border-opportunity-500 rounded-r-md px-4 py-2.5 flex items-center justify-between mb-3">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-ink-3">
+                      최대 절감 시나리오
+                    </div>
+                    <div className="font-display text-lg font-semibold text-opportunity-700">
+                      +{roiBest.toFixed(0)} 억원
+                    </div>
+                  </div>
+                  <span className="text-opportunity-500 text-xl" aria-hidden="true">→</span>
+                </div>
+              )}
+
+              {/* (d) 메타 row (작게) */}
+              <div className="flex gap-4 text-xs font-mono text-ink-3">
+                <span>
+                  {/* 첫 카드만 Term tooltip, position=bottom */}
+                  {i === 0 ? (
+                    <Term name="PATTERN_SCORE" position="bottom">위기 신호 점수</Term>
+                  ) : (
+                    "위기 신호 점수"
+                  )}{" "}
+                  {formatScore(m.pattern_score)}
+                </span>
+                {m.target_pct !== null && (
+                  <span>
+                    {m.mission_type === "HEDGE" ? "Term" : "Spot"} {m.target_pct}%
+                  </span>
+                )}
+                <span>{m.duration_days}일</span>
+                {m.pivot_history.length > 0 && (
+                  <span className="text-opportunity-700">
+                    {m.pivot_history.length}회 방향 전환
                   </span>
                 )}
               </div>
-              <span className="text-[11px] font-mono text-ink-3">
-                v{m.version} · {relativeTime(m.created_at)}
-              </span>
-            </div>
-            <div className="font-medium text-ink mb-1">{m.goal_text}</div>
-            <div className="text-sm text-ink-3 line-clamp-2">{m.reasoning}</div>
-            <div className="mt-3 flex gap-4 text-xs font-mono text-ink-3">
-              <span>
-                {/* 첫 카드에만 Tooltip 노출 — 도배 방지. position=bottom: 카드 첫 줄이라 잘림 방지 */}
-                {i === 0 ? (
-                  <Term name="PATTERN_SCORE" position="bottom">위기 신호 점수</Term>
-                ) : (
-                  "위기 신호 점수"
-                )}{" "}
-                {formatScore(m.pattern_score)}
-              </span>
-              {m.target_pct !== null && (
-                <span>
-                  {m.mission_type === "HEDGE" ? "Term" : "Spot"} {m.target_pct}%
-                </span>
-              )}
-              <span>{m.duration_days}일</span>
-              {m.pivot_history.length > 0 && (
-                <span className="text-opportunity-700">
-                  {m.pivot_history.length}회 방향 전환
-                </span>
-              )}
-            </div>
-          </Link>
-        ))}
+            </Link>
+          );
+        })}
         {missions.length === 0 && (
           <div className="bg-panel rounded-lg border border-line-1 p-8 text-center text-ink-3">
             현재 진행 중 미션 없음

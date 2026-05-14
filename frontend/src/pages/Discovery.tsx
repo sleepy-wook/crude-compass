@@ -7,6 +7,48 @@ import {
 import { formatPct, formatScore, missionTypeLabel, relativeTime } from "../lib/utils";
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
 import { Term } from "../components/Glossary";
+import type { Mission, PatternScoreCurrent } from "../lib/types";
+
+
+/** 오늘의 1줄 의사결정 narrative — 평가위원이 0.5초에 추천 파악. */
+function buildTodayDecision(
+  cur: PatternScoreCurrent | null | undefined,
+  activeMissions: Mission[],
+): { tone: "crisis" | "opp" | "neutral"; text: string } | null {
+  if (!cur) return null;
+  // 활성 mission 있으면 그 추천 사용
+  const top = activeMissions[0];
+  if (top) {
+    if (top.mission_type === "HEDGE") {
+      return {
+        tone: "crisis",
+        text: `오늘은 위험방어 강세 (위기 신호 ${cur.pattern_score?.toFixed(0) ?? "?"}점). 추천: 장기계약(Term) 60→${top.target_pct ?? "?"}% · ${top.duration_days}일`,
+      };
+    }
+    return {
+      tone: "opp",
+      text: `오늘은 기회포착 강세 (위기 신호 ${cur.pattern_score?.toFixed(0) ?? "?"}점). 추천: 즉시구매(Spot) 40→${top.target_pct ?? "?"}% · ${top.duration_days}일`,
+    };
+  }
+  // 활성 mission 없으면 score 기반 fallback
+  const score = cur.pattern_score ?? 50;
+  if (score >= 70) {
+    return {
+      tone: "crisis",
+      text: `오늘은 위험 신호 누적 (위기 신호 ${score.toFixed(0)}점). 추천: 곧 위험방어(HEDGE) Mission 제안 예상 — 추가 시그널 대기`,
+    };
+  }
+  if (score <= 30) {
+    return {
+      tone: "opp",
+      text: `오늘은 약세 신호 누적 (위기 신호 ${score.toFixed(0)}점). 추천: 곧 기회포착(OPP) Mission 제안 예상 — 추가 시그널 대기`,
+    };
+  }
+  return {
+    tone: "neutral",
+    text: `오늘은 관망 (위기 신호 ${score.toFixed(0)}점). 평시 매입비중 유지 — 추가 시그널 누적 중`,
+  };
+}
 
 export function Discovery() {
   const pattern = usePatternCurrent();
@@ -15,11 +57,12 @@ export function Discovery() {
 
   const cur = pattern.data?.current;
   const activeMissions = missions.data?.missions || [];
+  const today = buildTodayDecision(cur, activeMissions);
 
   return (
     <div className="max-w-6xl mx-auto">
       {/* Hero — 오늘의 위기 신호 점수 */}
-      <header className="mb-8">
+      <header className="mb-6">
         <h1 className="font-display text-3xl font-semibold tracking-tight">
           오늘의 발견
         </h1>
@@ -27,6 +70,26 @@ export function Discovery() {
           공개 데이터 7개 종합 · AI가 오늘 매입 비중을 추천합니다
         </p>
       </header>
+
+      {/* 오늘의 1줄 의사결정 — 평가위원 narrative 즉시 이해 */}
+      {today && (
+        <section className="mb-6">
+          <div
+            className={
+              today.tone === "crisis"
+                ? "bg-crisis-50 border border-crisis-100 text-crisis-700 rounded-lg px-5 py-4"
+                : today.tone === "opp"
+                ? "bg-opportunity-50 border border-opportunity-100 text-opportunity-700 rounded-lg px-5 py-4"
+                : "bg-panel border border-line-1 text-ink-2 rounded-lg px-5 py-4"
+            }
+          >
+            <div className="text-[10px] uppercase tracking-widest opacity-70 mb-1">
+              오늘의 1줄 의사결정
+            </div>
+            <div className="text-base font-medium leading-relaxed">{today.text}</div>
+          </div>
+        </section>
+      )}
 
       {/* Pattern Score Card */}
       <section className="mb-8">
