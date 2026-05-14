@@ -1,0 +1,59 @@
+# Databricks Apps deployment manifest — Crude Compass
+#
+# Deploy:
+#   databricks --profile crude-compass apps deploy crude-compass --source-code-path .
+#
+# Public URL: https://crude-compass-<workspace-id>.databricksapps.com
+# Slack Interactivity URL → Slack app config "Request URL":
+#   https://<public-url>/api/slack/interactive
+#
+# Secrets: Workspace UI → App → "Resources" tab → "Add secret"
+# Scope=crude, Key 모두 명시. valueFrom으로 환경변수에 inject.
+
+command:
+  - uvicorn
+  - app.main:app
+  - --host
+  - 0.0.0.0
+  # DATABRICKS_APP_PORT 자동 inject — uvicorn은 --port 명시 안 해도 PORT env 감지
+
+env:
+  # Lakebase (production persistence)
+  - name: LAKEBASE_HOST
+    valueFrom: lakebase_host
+  - name: LAKEBASE_DATABASE
+    valueFrom: lakebase_database
+  - name: LAKEBASE_USER
+    valueFrom: lakebase_user
+  - name: LAKEBASE_ENDPOINT_PATH
+    valueFrom: lakebase_endpoint_path
+
+  # Slack — Bolt AsyncApp (양방향 5초 sync)
+  - name: SLACK_BOT_TOKEN
+    valueFrom: slack_bot_token
+  - name: SLACK_SIGNING_SECRET
+    valueFrom: slack_signing_secret
+  - name: SLACK_DEFAULT_CHANNEL
+    valueFrom: slack_default_channel
+
+  # Genie Space (D-2 형욱 manual 등록 후 — 미설정이면 fallback)
+  - name: GENIE_SPACE_ID
+    valueFrom: genie_space_id
+
+  # External API (OilPriceAPI / AISStream / ECOS / EIA)
+  - name: OILPRICE_API_KEY
+    valueFrom: oilprice_api_key
+  - name: AISSTREAM_API_KEY
+    valueFrom: aisstream_api_key
+  - name: ECOS_API_KEY
+    valueFrom: ecos_api_key
+  - name: EIA_API_KEY
+    valueFrom: eia_api_key
+
+  # Behavior flags
+  - name: USE_LAKEBASE
+    value: "true"     # production = Lakebase persistence
+  - name: DEMO_MODE
+    value: "true"     # /api/demo/inject_signal 노출 (데모 시연용)
+
+  # Databricks SDK는 Apps 환경에서 workspace OAuth 자동 (profile 불필요)
