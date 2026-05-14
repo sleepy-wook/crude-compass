@@ -209,6 +209,14 @@ K-Petroleum 5척 (시나리오 §4 가상 fleet)은 `bronze.ais_positions`에 se
 
 ⚠️ **K-Petroleum ≠ GS칼텍스/SK이노/S-Oil/현대오일뱅크**. 시나리오 §4 명시대로 모티브로만 사용, 익명 가상 정유사.
 
+§4 "AIS open data 기반"의 정확한 해석 (phase2_critique I8 결정 명시):
+- ✅ **AIS open standard 프로토콜/format 활용** — 실시간 AISStream WebSocket + bbox/MMSI/lat/lon schema
+- ❌ **실제 정유 4사 chartered fleet MMSI 추적은 미실행** — 윤리/법적 회색지대 (phase2_critique I8)
+- 즉 K-Petroleum 5척 = 시나리오 §4의 가상 fleet narrative, 실제 vessels 식별 데이터 0건
+- 한국 항구 실시간 traffic은 anonymous background (`ANON_<hash>`)로만 활용
+
+이 결정은 phase2 비평 시점 (D-14)에 의도적. 평가위원 narrator: *"AIS open data 표준을 활용해 가상 K-Petroleum 5척의 lifecycle을 시뮬레이션합니다. 실제 정유사 fleet 식별 추적은 윤리적 이유로 의도적으로 제외했습니다. Production paid tier 환경에서는 회사 자체 fleet MMSI list로 즉시 전환 가능합니다."*
+
 **평가위원 질문 대비 답변**: "AIS는 historical 부재라 backtest 못 했지만 production 라이브 시연으로 검증합니다. 7년 backtest는 fundamentals + macro 4 source로 75% hit rate 확보, AIS/OilPriceAPI는 backtest로 측정 불가능한 D-7 leading + Reactive 영역을 커버합니다."
 
 **Track 1 Social Impact 측면**: Bloomberg/Platts는 historical AIS 유료. 우리는 AISStream realtime + GDELT/EIA/OPEC 무료로 backtest 검증된 75% + 라이브 production 모두 가능 — **open data democratization 진짜 의미**.
