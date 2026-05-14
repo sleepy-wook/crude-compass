@@ -41,5 +41,8 @@ mlflow.db
 !.claude/hooks/
 !.claude/commands/
 !.claude/agents/
+!.claude/launch.json
 !.claude/settings.local.json
 !.claude/README.md
+# Visual evaluator snapshots — local-only (large JPEGs, regenerable from screenshots)
+.claude/visual-snapshots/
