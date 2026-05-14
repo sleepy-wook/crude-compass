@@ -27,7 +27,7 @@
 |---|---|---|
 | **A7** | **Track 1 Social Impact 유지** (Track 2 변경 X) | 우리는 자체 organizational data X (가상 K-Petroleum + 100% open public data). Track 1 명백 정합. Open Data Democratization narrative 강화 |
 | **A8** | **공식 4 features 모두 production-grade** (Apps + Lakebase + Genie + AgentBricks Knowledge Assistant) | Apps deploy + Lakebase OAuth pool + Genie 4-tier fallback + Knowledge Assistant 1개 (D-2 등록). Foundation Model API 직접 호출 (Mission Plan Agent). Supervisor/Multi-Agent는 scope-out. |
-| **A9** | **GDELT (감지층) + RSS 보강층 (이벤트 드리븐)** 패턴 | RSS 11 source 직접 fetch 대신 GDELT tone score → alert 시점에만 RSS Knowledge Assistant 입력. 효율 + tone 자동화 |
+| **A9** | **GDELT 감지층 단일 source** (D-3 정리) | GDELT 16k+ rows 누적으로 한국어 weak 보강 narrative 필요성 감소. KA가 RSS 11 source 역할 대신. 운영 simplicity. |
 | **A10** | **Document Intelligence 시연** (`ai_parse_document()`) — OPEC MOMR PDF | `bronze.opec_momr_parsed` 적재. Technical Capability 추가 점수. |
 | **A11** | **시간 감쇠 시그널별 람다 차등 + UC Function 분리** | `crude_compass.functions.weighted_signal()` 실제 SQL UDF. Genie + curation + backtest 공통 호출. |
 | **A12** | **Backtest 시점 슬라이더 (frontend WhatIf) + Confidence Score UI 노출** | UI 컴포넌트 작동 (실 데이터 298건). Delta Time Travel SQL은 scope-out. |

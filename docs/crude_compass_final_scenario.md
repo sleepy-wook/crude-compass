@@ -238,7 +238,9 @@ D-3 narrative 갱신 배경 (D-14 §6.5.2 update):
 | 5 | **ECOS 한국은행** | REST | 일 1회 (평일) | KRW/USD 환율 (한국 정유사 핵심) | 무료 무제한 |
 | 6 | **OPEC MOMR PDF** ⭐ | PDF (월간) | 월 1회 | Document Intelligence 시연 + 산유국 시각 보정 | 무료 |
 | 7 | **JWC PDF** (Lloyd's) | PDF (manual) | 분기 | War Zone 정보 + Document Intelligence 시연 | 무료 |
-| + | RSS 보강층 | RSS | 이벤트 드리븐 | GDELT alert 시 fetch — Reuters/AP/연합 → Knowledge Assistant 입력 | 무료 |
+<!-- D-3 (2026-05-15) 정리: RSS 보강층 제거 — never ran + GDELT 단일 source로 충분 판단. -->
+<!-- bronze.news_articles는 GDELT만으로 16k+ rows 누적. 한국어 weak 보강 narrative는 D-2 KA 등록으로 대체. -->
+
 
 ### 데이터 설계 원칙
 
@@ -431,12 +433,11 @@ draft → active →
 
 ---
 
-## 12. Lakeflow Jobs — 7+1 Jobs
+## 12. Lakeflow Jobs — 12 Jobs (D-3 정리)
 
 | # | Job | Cron | 상태 | 핵심 |
 |---|---|---|---|---|
-| 1 | news_pipeline (RSS 보강) | event-driven | real | GDELT alert 시 RSS fetch → Knowledge Assistant 입력 |
-| 2 | gdelt_15min ⭐ | `*/15 * * * *` | real | GDELT events + tone → bronze.news_articles |
+| 1 | gdelt_15min ⭐ | `*/15 * * * *` | UNPAUSED | GDELT events + tone → bronze.news_articles |
 | 3 | price_pipeline_5min | `*/5 * * * *` | real | OilPriceAPI batch (Brent/WTI/Dubai) + spike |
 | 4 | ais_batch_5min | `*/5 * * * *` | real | AISStream REST polling |
 | 5 | eia_weekly | `0 18 * * 3` | real | EIA Open Data API (주간 재고 발표 직후) |
@@ -658,7 +659,7 @@ confidence = avg(
 
 - **Sprint 1 (5/8-10)** — ✅ 완료: skeleton + Lakebase 검증 + DDL + Bronze 정의
 - **Sprint 2 (5/11-13)**: Job 1-7 구현 + 첫 deploy
-  - news/RSS 보강 + GDELT 15min + price 5min + AIS batch + EIA weekly + ECOS daily + OPEC MOMR monthly (Document Intelligence)
+  - GDELT 15min + price 5min + AIS batch + EIA weekly + ECOS daily + OPEC MOMR monthly (Document Intelligence)
 - **Sprint 3 (5/14-16) ⭐**: Bidirectional Pattern Detection + Supervisor + sub-agents + Mock backtest 산출 (HEDGE 78%/OPP 71%)
 - **Sprint 4 (5/17-19)**: Apps 3 페이지 + Slack Bolt + WebSocket sync + AI/BI embed + Time Travel 슬라이더
 - **Sprint 5 (5/20-22)**: 통합 + 데모 영상 (60% pre-recorded + 40% live)

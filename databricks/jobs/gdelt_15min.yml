@@ -14,11 +14,11 @@ resources:
       name: ${bundle.name}-gdelt-15min-${bundle.target}
       description: "GDELT DOC API → bronze.news_articles (감지층)"
 
-      # Sprint 2 동안은 PAUSED — schedule 비활성. manual run으로 검증.
+      # D-3: 통합 단계 진입 — 15min cron 활성화 (시나리오 §22 운영 일정).
       schedule:
         quartz_cron_expression: "0 0/15 * * * ?"   # 매 15분
         timezone_id: Asia/Seoul
-        pause_status: PAUSED
+        pause_status: UNPAUSED
 
       tasks:
         - task_key: gdelt_fetch_score

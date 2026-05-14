@@ -6,7 +6,7 @@ resources:
       schedule:
         quartz_cron_expression: "0 0 18 ? * WED"  # 매주 수요일 18:00 KST
         timezone_id: Asia/Seoul
-        pause_status: PAUSED
+        pause_status: UNPAUSED
       tasks:
         - task_key: eia_fetch
           notebook_task:

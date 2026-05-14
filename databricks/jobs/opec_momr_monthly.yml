@@ -6,13 +6,14 @@ resources:
       schedule:
         quartz_cron_expression: "0 0 0 12 * ?"  # 매월 12일 0시 KST
         timezone_id: Asia/Seoul
-        pause_status: PAUSED
+        pause_status: UNPAUSED
       tasks:
         - task_key: opec_parse
           notebook_task:
             notebook_path: ../notebooks/job_opec_momr.py
             source: WORKSPACE
-          timeout_seconds: 600
+          # PDF parsing + ai_parse_document() 여유 (600s → 900s)
+          timeout_seconds: 900
       max_concurrent_runs: 1
       email_notifications:
         on_failure:
