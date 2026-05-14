@@ -13,23 +13,23 @@ export function Sidebar() {
   const elapsed = lastEventAt ? Math.floor((Date.now() - lastEventAt) / 1000) : null;
 
   return (
-    <aside className="w-60 bg-sidebar-bg text-white flex flex-col h-screen sticky top-0">
-      <div className="p-5 border-b border-sidebar-bg2">
-        <div className="text-[10px] uppercase tracking-widest text-sidebar-muted mb-1">
+    <aside className="w-72 bg-sidebar-bg text-white flex flex-col h-screen sticky top-0">
+      <div className="p-6 border-b border-sidebar-bg2">
+        <div className="text-[11px] uppercase tracking-widest text-sidebar-muted mb-1">
           Crude Compass
         </div>
-        <div className="font-display text-lg font-semibold tracking-tight">
+        <div className="font-display text-xl font-semibold tracking-tight">
           K-Petroleum
         </div>
-        <div className="text-[11px] text-sidebar-muted mt-2 leading-snug">
+        <div className="text-sm text-sidebar-muted mt-3 leading-relaxed">
           한국 정유사 원유 조달<br />의사결정 AI 비서
         </div>
-        <div className="text-[10px] text-sidebar-muted2 mt-2 leading-relaxed">
+        <div className="text-xs text-sidebar-muted2 mt-3 leading-relaxed">
           공개 데이터 7개 · Slack ↔ Apps 5초 sync · 7년 backtest 75% 적중
         </div>
       </div>
 
-      <nav className="flex-1 p-3">
+      <nav className="flex-1 p-4">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
@@ -37,24 +37,24 @@ export function Sidebar() {
             end={item.to === "/"}
             className={({ isActive }) =>
               cn(
-                "block px-3 py-3 mb-1 rounded-md transition-colors",
+                "block px-4 py-3 mb-1.5 rounded-md transition-colors",
                 isActive
                   ? "bg-sidebar-bg3 text-white"
                   : "text-sidebar-muted hover:bg-sidebar-bg2 hover:text-white"
               )
             }
           >
-            <div className="text-sm font-medium">{item.label}</div>
-            <div className="text-[10px] text-sidebar-muted2 mt-0.5">{item.desc}</div>
+            <div className="text-base font-medium">{item.label}</div>
+            <div className="text-xs text-sidebar-muted2 mt-1">{item.desc}</div>
           </NavLink>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-sidebar-bg2">
-        <div className="flex items-center gap-2 text-xs">
+      <div className="p-5 border-t border-sidebar-bg2">
+        <div className="flex items-center gap-2 text-sm">
           <span
             className={cn(
-              "w-2 h-2 rounded-full",
+              "w-2.5 h-2.5 rounded-full",
               status === "connected" && "bg-ok",
               status === "connecting" && "bg-warn",
               status === "disconnected" && "bg-sidebar-muted2",
@@ -66,7 +66,7 @@ export function Sidebar() {
           </span>
         </div>
         {elapsed !== null && elapsed < 60 && (
-          <div className="text-[10px] text-sidebar-muted2 mt-1 font-mono">
+          <div className="text-xs text-sidebar-muted2 mt-1.5 font-mono">
             last event {elapsed}s ago
           </div>
         )}

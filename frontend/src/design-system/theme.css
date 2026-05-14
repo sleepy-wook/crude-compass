@@ -46,8 +46,10 @@ html, body, #root {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
-  font-size: 14px;
-  line-height: 1.45;
+  /* font-size 16px = Tailwind 기본 가정 (1rem=16px). 이전 14px는 모든 rem-based 토큰을
+     0.875배로 축소시켜 sidebar 글자/폭 등 form 푸시백 원인. */
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-width: 1280px; /* desktop-first */
 }
