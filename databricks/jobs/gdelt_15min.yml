@@ -25,17 +25,16 @@ resources:
           notebook_task:
             notebook_path: ../notebooks/job_gdelt.py
             source: WORKSPACE
-          # 5/15 D-3 진단: 17 queries × GDELT API latency 증가 → 600s timeout 빈번 fail
-          # Fix: notebook에서 httpx timeout 20→8s, max_attempts 3→2 + job timeout 900s.
-          # 15분 cron이지만 max_concurrent_runs=1이라 900s 넘으면 next skip (안전).
-          timeout_seconds: 900
+          # 5/15 진단 + fix: notebook이 fast-fail (per-call 5s, retry 0)
+          # + per-query try/except → worst case 17 × 5s = 85s. 절대 600s 안 넘음.
+          # 검색 결과 0이면 SUCCESS로 깔끔히 종료 (spark write 빈 list 처리).
+          timeout_seconds: 600
 
       max_concurrent_runs: 1
 
-      # 알림 (실패 시)
-      email_notifications:
-        on_failure:
-          - ${workspace.current_user.userName}
+      # 알림 제거 — 5/16 사용자 요구. notebook이 어떤 error에도 silent skip
+      # + SUCCESS 종료 보장하므로 메일 알림 불필요. 진짜 catastrophic failure는
+      # Databricks UI에서 확인.
 
       # 태그 (cost tracking)
       tags:

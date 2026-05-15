@@ -121,36 +121,34 @@ QUERY_META = {
 
 # COMMAND ----------
 
-def _safe_get(params: dict, max_attempts: int = 2) -> dict | None:
-    """Robust GET — 429 retry + 빈 body / 비-JSON graceful return None.
+def _safe_get(params: dict) -> dict | None:
+    """Fast-fail GET — 절대 fail/timeout 안 나도록. 빈 응답 / 에러 = None silent.
 
-    5/15 D-3 진단: GDELT API timeout 빈번 → worst case 17 query × 135s = 38min
-    초과 → 600s timeout fail. timeout 20→8, max_attempts 3→2로 단축.
-    Worst case 17 query × 20s = 340s. 600s 안에 fit.
+    5/15 D-3 진단: GDELT API peak 시간대 throttling으로 17 query 누적 600s 초과.
+    Fix: per-call 5s hard timeout, retry 0, User-Agent 명시 (slow lane 회피).
+    어떤 error도 silent skip — main loop가 catch하고 다음 query 진행.
+    Worst case 17 query × 5s = 85s. 절대 600s 안 넘음.
     """
-    for attempt in range(max_attempts):
+    try:
+        time.sleep(0.3)
+        resp = httpx.get(
+            GDELT_API,
+            params=params,
+            timeout=5.0,
+            headers={"User-Agent": "crude-compass/1.0 (Databricks Apps Hackathon research)"},
+        )
+        if resp.status_code != 200:
+            return None
+        text = resp.text.strip()
+        if not text:
+            return None
         try:
-            time.sleep(0.5)  # rate limit safety
-            resp = httpx.get(GDELT_API, params=params, timeout=8.0)
-            if resp.status_code == 429:
-                time.sleep(2 ** (attempt + 1))
-                continue
-            resp.raise_for_status()
-            text = resp.text.strip()
-            if not text:
-                print(f"  ⚠️  empty response for {params.get('query', '?')[:40]} mode={params.get('mode')}")
-                return None
-            try:
-                return json.loads(text)
-            except json.JSONDecodeError:
-                print(f"  ⚠️  non-JSON response (first 100 chars): {text[:100]}")
-                return None
-        except httpx.HTTPError as e:
-            if attempt == max_attempts - 1:
-                print(f"  ⚠️  HTTP failed: {e}")
-                return None
-            time.sleep(2 ** attempt)
-    return None
+            return json.loads(text)
+        except json.JSONDecodeError:
+            return None
+    except Exception:
+        # Network error / timeout / 어떤 예외든 silent skip
+        return None
 
 
 def fetch_timelinetone(query: str, timespan: str = "1d") -> dict:
@@ -339,9 +337,14 @@ run_id = f"gdelt_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}"
 all_rows: list[NewsRow] = []
 
 for q in QUERIES:
-    rows = process_query(q["label"], q["query"], q["tier"], run_id)
-    all_rows.extend(rows)
-    time.sleep(1.5)  # rate limit safety
+    # 한 query 실패해도 다음 query 진행 — 어떤 error에도 silent skip.
+    # 검색 결과 0이면 SUCCESS로 끝남 (spark write 단계에서 빈 list 처리).
+    try:
+        rows = process_query(q["label"], q["query"], q["tier"], run_id)
+        all_rows.extend(rows)
+    except Exception as e:
+        print(f"  ⚠️  {q['label']} skipped: {type(e).__name__}: {str(e)[:100]}")
+    time.sleep(0.5)  # rate limit safety
 
 print(f"\n{'='*60}")
 print(f"Total scored articles: {len(all_rows)}")
