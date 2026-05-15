@@ -21,7 +21,7 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install --quiet pydantic==2.11.10
+# MAGIC %pip install --quiet pydantic==2.11.10 "psycopg[binary]==3.2.3"
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------

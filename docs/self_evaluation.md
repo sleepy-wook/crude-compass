@@ -181,7 +181,7 @@ cron job 12개가 데모 직전까지 안정 작동하는가.
 |---|---:|---|---|
 | **B1. Medallion 정합성** | **20/20** | Bronze 7 + Silver **2** (5/16 hormuz/dubai_premium DROP) + Gold **1 table + 8 view** (5/16 backtest_results DROP) 모두 사용처 있음. dead table 6개 정리 완료. apply_schemas.py 무결성 fix. | — |
 | **B2. AI Agent 시나리오 정합** | **17/20** | Mission Plan Agent prompt 데이터 모두 Discovery 화면 노출 (HormuzMap/Signal/Price/Fx/News/OPEC). | Genie / KA D-2 등록 전 (코드는 완성) |
-| **B3. 4 Tool 1:1 매핑** | **15/20** | Apps 코드 ✅, Lakebase ✅ live, Genie code ✅, Agent Bricks ⏳ | Apps deploy ⏳, Genie 등록 ⏳, KA endpoint ⏳ |
+| **B3. 4 Tool 1:1 매핑** | **17/20** | Apps 코드 ✅, **Lakebase pool 5/16 새벽 실측 검증** (Custom Connection subclass + token rotation, 11 endpoints 200 OK), Genie code ✅, Agent Bricks ⏳ | Apps deploy ⏳, Genie 등록 ⏳, KA endpoint ⏳ |
 | **B4. 시나리오 ↔ Apps 정합** | **19/20** | D-3 + D-2 audit gap fill 누적: HormuzMap + SignalContribution + PatternScoreLine + OPEC + Price + Fx + News. 정합성 52% → ~95%. | discovery_feed_items endpoint 미구현 (deprecate 명시) |
 | **B5. 자동 데이터 흐름** | **19/20** | 12 cron job (8 UNPAUSED + 4 manual). email_notifications 전체 yml 제거 (1등 위한 fail-proof 일관성). GDELT fast-fail rewrite. | AIS 5척 중 1척 active narrative reframe (Q&A anchor 추가) |
 
