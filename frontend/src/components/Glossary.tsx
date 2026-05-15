@@ -1,5 +1,5 @@
 /**
- * Glossary — 8개 핵심 용어 hover tooltip.
+ * Glossary — 12개 핵심 용어 hover tooltip.
  *
  * 사용:
  *   <Term name="PATTERN_SCORE">위기 신호 점수</Term>
@@ -49,16 +49,6 @@ const GLOSSARY: Record<string, { label: string; definition: string }> = {
     label: "Dubai유",
     definition:
       "Dubai유 — 한국 정유사 원유 수입 핵심 벤치마크 (한국석유공사 OPINET 일별 종가).",
-  },
-  KPETRO_FLEET: {
-    label: "K-Petroleum 5척",
-    definition:
-      "가상 K-Petroleum chartered VLCC 5척 (KPETRO_001~005 익명화). AIS 공개 데이터 (IMO mandate) 기반 실시간 위치 모니터링. 실제 회사 식별 X — 시나리오 §4 가상 정유사 narrative.",
-  },
-  STRAIT_HORMUZ: {
-    label: "호르무즈 해협",
-    definition:
-      "Persian Gulf 출구 chokepoint — 전 세계 해상 원유 30%+ 통과. 봉쇄 위기 시 한국 정유사 직접 영향 (중동산 70%+ 의존).",
   },
   BRENT_DUBAI_SPREAD: {
     label: "Brent-Dubai spread",
@@ -118,8 +108,8 @@ export function Term({ name, children, position = "top" }: TermProps) {
 
 
 // ════════════════════════════════════════════════════════════════════════
-// GlossaryModal — Sidebar '용어 보기 (7)' 버튼으로 trigger.
-// 전체 7개 entry를 한 화면에 노출하여 평가위원이 1 click에 용어 풀이 가능.
+// GlossaryModal — Sidebar '핵심 용어 보기' 버튼으로 trigger.
+// 전체 12개 entry를 한 화면에 노출하여 평가위원이 1 click에 용어 풀이 가능.
 // 자체 fixed inset-0 + backdrop, radix-ui 의존 무추가.
 // ════════════════════════════════════════════════════════════════════════
 interface GlossaryModalProps {
@@ -158,7 +148,7 @@ export function GlossaryModal({ open, onClose }: GlossaryModalProps) {
         <header className="sticky top-0 bg-paper border-b border-line-1 px-6 py-4 flex items-center justify-between">
           <div>
             <h2 id="glossary-title" className="font-display text-xl font-semibold text-ink">
-              핵심 용어 8개
+              핵심 용어 12개
             </h2>
             <p className="text-xs text-ink-3 mt-1">
               한국 정유사 원유 조달 의사결정에 사용되는 용어
@@ -192,7 +182,7 @@ export function GlossaryModal({ open, onClose }: GlossaryModalProps) {
           ))}
         </div>
         <footer className="border-t border-line-1 px-6 py-3 text-xs text-ink-3 leading-relaxed">
-          이 시스템은 한국 정유사 원유 조달 의사결정 AI 비서입니다. 공개 데이터 7개 ·
+          이 시스템은 한국 정유사 원유 조달 의사결정 AI 비서입니다. 공개 데이터 6개 ·
           Slack ↔ Apps 5초 sync · 7년 backtest 75% 적중. <kbd className="px-1.5 py-0.5 ml-1 bg-line-1 rounded text-[10px] font-mono">ESC</kbd> 또는 배경 클릭으로 닫기.
         </footer>
       </div>

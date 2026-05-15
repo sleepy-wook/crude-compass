@@ -21,7 +21,8 @@ databricks --profile crude-compass secrets list-secrets crude
 # - lakebase_host / lakebase_database / lakebase_user / lakebase_endpoint_path
 # - slack_bot_token / slack_signing_secret / slack_default_channel
 # - genie_space_id (D-2 형욱 manual 등록 후 — 없으면 fallback 모드)
-# - oilprice_api_key / aisstream_api_key / ecos_api_key / eia_api_key
+# - oilprice_api_key / ecos_api_key / eia_api_key
+# (5/16 D-2: aisstream_api_key 제거 — AIS Stream source 완전 폐기)
 ```
 
 미등록 시:

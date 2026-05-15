@@ -11,8 +11,6 @@ import { api } from "../lib/api";
 import { formatPct, formatScore, missionTypeLabel, relativeTime } from "../lib/utils";
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
 import { Term } from "../components/Glossary";
-import { FleetLifecycleSection } from "../components/FleetLifecycleSection";
-import { HormuzMap } from "../components/HormuzMap";
 import { SignalContribution } from "../components/SignalContribution";
 import { PatternScoreLine } from "../components/PatternScoreLine";
 import { OpecCitation } from "../components/OpecCitation";
@@ -97,7 +95,7 @@ export function Discovery() {
           오늘의 발견
         </h1>
         <p className="text-sm text-ink-3 mt-1">
-          공개 데이터 7개 종합 · AI가 오늘 매입 비중을 추천합니다
+          공개 데이터 6개 종합 · AI가 오늘 매입 비중을 추천합니다
         </p>
       </header>
 
@@ -216,14 +214,8 @@ export function Discovery() {
       {/* Pattern Score 30일 line (Pattern Card 바로 옆 — 점수 추이 즉시 확인) */}
       <PatternScoreLine days={30} variant="mini" />
 
-      {/* HormuzMap — 호르무즈 narrative anchor (시나리오 §14 Phase 3 핵심) */}
-      <HormuzMap />
-
       {/* Signal Contribution — 점수 근거 시각화 (시나리오 §6.3 #2) */}
       <SignalContribution />
-
-      {/* K-Petroleum 5척 lifecycle (시나리오 §4) */}
-      <FleetLifecycleSection />
 
       {/* OPEC MOMR citation — Document Intelligence wow (§9.6) */}
       <OpecCitation />

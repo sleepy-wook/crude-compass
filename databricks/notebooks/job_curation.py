@@ -91,34 +91,7 @@ WITH
     WHERE pair = 'USD/KRW'
       AND date >= CURRENT_DATE() - INTERVAL 90 DAYS
   ),
-  -- 5. AIS K-Petroleum 5척 daily aggregate (leading, λ=0.023, D-7)
-  ais_daily AS (
-    SELECT
-      DATE(fetched_at) AS event_date,
-      COUNT(DISTINCT CASE WHEN in_hormuz_bbox THEN mmsi END) AS hormuz_count,
-      COUNT(DISTINCT CASE WHEN status = 'stranded' THEN mmsi END) AS stranded_count,
-      AVG(CAST(speed_knots AS DOUBLE)) AS avg_speed,
-      COUNT(*) AS row_count
-    FROM crude_compass.bronze.ais_positions
-    WHERE DATE(fetched_at) >= CURRENT_DATE() - INTERVAL 90 DAYS
-    GROUP BY DATE(fetched_at)
-    HAVING COUNT(*) >= 5
-  ),
-  ais_signals AS (
-    SELECT
-      event_date,
-      'ais_traffic' AS signal_type,
-      CONCAT('ais_', CAST(event_date AS STRING)) AS signal_id,
-      -- 정체(stranded) + 호르무즈 통과량 감소 = bullish 강도
-      LEAST(100.0, 50.0 + stranded_count * 15.0
-            + GREATEST(0, 3 - hormuz_count) * 10.0) AS raw_intensity,
-      CASE WHEN stranded_count >= 2 OR hormuz_count <= 2 THEN 'bullish'
-           WHEN hormuz_count >= 4 AND stranded_count = 0 THEN 'bearish'
-           ELSE 'neutral' END AS direction,
-      0.7 AS source_credibility
-    FROM ais_daily
-  ),
-  -- 6. oil_prices 5min spike count daily aggregate (reactive, λ=0.046)
+  -- 5. oil_prices 5min spike count daily aggregate (reactive, λ=0.046)
   spike_daily AS (
     SELECT
       DATE(fetched_at) AS event_date,
@@ -149,7 +122,6 @@ WITH
     UNION ALL SELECT * FROM eia_signals WHERE direction != 'neutral'
     UNION ALL SELECT * FROM opec_signals
     UNION ALL SELECT * FROM fx_signals WHERE direction != 'neutral'
-    UNION ALL SELECT * FROM ais_signals WHERE direction != 'neutral'
     UNION ALL SELECT * FROM spike_signals WHERE direction != 'neutral'
   )
 SELECT
@@ -164,7 +136,6 @@ SELECT
         WHEN 'eia_inventory' THEN 0.012
         WHEN 'opec_momr'     THEN 0.012
         WHEN 'fx_krw_usd'    THEN 0.023
-        WHEN 'ais_traffic'   THEN 0.023
         WHEN 'price_spike'   THEN 0.046
         ELSE 0.046
        END AS DECIMAL(6, 4)) AS lambda_used,
@@ -172,7 +143,6 @@ SELECT
         WHEN 'eia_inventory' THEN 0.012
         WHEN 'opec_momr'     THEN 0.012
         WHEN 'fx_krw_usd'    THEN 0.023
-        WHEN 'ais_traffic'   THEN 0.023
         WHEN 'price_spike'   THEN 0.046
         ELSE 0.046
        END * DATEDIFF(CURRENT_DATE(), event_date)) AS DECIMAL(6, 4)) AS applied_weight,
@@ -232,7 +202,6 @@ WITH signals AS (
             WHEN 'eia_inventory' THEN 'supply'
             WHEN 'opec_momr'     THEN 'demand'
             WHEN 'fx_krw_usd'    THEN 'macro'
-            WHEN 'ais_traffic'   THEN 'geopolitical'
             WHEN 'price_spike'   THEN 'market'
             ELSE 'unknown'
           END

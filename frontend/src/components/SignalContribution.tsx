@@ -10,7 +10,6 @@ import { useSignalContribution } from "../lib/queries";
 
 const SIGNAL_LABEL: Record<string, string> = {
   news_tone: "GDELT 뉴스 톤",
-  ais_traffic: "AIS 호르무즈 트래픽",
   eia_inventory: "EIA 미국 재고",
   opec_momr: "OPEC MOMR",
   fx_krw_usd: "USD/KRW 환율",

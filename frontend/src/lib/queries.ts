@@ -14,7 +14,6 @@ export const queryKeys = {
   patternHistory: (days: number) => ["pattern", "history", days] as const,
   backtestResults: ["backtest", "results"] as const,
   backtestPredictions: (limit: number) => ["backtest", "predictions", limit] as const,
-  fleetPositions: ["fleet", "positions"] as const,
   signalContribution: ["signals", "contribution"] as const,
   opecLatest: ["market", "opec-latest"] as const,
   pricesWide: (days: number) => ["market", "prices-wide", days] as const,
@@ -55,15 +54,6 @@ export function useBacktestResults() {
     queryKey: queryKeys.backtestResults,
     queryFn: () => api.backtestResults(),
     staleTime: 3600_000,
-  });
-}
-
-export function useFleetPositions() {
-  return useQuery({
-    queryKey: queryKeys.fleetPositions,
-    queryFn: () => api.fleetPositions(),
-    staleTime: 10_000,
-    refetchInterval: 15_000, // 데모 시 live narrative — 15초마다 update
   });
 }
 

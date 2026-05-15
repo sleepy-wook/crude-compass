@@ -115,7 +115,6 @@ SELECT
   DATEDIFF(d.as_of_date, s.event_date) AS days_ago,
   CASE s.signal_type
     WHEN 'news_tone'     THEN 0.046
-    WHEN 'ais_traffic'   THEN 0.023
     WHEN 'eia_inventory' THEN 0.012
     WHEN 'opec_momr'     THEN 0.012
     WHEN 'fx_krw_usd'    THEN 0.023
@@ -125,7 +124,6 @@ SELECT
   CAST(EXP(
     -(CASE s.signal_type
         WHEN 'news_tone'     THEN 0.046
-        WHEN 'ais_traffic'   THEN 0.023
         WHEN 'eia_inventory' THEN 0.012
         WHEN 'opec_momr'     THEN 0.012
         WHEN 'fx_krw_usd'    THEN 0.023

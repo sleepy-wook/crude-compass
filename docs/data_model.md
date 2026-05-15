@@ -14,7 +14,6 @@ crude_compass (Unity Catalog)
 │   ├── news_articles
 │   ├── oil_prices                   (5min realtime)
 │   ├── oil_prices_daily              (KNOC OPINET daily close)
-│   ├── ais_positions
 │   ├── fx_rates                      (ECOS USD/KRW)
 │   ├── eia_inventory                 (EIA weekly)
 │   └── opec_momr_parsed              (Document Intelligence)
@@ -23,12 +22,11 @@ crude_compass (Unity Catalog)
 │   └── signal_events_decayed         (시간 감쇠 적용)
 └── gold
     ├── daily_risk_score              (Pattern Score snapshot)
-    ├── backtest_results              (rule-based backtest)
     ├── missions_history              (Lakehouse Sync CDC)
-    └── (8 analytics views)           ← oil_prices_wide / fleet_current_state /
-                                        signal_contribution_30d / eia_rolling /
-                                        opec_demand_gap / fx_with_delta /
-                                        news_top_signals / pattern_score_latest
+    └── (7 analytics views)           ← oil_prices_wide / signal_contribution_30d /
+                                        eia_rolling / opec_demand_gap /
+                                        fx_with_delta / news_top_signals /
+                                        pattern_score_latest
 
 lakebase (Postgres OLTP, schema: public)
 ├── missions                          ← Single Source of Truth (양방향 sync)
@@ -94,23 +92,10 @@ PARTITIONED BY (DATE(fetched_at))
 CLUSTER BY (ticker, fetched_at);
 ```
 
-### 1.3 `bronze.ais_positions`
+### 1.3 (deprecated 5/16 D-2 — `bronze.ais_positions` DROP)
 
-```sql
-CREATE TABLE crude_compass.bronze.ais_positions (
-    fetched_at      TIMESTAMP     NOT NULL,
-    mmsi            STRING        NOT NULL,    -- 가명 (K-Petroleum 5척)
-    vessel_name     STRING,                    -- "VLCC #001" 가명
-    lat             DOUBLE        NOT NULL,
-    lon             DOUBLE        NOT NULL,
-    speed_knots     DECIMAL(4, 1),
-    heading_deg     INT,
-    in_hormuz_bbox  BOOLEAN,                   -- 호르무즈 bbox 안 여부
-    status          STRING                     -- "transit" | "stranded" | "safe"
-)
-USING DELTA
-PARTITIONED BY (DATE(fetched_at));
-```
+AIS Stream 데이터 출처 제거. 이유: 한국 flag VLCC 0척 active + 7년 backtest 미사용 → narrative dead weight.
+호르무즈 narrative anchor는 GDELT 뉴스 키워드 mention burst로 단일화.
 
 ### 1.4 `bronze.fx_rates`
 
@@ -170,6 +155,7 @@ TBLPROPERTIES (delta.autoOptimize.optimizeWrite = true);
 
 > 2026-05-16 정리: `silver.hormuz_traffic_hourly` + `silver.dubai_premium_daily` 2개 DROP
 > (populating job 0, 0 rows, code 참조 0).
+> 2026-05-16 D-2 정리: AIS Stream 완전 제거 → `signal_type` 종류 6→5 (news_tone / eia_inventory / opec_momr / fx_krw_usd / price_spike).
 
 ---
 
@@ -391,7 +377,7 @@ SOURCE: https://docs.databricks.com/aws/en/oltp/projects/sync-tables
 ```
 crude_compass.bronze.news_articles ──┐
 crude_compass.bronze.oil_prices    ──┤
-crude_compass.bronze.ais_positions ──┼──> Job 5 daily_curation
+crude_compass.bronze.eia_inventory ──┼──> Job 5 daily_curation
 crude_compass.bronze.fx_rates      ──┘         │
                                                 ↓
                           crude_compass.silver.pattern_scores_daily

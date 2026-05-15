@@ -21,8 +21,8 @@ _PRESETS: dict[str, dict[str, Any]] = {
         "mission_type": MissionType.HEDGE,
         "goal_text": "Term 60% → 75% (4주)",
         "reasoning": (
-            "호르무즈 통과 -93% (AIS 7일 평균 대비) + OPEC MOMR 5월 사우디 추가 감산 시그널 "
-            "+ GDELT 키워드 멘션 +280% + Iran 제재 + UK Maritime alerts. AI confidence 65%."
+            "GDELT 호르무즈 키워드 멘션 +280% + OPEC MOMR 5월 사우디 추가 감산 시그널 "
+            "+ Brent-Dubai spread +$7 (Dubai premium) + Iran 제재 + UK Maritime alerts. AI confidence 65%."
         ),
         "pattern_score": 82.0,
         "urgency": MissionUrgency.URGENT,

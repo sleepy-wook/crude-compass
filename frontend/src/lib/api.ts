@@ -5,7 +5,6 @@
 import type {
   BacktestPrediction,
   BacktestResults,
-  FleetPositionsResponse,
   GenieQueryResponse,
   Mission,
   PatternHistory,
@@ -183,9 +182,6 @@ export const api = {
     }),
 
   // Mission Plan Agent — '지금 새 추천 생성' demo wrapper
-  // K-Petroleum 5척 lifecycle (시나리오 §4)
-  fleetPositions: () => request<FleetPositionsResponse>("/api/fleet/positions"),
-
   missionRecommendNow: (overrides?: {
     pattern_score?: number;
     bullish_score?: number;

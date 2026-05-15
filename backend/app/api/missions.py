@@ -334,7 +334,6 @@ def _fetch_top_signals_from_silver(limit: int = 20) -> list[SignalContext]:
             WHEN 'eia_inventory' THEN 'supply'
             WHEN 'opec_momr'     THEN 'demand'
             WHEN 'fx_krw_usd'    THEN 'macro'
-            WHEN 'ais_traffic'   THEN 'geopolitical'
             WHEN 'price_spike'   THEN 'market'
             ELSE 'unknown'
           END) AS category,

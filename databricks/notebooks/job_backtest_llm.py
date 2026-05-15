@@ -21,7 +21,7 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install --quiet pydantic==2.11.10 "psycopg[binary]==3.2.3"
+# MAGIC %pip install --quiet pydantic==2.11.10 "psycopg[binary]==3.2.3" "databricks-sdk>=0.106.0"
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------
@@ -577,6 +577,8 @@ def _dec(v, scale):
     except (ValueError, TypeError): return None
 
 w_sdk = WorkspaceClient()
+# postgres namespace는 databricks-sdk >=0.106에서 endpoint kwarg 지원.
+# (database namespace는 instance_names kwarg — signature 다름)
 credential = w_sdk.postgres.generate_database_credential(endpoint=LAKEBASE_ENDPOINT_PATH)
 if not credential.token:
     raise RuntimeError("Lakebase OAuth token empty")

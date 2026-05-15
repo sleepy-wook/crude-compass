@@ -13,10 +13,10 @@
 - bronze.news_articles
 - bronze.oil_prices_daily
 - bronze.oil_prices
+- bronze.oil_prices_daily
 - bronze.eia_inventory
 - bronze.opec_momr_parsed
 - bronze.fx_rates
-- bronze.ais_positions
 - silver.signal_events_decayed
 - silver.pattern_scores_daily
 - gold.daily_risk_score_sync  (Lakehouse Sync mirror of Lakebase daily_risk_score)
@@ -25,8 +25,8 @@
 
 ```
 - Pattern Score 의미: silver.signal_events_decayed의 weighted_contribution 합 → 시간 감쇠 + cross-validation bonus 적용. 0~100 scale. 70+ = HEDGE zone, 30- = OPPORTUNITY zone.
-- K-Petroleum 5척 = 시나리오 §4 가상 VLCC fleet. MMSI 'KPETRO_001'~'KPETRO_005' 익명화 표시. SK Shipping operated VLCC fleet (AIS public data 활용).
-- 시그널 source 6종: news_tone (GDELT), eia_inventory, opec_momr, fx_krw_usd, ais_traffic (5척 호르무즈 통과/stranded), price_spike (5분 ±2% spike).
+- 시그널 source 5종: news_tone (GDELT 글로벌 뉴스 mention/tone), eia_inventory (EIA 미국 주간 재고), opec_momr (OPEC MOMR 월간 공급/수요), fx_krw_usd (ECOS USD/KRW), price_spike (OilPriceAPI 5분 ±2% spike).
+- 호르무즈 narrative anchor는 GDELT 키워드 mention burst로 단일화 (이전 AIS 5척 fleet 추적은 5/16 D-2 제거).
 - Term 비중 = 장기계약 (산유국 1~6개월 사전 합의). Spot 비중 = 즉시구매 (시장 가격). 평시 baseline 60:40.
 ```
 
@@ -49,7 +49,7 @@ GROUP BY signal_type, direction
 ORDER BY ABS(SUM(weighted_contribution)) DESC
 ```
 
-**Expected**: news_tone bullish/bearish 합 + eia_inventory + opec_momr + fx + (있으면) ais_traffic + price_spike
+**Expected**: news_tone bullish/bearish 합 + eia_inventory + opec_momr + fx + price_spike (5 signal_type)
 
 ---
 
@@ -67,25 +67,20 @@ ORDER BY trade_date DESC
 
 ---
 
-## 3. K-Petroleum 5척 현재 위치 (가상 fleet)
+## 3. 최근 3개월 OPEC MOMR 사우디 공급 변화
 
 ```sql
 SELECT
-  mmsi AS vessel_id,
-  vessel_name,
-  lat,
-  lon,
-  speed_knots,
-  status,
-  in_hormuz_bbox,
-  fetched_at
-FROM crude_compass.bronze.ais_positions
-WHERE mmsi LIKE 'KPETRO_%'
-QUALIFY ROW_NUMBER() OVER (PARTITION BY mmsi ORDER BY fetched_at DESC) = 1
-ORDER BY mmsi
+  report_month,
+  saudi_production_kbbl_d,
+  opec_total_kbbl_d,
+  forecast_demand_kbbl_d
+FROM crude_compass.bronze.opec_momr_parsed
+WHERE report_month >= DATE_FORMAT(CURRENT_DATE() - INTERVAL 3 MONTHS, 'yyyy-MM')
+ORDER BY report_month DESC
 ```
 
-**Expected**: 5 rows (K-Petroleum 가상 fleet). 데이터 적재된 vessel만 표시.
+**Expected**: 최근 3개월 OPEC MOMR PDF 파싱 결과. 사우디 감산/증산 시그널 + balance.
 
 ---
 
@@ -156,7 +151,7 @@ ORDER BY date DESC
 ## 평가위원 narrate 시 활용
 
 - "Pattern Score 82가 어디서?" → Genie에 query 1 (signal_type별 기여도) 자연어로 질문
-- "K-Petroleum 5척 어디 있나요?" → query 3
+- "최근 OPEC 사우디 공급 변화?" → query 3 (OPEC MOMR 3개월)
 - "Backtest 정직성?" → query 5 (실제 saving_30d_pct)
 
 ---

@@ -34,7 +34,7 @@ export function Sidebar() {
           한국 정유사 원유 조달<br />의사결정 AI 비서
         </div>
         <div className="text-xs text-sidebar-muted2 mt-3 leading-relaxed">
-          공개 데이터 7개 · Slack ↔ Apps 5초 sync · 7년 backtest 75% 적중
+          공개 데이터 6개 · Slack ↔ Apps 5초 sync · 7년 backtest 75% 적중
         </div>
       </div>
 

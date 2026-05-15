@@ -100,7 +100,6 @@ def main() -> None:
         ("bronze.news_articles",       "published_at",  "DATE(published_at)"),
         ("bronze.oil_prices",          "fetched_at",    "DATE(fetched_at)"),
         ("bronze.oil_prices_daily",    "trade_date",    "trade_date"),
-        ("bronze.ais_positions",       "fetched_at",    "DATE(fetched_at)"),
         ("bronze.fx_rates",            "date",          "date"),
         ("bronze.eia_inventory",       "week_ending",   "week_ending"),
         ("bronze.opec_momr_parsed",    "parsed_at",     "DATE(parsed_at)"),

@@ -1,8 +1,11 @@
 # Crude Compass — Session Decision Log
 
 > Purpose: 대화 핵심 압축 + 결정 rationale 보존 (compact / SA review용).
-> Last updated: 2026-05-13 23:00 (D-5 plan **재조정** — UX 우선)
+> Last updated: 2026-05-16 (D-2) — AIS Stream 완전 제거 결정 + source 7→6.
 > Style: terse Korean, push back history 포함.
+>
+> **5/16 D-2 결정**: AIS Stream 데이터 source + K-Petroleum 5척 fleet narrative 완전 제거.
+> 본 문서의 §3 AIS Stream 진단 부분은 historical (D-5 시점 발견). 최종 결정 — D-2 글로벌 8min scout 결과 한국 flag VLCC 0척 active + 7년 backtest에서 ais_traffic row 0건 확인 → narrative dead weight. 호르무즈 narrative anchor는 GDELT 키워드 mention burst로 단일화.
 
 ---
 

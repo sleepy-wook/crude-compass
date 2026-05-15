@@ -46,8 +46,8 @@
   - 친구 (LG Electronics) 합류 확정 → 2명 OK
   - corporate email 사용 가능 확인
 
-### AIS 5척 narrative
-- ✅ **D-3 정합 해결**: VLCC fleet 평시 운용 패턴 ≈ 일부 idle. 5척 중 1척만 active = 호르무즈 봉쇄 시나리오와 정합. 가짜 시뮬 추가 X.
+### AIS Stream 5척 narrative (5/16 D-2 완전 제거)
+- ✅ **D-2 결정**: AIS Stream 완전 제거. 이유: 한국 flag VLCC 0척 active (글로벌 8min scout 결과) + 7년 backtest 미사용 (silver.signal_events_decayed에 ais_traffic row 0건) → narrative dead weight. 호르무즈 narrative는 GDELT 키워드 mention burst로 단일화. source 7→6.
 
 ### OPEC PDF anti-bot (D-12 발견, 미해결)
 - April/May 2026 OPEC MOMR PDF 403 차단 (publications.opec.org anti-bot)
@@ -63,7 +63,7 @@ D-3 (5/15) push된 commit 7개:
 2. `6cdb7cd` v4/v5/v6 version naming 제거 (파일 6개 삭제, 코드 cleanup)
 3. `f2cec22` UC Delta `gold.llm_backtest_predictions` → Lakebase Postgres migration
 4. `491e150` Gold analytics views 8개 (Genie + Dashboard + Apps 공통)
-5. `0e765e1` Discovery narrative anchor 4개 (HormuzMap / SignalContribution / PatternScoreLine / OpecCitation)
+5. `0e765e1` Discovery narrative anchor 3개 (SignalContribution / PatternScoreLine / OpecCitation) — HormuzMap은 D-2 AIS 제거 시 동반 삭제
 6. `d42703f` Job audit — 13→12 jobs, yml UNPAUSE 6개, news_rss_enrich 삭제
 7. `4072bc6` Progress summary 문서
 

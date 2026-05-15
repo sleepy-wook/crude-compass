@@ -153,20 +153,20 @@ class FallbackEntry:
 # 3 entry — 시나리오 §14 narrative anchor와 일치
 _FALLBACK_ENTRIES: list[FallbackEntry] = [
     FallbackEntry(
-        keywords=["호르무즈", "AIS", "유조선", "통과", "vessel"],
+        keywords=["OPEC", "MOMR", "사우디", "saudi", "공급"],
         sql=(
-            "SELECT count(*) AS vessels, max(fetched_at) AS latest "
-            "FROM crude_compass.bronze.ais_positions "
-            "WHERE in_hormuz_bbox = TRUE "
-            "AND fetched_at > current_timestamp() - INTERVAL 7 DAYS"
+            "SELECT report_month, saudi_kbbl_d, opec_total_kbbl_d, "
+            "       forecast_demand_kbbl_d, market_balance "
+            "FROM crude_compass.bronze.opec_momr_monthly "
+            "ORDER BY report_month DESC LIMIT 3"
         ),
         text_template=(
-            "최근 7일 호르무즈 BBOX 통과 유조선 {row_count}척 (latest: {latest}). "
-            "AIS Stream realtime 데이터 기준. D-7 평균 대비 비교는 Pattern Score 엔진이 계산."
+            "최근 OPEC MOMR 3개월 공급/수요: {rows_summary}. "
+            "사우디 감산 시그널 + 시장 balance 변화로 Pattern Score 영향."
         ),
         sample_text=(
-            "최근 7일 호르무즈 통과 유조선 데이터 — AISStream realtime 적재 후 표시. "
-            "(현재 Lakebase 미연동 dev 환경이라 직접 표시 불가. Genie Space 등록 후 라이브 응답 가능.)"
+            "OPEC Monthly Oil Market Report — bronze.opec_momr_monthly 24개월 데이터 "
+            "(ai_parse_document로 PDF 직접 파싱). Genie Space 등록 후 라이브 응답."
         ),
     ),
     FallbackEntry(
@@ -205,6 +205,18 @@ _FALLBACK_ENTRIES: list[FallbackEntry] = [
         ),
     ),
 ]
+
+
+def _format_opec_summary(rows: list[dict[str, Any]]) -> str:
+    """OPEC MOMR 3개월 요약."""
+    parts = []
+    for r in rows:
+        m = str(r.get("report_month"))[:7] if r.get("report_month") else "?"
+        saudi = r.get("saudi_kbbl_d")
+        bal = r.get("market_balance") or "?"
+        saudi_str = f"{int(saudi):,}kb/d" if saudi is not None else "?"
+        parts.append(f"{m} 사우디 {saudi_str} ({bal})")
+    return " · ".join(parts)
 
 
 def _format_eia_summary(rows: list[dict[str, Any]]) -> str:
@@ -286,10 +298,9 @@ async def fallback_canned(question: str) -> GenieResponse:
         if rows is not None:
             # text_template format
             try:
-                if "호르무즈" in matched.keywords[0]:
+                if "OPEC" in matched.keywords[0]:
                     answer = matched.text_template.format(
-                        row_count=rows[0].get("vessels", 0) if rows else 0,
-                        latest=str(rows[0].get("latest", ""))[:19] if rows else "?",
+                        rows_summary=_format_opec_summary(rows)
                     )
                 elif "EIA" in matched.keywords[0]:
                     answer = matched.text_template.format(

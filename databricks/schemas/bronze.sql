@@ -1,9 +1,10 @@
 -- ====================================================================
 -- Crude Compass · Bronze layer (Delta, append-only)
 -- ====================================================================
--- 적재: Lakeflow Jobs (gdelt / price / ais / ecos / eia / opec / oil_prices_daily)
+-- 적재: Lakeflow Jobs (gdelt / price / ecos / eia / opec / oil_prices_daily)
 -- 보존: 90일 (Pattern Detection window)
 -- ====================================================================
+-- 2026-05-16: bronze.ais_positions DROP (AIS Stream 데이터 출처 제거 — 한국 flag VLCC 0척 active + backtest 미사용).
 
 CREATE CATALOG IF NOT EXISTS crude_compass;
 CREATE SCHEMA  IF NOT EXISTS crude_compass.bronze;
@@ -75,22 +76,10 @@ CREATE TABLE IF NOT EXISTS crude_compass.bronze.oil_prices_daily (
 USING DELTA
 CLUSTER BY (ticker, trade_date);
 
--- ────────────────────────────────────────────────────────────────────
--- 3. ais_positions  (5분 batch — continuous WebSocket 대체)
--- ────────────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS crude_compass.bronze.ais_positions (
-    fetched_at      TIMESTAMP     NOT NULL,
-    mmsi            STRING        NOT NULL COMMENT '가명 (K-Petroleum 5척)',
-    vessel_name     STRING        COMMENT 'VLCC #001 가명',
-    lat             DOUBLE        NOT NULL,
-    lon             DOUBLE        NOT NULL,
-    speed_knots     DECIMAL(4, 1),
-    heading_deg     INT,
-    in_hormuz_bbox  BOOLEAN       COMMENT '호르무즈 bounding box',
-    status          STRING        COMMENT 'transit | stranded | anchored | safe'
-)
-USING DELTA
-PARTITIONED BY (DATE(fetched_at));
+-- 2026-05-16 정리: bronze.ais_positions DROP.
+-- AIS Stream realtime 데이터는 한국 flag VLCC 0척 active (globally) + 7년 backtest 미사용.
+-- 호르무즈 narrative anchor는 GDELT 뉴스 키워드 mention으로 대체.
+DROP TABLE IF EXISTS crude_compass.bronze.ais_positions;
 
 -- ────────────────────────────────────────────────────────────────────
 -- 4. fx_rates

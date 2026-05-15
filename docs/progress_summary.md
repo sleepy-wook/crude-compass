@@ -3,6 +3,11 @@
 > 작성일: 2026-05-15 (마감 D-3, 조기 제출 D-3)
 > 독자: 비개발자 · 평가위원 · 친구 · 가족
 > 어려운 용어 없이 한 번에 읽히게 정리
+>
+> **5/16 D-2 reframe**: 본 문서의 AIS Stream / K-Petroleum 5척 fleet 언급은 historical 기록.
+> D-2 (5/16) 시점 AIS Stream 완전 제거 + source 7→6 reconfiguration 결정.
+> 이유: 한국 flag VLCC 0척 active + 7년 backtest 미사용 → narrative dead weight.
+> 호르무즈 narrative anchor는 GDELT 키워드 mention burst로 단일화. 최신 상태는 `crude_compass_final_scenario.md` 참조.
 
 ---
 

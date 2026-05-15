@@ -15,7 +15,7 @@ CREATE SCHEMA IF NOT EXISTS crude_compass.functions;
 --
 -- 반감기:
 --   news_tone, price_spike: 15일 (λ = 0.046)
---   ais_traffic, fx_krw_usd: 30일 (λ = 0.023)
+--   fx_krw_usd: 30일 (λ = 0.023)
 --   eia_inventory, opec_momr: 60일 (λ = 0.012)
 
 CREATE OR REPLACE FUNCTION crude_compass.functions.weighted_signal(
@@ -30,7 +30,6 @@ RETURN
     raw_intensity
     * CASE signal_type
         WHEN 'news_tone'      THEN exp(-0.046 * days_ago)
-        WHEN 'ais_traffic'    THEN exp(-0.023 * days_ago)
         WHEN 'eia_inventory'  THEN exp(-0.012 * days_ago)
         WHEN 'opec_momr'      THEN exp(-0.012 * days_ago)
         WHEN 'fx_krw_usd'     THEN exp(-0.023 * days_ago)

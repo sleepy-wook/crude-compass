@@ -238,7 +238,6 @@ Discovery 페이지는 다음 endpoint들을 frontend에서 직접 조합하여 
 - `/api/signals/contribution` (시그널 기여도)
 - `/api/market/news-top` (최근 뉴스)
 - `/api/market/opec-latest` (OPEC 인용)
-- `/api/fleet/positions` (5척 fleet)
 
 복잡한 feed CRUD 불필요 → simplicity. discovery_feed_items Lakebase table은 reactive alert
 persist용 (현재 미사용, D-2 이후 옵션).
@@ -539,9 +538,9 @@ Databricks Genie Space 자연어 질의 — live 호출 또는 graceful fallback
 **Response 200** (항상 200, source field로 mode 구분):
 ```json
 {
-  "answer": "최근 7일 호르무즈 BBOX 통과 유조선 N척 ...",
-  "sql": "SELECT count(*) ...",  // live 또는 fallback_data 시
-  "data": [{"vessels": 12, "latest": "2026-05-14T..."}],  // live 또는 fallback_data 시
+  "answer": "최근 OPEC MOMR 3개월 사우디 공급 9,500kb/d ...",
+  "sql": "SELECT report_month, saudi_kbbl_d ...",  // live 또는 fallback_data 시
+  "data": [{"report_month": "2026-04", "saudi_kbbl_d": 9500}],  // live 또는 fallback_data 시
   "conversation_id": "conv_abc123",
   "message_id": "msg_xyz789",
   "source": "live"
@@ -619,51 +618,11 @@ Spike 발견 시 **EventBus `reactive.alert` event broadcast** → WebSocket fro
 
 ---
 
-## 7.4 Fleet Endpoints (K-Petroleum 5척 lifecycle)
+## 7.4 (deprecated 5/16 D-2 — AIS Stream 완전 제거)
 
-### `GET /api/fleet/positions`
-시나리오 §4 K-Petroleum 가상 fleet 5척 (KPETRO_001~005) 실시간 위치 + zone 분류.
-
-`bronze.ais_positions` 의 `mmsi LIKE 'KPETRO_%'` 최신 1행씩 (QUALIFY ROW_NUMBER).
-5 fixed slot 보장 — 미적재 vessel은 placeholder (zone='unknown').
-
-**Response 200**:
-```json
-{
-  "vessels": [
-    {
-      "mmsi": "KPETRO_001",
-      "vessel_name": "VLCC KPETRO_001",
-      "lat": 28.58,
-      "lon": -94.25,
-      "speed_knots": 0.3,
-      "heading_deg": null,
-      "in_hormuz_bbox": false,
-      "status": "anchored",
-      "fetched_at": "2026-05-14T11:09:28Z",
-      "zone": "gulf_of_mexico"
-    },
-    {
-      "mmsi": "KPETRO_002",
-      "vessel_name": null,
-      "lat": null, "lon": null,
-      "speed_knots": null, "heading_deg": null,
-      "in_hormuz_bbox": null,
-      "status": "no_data",
-      "fetched_at": null,
-      "zone": "unknown"
-    }
-  ]
-}
-```
-
-**Zone enum**: `hormuz | red_sea | indian_ocean | korean_waters | gulf_of_mexico | transit | unknown`
-
-**비고**:
-- 5분 cron (`crude-compass-ais-batch-dev`)으로 매 5분 bronze 적재
-- VLCC AIS 보고 빈도 ~6분 — 데이터 미적재 vessel은 1-2 cron 안에 채워짐
-- vessel_name 도 anonymize 처리 (`VLCC KPETRO_NNN`)
-- AIS public open data (IMO mandate) + 가상 K-Petroleum narrative (시나리오 §4)
+이전 `GET /api/fleet/positions` endpoint (K-Petroleum 5척 fleet lifecycle) 는 제거됨.
+이유: 한국 flag VLCC 0척 active + 7년 backtest 미사용 → narrative dead weight.
+호르무즈 narrative anchor는 GDELT 뉴스 키워드 mention burst로 단일화.
 
 ---
 
@@ -694,7 +653,7 @@ Slack Bolt mount + signing secret 상태 확인 (Apps deploy 후 Slack interacti
 }
 ```
 
-> D-14 계획됐던 `GET /api/meta/data-sources`는 미구현 — sidebar에 데이터 source 상태 표시 narrative는 Apps 우상단 "AIS open standard · 5min cron · X on-map · Y external" 표시로 대체.
+> D-14 계획됐던 `GET /api/meta/data-sources`는 미구현 — sidebar에 데이터 source 상태 표시 narrative는 Apps 우상단 "6 source · 100% open data · X external" 표시로 대체.
 
 ---
 

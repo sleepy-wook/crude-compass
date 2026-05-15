@@ -17,7 +17,7 @@
 #   https://<public-url>/api/slack/interactive
 #
 # Resources (App overview → "Resources" 탭 → "Add resource"):
-# - Secret resource × 11 (lakebase_* / slack_* / genie_space_id / *_api_key) — scope=crude
+# - Secret resource × 10 (lakebase_* / slack_* / genie_space_id / *_api_key) — scope=crude
 # - Genie space resource (D-2 등록 후) — key=genie_space_id, permission=Can run
 # - Serving endpoint resource × 2 (databricks-claude-haiku-4-5, KA endpoint after D-2)
 # 매 resource 추가 후 재배포 필요.
@@ -52,11 +52,9 @@ env:
   - name: GENIE_SPACE_ID
     valueFrom: genie_space_id
 
-  # External API (OilPriceAPI / AISStream / ECOS / EIA)
+  # External API (OilPriceAPI / ECOS / EIA)
   - name: OILPRICE_API_KEY
     valueFrom: oilprice_api_key
-  - name: AISSTREAM_API_KEY
-    valueFrom: aisstream_api_key
   - name: ECOS_API_KEY
     valueFrom: ecos_api_key
   - name: EIA_API_KEY

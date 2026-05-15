@@ -33,7 +33,7 @@ def test_genie_disabled_returns_fallback(monkeypatch):
     client = _client(monkeypatch, genie_enabled=False)
     resp = client.post(
         "/api/genie/query",
-        json={"question": "최근 7일 호르무즈 통과 유조선?"},
+        json={"question": "최근 OPEC 사우디 감산 시그널 어때?"},
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -56,21 +56,21 @@ def test_genie_question_validation(monkeypatch):
 
 
 # ════════════════════════════════════════════════════════════════════════
-# 3. Keyword matching — '호르무즈' → AIS preset
+# 3. Keyword matching — 'OPEC' → MOMR preset
 # ════════════════════════════════════════════════════════════════════════
-def test_genie_keyword_hormuz(monkeypatch):
+def test_genie_keyword_opec(monkeypatch):
     client = _client(monkeypatch, genie_enabled=False)
     resp = client.post(
         "/api/genie/query",
-        json={"question": "호르무즈 통과량 알려줘"},
+        json={"question": "OPEC 사우디 공급 변화 알려줘"},
     )
     assert resp.status_code == 200
     body = resp.json()
     # 'fallback_data' (Lakebase 성공) 또는 'fallback_text' (Lakebase 실패) — 어느 쪽이든
-    # source에 'fallback_' prefix + 답변에 호르무즈/AIS/유조선 키워드 포함
+    # source에 'fallback_' prefix + 답변에 OPEC/MOMR/사우디 키워드 포함
     assert body["source"].startswith("fallback")
     answer = body["answer"]
-    assert any(kw in answer for kw in ["호르무즈", "AIS", "유조선", "vessel"])
+    assert any(kw in answer for kw in ["OPEC", "MOMR", "사우디"])
     get_settings.cache_clear()
 
 

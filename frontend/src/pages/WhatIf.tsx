@@ -8,7 +8,7 @@ import type { GenieQueryResponse } from "../lib/types";
 import { formatPct, formatScore, formatUsd } from "../lib/utils";
 
 const GENIE_EXAMPLES = [
-  "최근 7일 호르무즈 통과 유조선 수는?",
+  "최근 OPEC 사우디 공급 변화는?",
   "이번 주 EIA 재고 변화는?",
   "두바이유 7일 momentum은?",
 ];
@@ -92,7 +92,7 @@ export function WhatIf() {
         </div>
         <p className="text-xs text-ink-3 mb-4 leading-relaxed">
           이 backtest는 4 source × 7년 (GDELT / EIA / OPEC / FX + Dubai 종가).
-          <strong className="text-ink-2"> AIS · OilPriceAPI는 realtime-only이라 production 전용</strong> — backtest 데이터 자체가 없음.
+          <strong className="text-ink-2"> OilPriceAPI는 realtime-only이라 production 전용</strong> — backtest 데이터 자체가 없음.
         </p>
 
         {sorted.length > 0 && (

@@ -86,18 +86,17 @@
 | **OPEC 보고서 (PDF)** | OPEC이 매달 내는 60장 PDF에서 사우디/이란 생산량 추출 | 35개월 |
 | **환율 (한국은행)** | 원/달러 환율 (환율 오르면 수입 원유 비쌈) | 1,812일 |
 | **두바이유 가격** | 한국석유공사 공식 일별 가격 | 5,591일 |
-| **AISStream (선박 위치)** | 호르무즈 해협 통과 유조선 위치 실시간 (D-7 ~ D-1 leading indicator) | runtime only — backtest 미포함 (5분 WebSocket 스트림, 7년 historical 부재) |
 | **OilPriceAPI (실시간 가격)** | Brent/WTI/Dubai 5분 단위 — 가격 spike 발생 시 Reactive Trigger | runtime only — backtest 미포함 (daily는 OPINET이 이미 ground truth) |
 
 ### 왜 6개 중 4개만 backtest에 썼나? (정직 공개)
 
 **Backtest 사용 (4 source × 7년)**: GDELT / EIA / OPEC / FX — **75% 적중률 (n=298) 검증된 영역**
-**Production-only (2 source × 실시간)**: AISStream / OilPriceAPI — **historical 데이터 자체가 없음** (유료 / realtime tier)
+**Production-only (1 source × 실시간)**: OilPriceAPI — **historical 데이터 자체가 없음** (realtime tier만 제공)
 
-**평가위원 예상 질문**: "왜 AIS는 backtest 안 했나요?"
-**답**: AISStream historical은 유료 (MarineTraffic/Spire 수백 USD/년). 무료 free tier는 realtime-only. 즉 **데이터가 없어서 못 한 것이지 의도적 제외 X**. 대신 AIS의 진짜 가치는 backtest 적중률이 아니라 **D-7 leading detection (호르무즈 봉쇄 임박 7일 전 감지)**이라 production 라이브 시연으로 검증함.
+**평가위원 예상 질문**: "왜 OilPriceAPI는 backtest 안 했나요?"
+**답**: OilPriceAPI 5분 단위 historical은 OilPriceAPI Exploration plan에 미포함. daily close는 OPINET이 이미 ground truth로 7년 데이터 확보. 즉 OilPriceAPI는 backtest 적중률이 아니라 **intraday spike Reactive 영역**을 위한 production 라이브 시연으로 검증함.
 
-**Track 1 Social Impact 메시지**: 중소 정유사도 Bloomberg/Platts 유료 historical AIS 없이 무료 AISStream realtime으로 빅5와 동등한 leading indicator 확보 — open data democratization 핵심.
+**Track 1 Social Impact 메시지**: 중소 정유사도 Bloomberg/Platts 유료 historical 없이 무료 GDELT/EIA/OPEC/ECOS/OPINET 5종으로 빅5와 동등한 leading indicator 확보 — open data democratization 핵심.
 
 ### [2] AI 분석 (Claude Haiku, Anthropic)
 
@@ -230,7 +229,7 @@ Term 비중 60% → 75% (4주)
 |---|---|
 | "75% 적중률이면 충분한가?" | random (50%) 대비 우위. 자신감 80+ 추천만 자동 실행하면 production-safe. |
 | "AI가 거짓말하면?" | AI가 자기 확신도를 정확히 매김 (calibration 검증됨). 낮은 자신감 추천은 무시 가능. |
-| "Bloomberg 없이 정말 가능?" | 데이터 양은 충분. 다만 **AIS (선박 위치) 실시간**과 **Argus (전문 두바이유)** 같은 유료 source 추가 시 정확도 ↑ 가능. |
+| "Bloomberg 없이 정말 가능?" | 데이터 양은 충분. 다만 **Argus (전문 두바이유)** 같은 유료 source 또는 paid AIS Stream historical 추가 시 정확도 ↑ 가능. |
 | "한국 외 다른 시장?" | 본 프로젝트는 한국 정유사 특화 (두바이유 + 한국은행 환율). 다른 시장이면 데이터 source 일부 교체 필요. |
 | "COVID 같은 큰 충격?" | 현재 약점. 향후 수요 측 신호 (PMI, 항공 수요 등) 추가로 보강 예정. |
 

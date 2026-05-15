@@ -39,6 +39,10 @@ USING DELTA;
 -- LLM backtest (Lakebase backtest_predictions)가 main, rule-based 결과는
 -- Apps에서 사용 0건 → dead. Apps WhatIf 페이지는 Lakebase 사용.
 
+-- 2026-05-16 D-2 정리: gold.fleet_current_state VIEW DROP.
+-- bronze.ais_positions 제거 → 의존 view 동반 제거. AIS Stream narrative 폐지.
+DROP VIEW IF EXISTS crude_compass.gold.fleet_current_state;
+
 -- ────────────────────────────────────────────────────────────────────
 -- 3. missions_history (Lakehouse Sync target — Databricks UI에서 자동 생성)
 -- ────────────────────────────────────────────────────────────────────
@@ -67,28 +71,7 @@ SELECT
 FROM crude_compass.bronze.oil_prices_daily
 GROUP BY trade_date;
 
--- ────────────────────────────────────────────────────────────────────
--- V2. fleet_current_state — KPETRO 5척 최신 위치 + zone enum
--- ────────────────────────────────────────────────────────────────────
--- 용도: Apps FleetMap, Dashboard, Genie "K-Petroleum 어디 있나?"
--- zone enum: hormuz | red_sea | indian_ocean | korean_waters | gulf_of_mexico | transit
-CREATE OR REPLACE VIEW crude_compass.gold.fleet_current_state AS
-SELECT
-    mmsi,
-    vessel_name,
-    lat, lon, speed_knots, heading_deg,
-    in_hormuz_bbox, status, fetched_at,
-    CASE
-        WHEN in_hormuz_bbox THEN 'hormuz'
-        WHEN lat BETWEEN 12 AND 30 AND lon BETWEEN 32 AND 44   THEN 'red_sea'
-        WHEN lat BETWEEN -10 AND 25 AND lon BETWEEN 45 AND 80  THEN 'indian_ocean'
-        WHEN lat BETWEEN 25 AND 45 AND lon BETWEEN 122 AND 135 THEN 'korean_waters'
-        WHEN lat BETWEEN 18 AND 30 AND lon BETWEEN -98 AND -82 THEN 'gulf_of_mexico'
-        ELSE 'transit'
-    END AS zone
-FROM crude_compass.bronze.ais_positions
-WHERE mmsi LIKE 'KPETRO_%'
-QUALIFY ROW_NUMBER() OVER (PARTITION BY mmsi ORDER BY fetched_at DESC) = 1;
+-- (V2 fleet_current_state VIEW 삭제 — 위 DROP 참조)
 
 -- ────────────────────────────────────────────────────────────────────
 -- V3. signal_contribution_30d — silver.signal_events_decayed 최근 30일 합

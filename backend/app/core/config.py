@@ -31,7 +31,6 @@ class Settings(BaseModel):
 
     # External API keys
     oilprice_api_key: str = Field(default_factory=lambda: os.getenv("OILPRICE_API_KEY", ""))
-    aisstream_api_key: str = Field(default_factory=lambda: os.getenv("AISSTREAM_API_KEY", ""))
     ecos_api_key: str = Field(default_factory=lambda: os.getenv("ECOS_API_KEY", ""))
 
     # Slack (Databricks secret scope=crude)

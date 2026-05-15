@@ -93,21 +93,6 @@ CREATE TABLE IF NOT EXISTS crude_compass.bronze.oil_prices_daily (
 USING DELTA
 CLUSTER BY (ticker, trade_date)
 """),
-    Stmt("bronze.ais_positions", """
-CREATE TABLE IF NOT EXISTS crude_compass.bronze.ais_positions (
-    fetched_at      TIMESTAMP     NOT NULL,
-    mmsi            STRING        NOT NULL,
-    vessel_name     STRING,
-    lat             DOUBLE        NOT NULL,
-    lon             DOUBLE        NOT NULL,
-    speed_knots     DECIMAL(4, 1),
-    heading_deg     INT,
-    in_hormuz_bbox  BOOLEAN,
-    status          STRING
-)
-USING DELTA
-CLUSTER BY (fetched_at)
-"""),
     Stmt("bronze.fx_rates", """
 CREATE TABLE IF NOT EXISTS crude_compass.bronze.fx_rates (
     date            DATE          NOT NULL,

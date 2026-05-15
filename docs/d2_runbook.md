@@ -54,10 +54,10 @@ databricks --profile crude-compass apps get crude-compass
 
 ### Resources 등록 (Workspace UI)
 1. Workspace → **Compute → Apps → crude-compass → Resources** 탭
-2. **Add resource** → **Secret** 11개 (scope=`crude`):
+2. **Add resource** → **Secret** 10개 (scope=`crude`):
    - `lakebase_host`, `lakebase_database`, `lakebase_user`, `lakebase_endpoint_path`
    - `slack_bot_token`, `slack_signing_secret`, `slack_default_channel`
-   - `oilprice_api_key`, `aisstream_api_key`, `ecos_api_key`, `eia_api_key`
+   - `oilprice_api_key`, `ecos_api_key`, `eia_api_key`
 3. (D-2 진행 후 추가) **Genie space** + **Serving endpoint × 2** (FMA + KA)
 4. 변경 시 **재배포 필수**
 
@@ -66,7 +66,7 @@ databricks --profile crude-compass apps get crude-compass
 APP_URL="https://crude-compass-<workspace-id>.databricksapps.com"
 curl -s $APP_URL/api/health | jq            # {"status":"ok"}
 curl -s $APP_URL/api/slack/health | jq      # enabled:true
-curl -s $APP_URL/api/fleet/positions | jq   # 5 vessels
+curl -s $APP_URL/api/pattern-score/current | jq   # pattern_score 0-100
 ```
 
 ### Logs
@@ -182,7 +182,7 @@ curl -s $APP_URL/api/genie/health | jq
 ## 5️⃣ (Optional) AI/BI Dashboard 1개 (5/16 13:00 이후, 1h)
 
 - Workspace → **SQL / Dashboard**
-- Pattern Score 시계열 + K-Petroleum 5척 위치 + Backtest hit rate 추이
+- Pattern Score 시계열 + GDELT 호르무즈/이란 키워드 mention burst 시계열 + Backtest hit rate 추이
 - 영상 데모에서 1컷 짧게 표시
 
 ---
@@ -199,8 +199,8 @@ curl -s $APP_URL/api/genie/health  # enabled:true
 
 # 데이터
 curl -s $APP_URL/api/missions/active | jq '.missions | length'
-curl -s $APP_URL/api/fleet/positions | jq '.vessels | length'  # 5
 curl -s $APP_URL/api/pattern-score/current
+curl -s $APP_URL/api/signals/contribution | jq '.items | length'
 
 # 라이브 시연 chain
 curl -X POST $APP_URL/api/demo/inject_signal -d '{"scenario":"hormuz_blockade"}'

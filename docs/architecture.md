@@ -38,10 +38,10 @@
 
 ```
                        ┌──────────────────────────────────────────┐
-                       │            데이터 source (open)           │
-                       │  Reuters · AP · 연합 · FT · BBC (Tier A)  │
-                       │  EIA · IEA · OPEC · OFAC · Aramco (Tier B)│
-                       │  OilPriceAPI · aisstream · GDACS · ECOS   │
+                       │            데이터 source (open · 6)       │
+                       │  GDELT (글로벌 뉴스 톤 + mention)         │
+                       │  EIA · OPEC MOMR · ECOS                   │
+                       │  OilPriceAPI · OPINET (KNOC daily close)  │
                        └────────────────────┬─────────────────────┘
                                             ↓
    ┌────────────────────────────────────────────────────────────────────────┐
@@ -50,9 +50,9 @@
    │  ┌─────────────────────────────────────────────────────────────┐       │
    │  │  Lakeflow Jobs (Declarative Automation Bundles)             │       │
    │  │                                                              │       │
-   │  │  Job 1: news_pipeline_2hr        →  bronze.news_articles   │       │
+   │  │  Job 1: gdelt_15min ⭐           →  bronze.news_articles    │       │
    │  │  Job 2: price_pipeline_5min      →  bronze.oil_prices       │       │
-   │  │  Job 3: ais_batch_5min ✏️ batch  →  bronze.ais_positions    │       │
+   │  │  Job 3: oil_prices_daily         →  bronze.oil_prices_daily │       │
    │  │  Job 4: ecos_daily               →  bronze.fx_rates         │       │
    │  │  Job 5: daily_curation 06:30 ⭐  →  silver.pattern_scores  │       │
    │  │  Job 6: weekly_self_critique     →  gold.* (mock stub)      │       │
@@ -63,12 +63,13 @@
    │  │                                │   │                              │    │
    │  │   bronze.news_articles        │   │   missions                  │    │
    │  │   bronze.oil_prices           │←CDC→  decisions                  │    │
-   │  │   bronze.ais_positions        │   │   pivot_history             │    │
+   │  │   bronze.oil_prices_daily     │   │   pivot_history             │    │
    │  │   bronze.fx_rates             │   │   discovery_feed_items      │    │
+   │  │   bronze.eia_inventory        │   │                              │    │
+   │  │   bronze.opec_momr_parsed     │   │   (Lakehouse Sync auto CDC) │    │
    │  │   silver.pattern_scores_daily │   │                              │    │
-   │  │   silver.hormuz_traffic_hourly│   │   (Lakehouse Sync auto CDC) │    │
-   │  │   gold.mission_outcomes       │   │                              │    │
-   │  │   gold.backtest_results       │   │                              │    │
+   │  │   silver.signal_events_decayed│   │                              │    │
+   │  │   gold.daily_risk_score       │   │                              │    │
    │  └──────────────────────────────┘   └──────────────┬──────────────┘    │
    │                 ↑                                  ↓                    │
    │  ┌────────────────────────────────────────────────────────────────┐   │
@@ -130,14 +131,14 @@ importance >= 60 → bronze.news_articles INSERT
 importance >= 80 → Mission Plan Agent 즉시 호출 (URGENT)
 ```
 
-### Layer 2: Reactive Trigger (Job 2 + Job 3, 5분 cron)
+### Layer 2: Reactive Trigger (Job 2, 5분 cron)
 
 ```
-OilPriceAPI 3 ticker (Brent/WTI/Dubai) + AIS aisstream batch
+OilPriceAPI 3 ticker (Brent/WTI/Dubai)
     ↓
 Spike detection (rule-based)
     - 가격 +/- 2% in 5min
-    - AIS 호르무즈 통과량 +/- 20% in 1hr
+    - GDELT 호르무즈 mention burst +/- 20% in 1hr
     ↓
 즉시 reactive 뉴스 검색 (Job 1과 별개로)
     ↓
@@ -182,27 +183,25 @@ FastAPI broadcast:
 
 ---
 
-## 3. Lakeflow Jobs — 9 Jobs (D-14 통합 후)
+## 3. Lakeflow Jobs — 8 Jobs (D-2 AIS 제거 후)
 
 | # | Job | Cron | 상태 | 핵심 task | Notebook |
 |---|---|---|---|---|---|
-| 1 | news_rss_event_driven | event-driven | **real** (보강층) | GDELT alert 시 RSS fetch (Reuters/AP/연합) → Knowledge Assistant 입력 | `databricks/notebooks/job_news_rss.py` |
-| 2 | **gdelt_15min** ⭐ | `*/15 * * * *` | **real** (감지층) | GDELT events + tone score → bronze.news_articles | `databricks/notebooks/job_gdelt.py` |
-| 3 | price_pipeline_5min | `*/5 * * * *` | **real** | OilPriceAPI 3 ticker batch + spike | `databricks/notebooks/job_price.py` |
-| 4 | ais_batch_5min | `*/5 * * * *` | **real** | aisstream REST polling | `databricks/notebooks/job_ais.py` |
-| 5 | eia_weekly | `0 18 * * 3` | should-have | EIA Open Data API 주간 재고 | `databricks/notebooks/job_eia.py` |
-| 6 | ecos_daily | `0 18 * * 1-5` | should-have | KRW/USD | `databricks/notebooks/job_ecos.py` |
-| 7 | **opec_momr_monthly** ⭐ | `0 0 12 * *` | optional | OPEC MOMR PDF fetch + `ai_parse_document()` | `databricks/notebooks/job_opec_momr.py` |
-| 8 | daily_curation_06:30 ⭐ | `30 6 * * *` | **real** ⭐ | Bidirectional Pattern Detection + Mission Plan trigger | `databricks/notebooks/job_curation.py` |
-| 9 | weekly_self_critique | `0 18 * * 0` | **mock stub** | Hard-coded 78%/71% backtest | `databricks/notebooks/job_critique_mock.py` |
+| 1 | **gdelt_15min** ⭐ | `*/15 * * * *` | **real** (감지층 + 호르무즈 키워드 mention burst) | GDELT events + tone score → bronze.news_articles | `databricks/notebooks/job_gdelt.py` |
+| 2 | price_pipeline_5min | `*/5 * * * *` | **real** | OilPriceAPI 3 ticker batch + spike | `databricks/notebooks/job_price.py` |
+| 3 | oil_prices_daily | daily | **real** | OPINET KNOC CSV ingestion (Dubai/Brent/WTI close, 1996~) | `databricks/notebooks/job_oil_prices_daily.py` |
+| 4 | eia_weekly | `0 18 * * 3` | should-have | EIA Open Data API 주간 재고 | `databricks/notebooks/job_eia.py` |
+| 5 | ecos_daily | `0 18 * * 1-5` | should-have | KRW/USD | `databricks/notebooks/job_ecos.py` |
+| 6 | **opec_momr_monthly** ⭐ | `0 0 12 * *` | optional | OPEC MOMR PDF fetch + `ai_parse_document()` | `databricks/notebooks/job_opec_momr.py` |
+| 7 | daily_curation_06:30 ⭐ | `30 6 * * *` | **real** ⭐ | Bidirectional Pattern Detection + Mission Plan trigger | `databricks/notebooks/job_curation.py` |
+| 8 | weekly_self_critique | `0 18 * * 0` | **mock stub** | Hard-coded 78%/71% backtest | `databricks/notebooks/job_critique_mock.py` |
 
-> Sprint 2 (5/11-13): 1·2·3·4·5·6 구현 + 7 (Document Intelligence 시연용). Sprint 3 (5/14-16): 8 + Mission Plan Agent + Mock backtest 산출.
+> Sprint 2 (5/11-13): 1·2·3·4·5 구현 + 6 (Document Intelligence 시연용). Sprint 3 (5/14-16): 7 + Mission Plan Agent + LLM backtest 산출. D-2 (5/16): AIS job + 5척 fleet narrative 완전 제거.
 
 ### Cluster 정책 (비용 인식)
 
 - 모든 Job: **Serverless Standard mode** (4-6분 startup, 70% 절감 vs Performance Optimized)
-- Job 6 (weekly): 사실상 호출 안 됨 (mock stub) — startup 비용 0
-- Job 3 (ais_batch_5min): 데모 직전 1주 (5/15-22) 가동, 평소 disabled
+- Job 8 (weekly): 사실상 호출 안 됨 (mock stub) — startup 비용 0
 - $700 credit 중 ~$200 예상 (충분 여유)
 
 ---
@@ -234,7 +233,7 @@ FastAPI broadcast:
 | 5 | **Foundation Model API** | **real** | `databricks-claude-haiku-4-5` 직접 호출 — mission_plan.py + recommend_now + backtest 3곳. |
 | 6 | **Document Intelligence** | **real** | `ai_parse_document()` SQL 한 줄 — `bronze.opec_momr_parsed` 적재 (35 PDF 처리). |
 | 7 | **UC Function** | **real** | `crude_compass.functions.weighted_signal()` 람다 차등 시간 감쇠. curation + backtest 공통. |
-| 8 | **Lakeflow Jobs** | **real** | 16 YAML, AIS + OilPrice UNPAUSED 자동 5분 cron. |
+| 8 | **Lakeflow Jobs** | **real** | 8 YAML (D-2 AIS 제거 후), GDELT 15min + OilPrice 5min UNPAUSED 자동 cron. |
 | 9 | **Backtest** | **real** | 300건 stratified samples, 75% hit rate, 7년 4개월. Lakebase `backtest_predictions` 적재 (AI-generated content → OLTP). |
 | - | ~~Supervisor Agent~~ | **scope-out** | 미등록. backend orchestration으로 대체 (Mission Plan + Genie + Knowledge Assistant 백엔드 호출). |
 | - | ~~Custom Agent~~ | **scope-out** | Foundation Model API 직접 호출이 cost-effective. Agent Bricks Custom Agent 등록은 Sprint 5 swap. |
@@ -367,10 +366,10 @@ export const tokens = {
 - **embed 방식**: iframe (Apps What-If "어제 복기" 탭 안). Phase 1 검증 — light mode 강제 ✅ (design 이미 light)
 - **Dashboard 4 chart**:
   1. Pattern Score 30일 (양방향 zone background)
-  2. Hormuz traffic vessels/day
+  2. GDELT 호르무즈/이란 키워드 mention burst 시계열
   3. WTI / Brent / Dubai 30일
   4. 매니저 결정 outcome 7건 table
-- **데이터 source**: `silver.pattern_scores_daily` + `silver.hormuz_traffic_hourly` + `bronze.oil_prices` + `gold.mission_outcomes`
+- **데이터 source**: `silver.pattern_scores_daily` + `bronze.news_articles` (GDELT) + `bronze.oil_prices` + `lakebase.missions`
 - **Workspace allowed surfaces**: 형욱님이 manual 추가 (Sprint 4 첫날)
 
 🛑 **MANUAL STEP — AI/BI Dashboard 생성**
@@ -384,7 +383,7 @@ SOURCE: https://docs.databricks.com/aws/en/dashboards/share/embedding
 ## 8. 보안
 
 - **Secret 관리**: Databricks secret scope `crude` 안에 보관
-  - `oilprice_api_key`, `aisstream_api_key`, `ecos_api_key`, `slack_bot_token`, `slack_signing_secret`, `lakebase_dsn`, `databricks_pat`
+  - `oilprice_api_key`, `ecos_api_key`, `eia_api_key`, `slack_bot_token`, `slack_signing_secret`, `lakebase_dsn`, `databricks_pat`
 - **코드에서 접근**: `dbutils.secrets.get(scope='crude', key=...)` 패턴만. `print()` 절대 X
 - **`.env`는 `.gitignore`** ✅
 - **Slack signing secret 검증**: Bolt SDK가 자동 처리
@@ -400,10 +399,9 @@ SOURCE: https://docs.databricks.com/aws/en/security/secrets/secrets
 
 | 항목 | 일 비용 | 월 환산 | 5/8-22 14일 |
 |---|---|---|---|
-| Job 1 (news 2hr) | $0.30 | $9 | $4.2 |
+| Job 1 (GDELT 15min) | $0.30 | $9 | $4.2 |
 | Job 2 (price 5min) | $0.40 | $12 | $5.6 |
-| Job 3 (ais batch 5min, 1주만) | $0.50 (gated) | — | $3.5 |
-| Job 5 (daily 06:30) | $0.20 | $6 | $2.8 |
+| Job 7 (daily 06:30) | $0.20 | $6 | $2.8 |
 | Foundation Model API (Haiku) | $0.80 | $24 | $11.2 |
 | Lakebase OLTP (autoscaling, scale-to-zero) | ~$0.50 | $15 | $7 |
 | Apps Compute (Premium) | ~$1.00 | $30 | $14 |
@@ -412,7 +410,7 @@ SOURCE: https://docs.databricks.com/aws/en/security/secrets/secrets
 | OilPriceAPI Standard ($19) | — | — | $19 (5/15-22) |
 | **총 외부 비용** | | | **~$67 / $700 credit + $19** |
 
-> Continuous AIS WebSocket 채택 시 $7/일 × 14 = $98 추가 → batch 채택 결정 정당화 ✅
+<!-- D-2 (5/16): AIS 완전 제거 — narrative dead weight + backtest 미사용 → 비용 절감 추가 $3.5. -->
 
 ---
 
