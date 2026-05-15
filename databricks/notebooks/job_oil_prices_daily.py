@@ -1,23 +1,10 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Job — oil_prices_daily (OPINET KNOC, Dubai 중심)
+# MAGIC # oil_prices_daily
 # MAGIC
-# MAGIC ## 시나리오 v2 매핑
-# MAGIC - § 부록 C Mock Backtest의 **price baseline = Dubai** (한국 정유사 중동 원유 70%+ 수입)
-# MAGIC - § 7 #2 가격 source 보강 (OilPriceAPI realtime + OPINET daily close)
-# MAGIC - EIA RBRTE 403 차단 우회 (todo.md blocker 해결)
-# MAGIC
-# MAGIC ## 데이터 source
-# MAGIC - **출처**: OPINET (한국석유공사 https://www.opinet.co.kr) CSV download endpoint
-# MAGIC - **종류**: Dubai (현물) / Brent (선물) / WTI (선물) 일별 close
-# MAGIC - **기간**: 1996-01 ~ 현재 (오늘 close는 KNOC 공시 시점 이후)
-# MAGIC - **응답**: cp949 인코딩 CSV (`기간,Dubai,Brent,WTI`)
-# MAGIC - **robots.txt**: 미차단 (Yeti 외 허용)
-# MAGIC - **제한**: Public web feature, fair-use 1회 일별 fetch 가정
-# MAGIC
-# MAGIC ## MODE
-# MAGIC - `historical` — 2023-01-01 ~ 어제 일괄 (one-shot, ~864 rows × 3 ticker)
-# MAGIC - `daily` — 어제 1일 (idempotent MERGE, cron 매일 18:00)
+# MAGIC OPINET (한국석유공사) CSV → bronze.oil_prices_daily (Dubai/Brent/WTI).
+# MAGIC 한국 정유사 baseline = Dubai (중동 원유 70%+ 수입).
+# MAGIC MODE: `daily` (어제 1일, cron) | `historical` (one-shot range).
 
 # COMMAND ----------
 
@@ -96,7 +83,7 @@ with httpx.Client(timeout=60.0) as client:
     resp.raise_for_status()
     text = resp.content.decode("cp949")
 
-print(f"✅ fetched {len(text)} bytes")
+print(f"fetched {len(text)} bytes")
 print("--- HEAD ---")
 print("\n".join(text.split("\n")[:3]))
 
@@ -142,7 +129,7 @@ for line in lines[1:]:  # skip header
             source=SOURCE,
         ))
 
-print(f"✅ parsed {len(rows)} rows ({len(lines)-1} trade days × ≤3 tickers)")
+print(f"parsed {len(rows)} rows ({len(lines)-1} trade days × <=3 tickers)")
 if rows:
     print("--- sample ---")
     for r in rows[:3]:
@@ -170,9 +157,9 @@ if rows:
         WHEN MATCHED THEN UPDATE SET *
         WHEN NOT MATCHED THEN INSERT *
     """)
-    print(f"✅ MERGE {len(rows)} rows into {TARGET_TABLE}")
+    print(f"MERGE {len(rows)} rows into {TARGET_TABLE}")
 else:
-    print("ℹ️  No rows (KNOC 미공시 또는 빈 응답)")
+    print("No rows (KNOC 미공시 또는 빈 응답)")
 
 # COMMAND ----------
 

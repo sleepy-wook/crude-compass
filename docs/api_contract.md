@@ -288,6 +288,20 @@ LLM Mission Plan Agent 호출 (full body 버전).
 최근 30일 signal_type × direction 기여도 (`gold.signal_contribution_30d` view).
 시나리오 §6.3 #2 "오늘 점수 82는 호르무즈 35%, 두바이 28% ..." anchor.
 
+### 4.4c `GET /api/market/fx-history?days=90`
+USD/KRW 일별 환율 + 1d/7d delta + 30일 변동성 (`gold.fx_with_delta` view).
+시나리오 §7 #5 + §13 랜딩 코스트 input.
+
+**Response 200**:
+```json
+{
+  "pair": "USD/KRW",
+  "history": [
+    {"date": "2026-05-14", "rate": 1395.2, "delta_1d": 2.1, "delta_7d": 8.3, "vol_30d": 12.4}
+  ]
+}
+```
+
 ### 4.4a `GET /api/market/prices-wide?days=90`
 일별 WTI/Brent/Dubai 가격 wide format (`gold.oil_prices_wide` view).
 시나리오 §7 #4 anchor — Brent-Dubai spread 포함.

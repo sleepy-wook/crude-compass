@@ -19,6 +19,7 @@ export const queryKeys = {
   opecLatest: ["market", "opec-latest"] as const,
   pricesWide: (days: number) => ["market", "prices-wide", days] as const,
   newsTop: (limit: number) => ["market", "news-top", limit] as const,
+  fxHistory: (days: number) => ["market", "fx-history", days] as const,
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -111,6 +112,14 @@ export function useNewsTop(limit: number) {
     queryKey: queryKeys.newsTop(limit),
     queryFn: () => api.newsTop(limit),
     staleTime: 120_000,
+  });
+}
+
+export function useFxHistory(days: number) {
+  return useQuery({
+    queryKey: queryKeys.fxHistory(days),
+    queryFn: () => api.fxHistory(days),
+    staleTime: 300_000,
   });
 }
 

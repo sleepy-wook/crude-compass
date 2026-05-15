@@ -101,6 +101,18 @@ export const api = {
   patternHistory: (days = 90) =>
     request<{ history: PatternHistory[] }>(`/api/pattern-score/history?days=${days}`),
 
+  fxHistory: (days = 90) =>
+    request<{
+      pair: string;
+      history: {
+        date: string;
+        rate: number | null;
+        delta_1d: number | null;
+        delta_7d: number | null;
+        vol_30d: number | null;
+      }[];
+    }>(`/api/market/fx-history?days=${days}`),
+
   pricesWide: (days = 90) =>
     request<{
       prices: {

@@ -18,6 +18,7 @@ import { PatternScoreLine } from "../components/PatternScoreLine";
 import { OpecCitation } from "../components/OpecCitation";
 import { PriceLineChart } from "../components/PriceLineChart";
 import { NewsTopList } from "../components/NewsTopList";
+import { FxLineChart } from "../components/FxLineChart";
 import type { Mission, PatternScoreCurrent } from "../lib/types";
 
 
@@ -230,6 +231,9 @@ export function Discovery() {
 
       {/* Dubai/Brent/WTI 가격 라인 — 시나리오 §7 #4 anchor */}
       <PriceLineChart days={90} />
+
+      {/* USD/KRW 환율 — 시나리오 §7 #5 + §13 랜딩 코스트 anchor */}
+      <FxLineChart days={90} />
 
       {/* 최근 7일 핵심 뉴스 — 시나리오 §6.3 #3 anchor */}
       <NewsTopList limit={12} />

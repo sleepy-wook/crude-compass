@@ -1,16 +1,9 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Job 4 — ais_batch_5min
+# MAGIC # ais_batch_5min
 # MAGIC
-# MAGIC ## 시나리오 v2 매핑
-# MAGIC - § 7 #1 AISStream (호르무즈 통과량 + 양방향 cargo)
-# MAGIC - § 12 #4 cron `*/5 * * * *`
-# MAGIC - § 4 cargo 한국 정유사 lifecycle (귀항 + 출항 양방향)
-# MAGIC
-# MAGIC ## 패턴
-# MAGIC - WebSocket 연결 → 30초간 message 수집 → close (continuous 대체)
-# MAGIC - 호르무즈 bbox: lat 24~28, lon 54~58
-# MAGIC - 양방향 cargo filter: 한국 항구 도착 OR 중동 항구 도착 (한국향 lift)
+# MAGIC AISStream WebSocket → 180s collect → bronze.ais_positions (K-Petroleum 5척).
+# MAGIC Cron: */5min. 시나리오 §4 (cargo lifecycle) + §6.5 (호르무즈 leading indicator).
 
 # COMMAND ----------
 
@@ -40,27 +33,21 @@ nest_asyncio.apply()
 WS_URL = "wss://stream.aisstream.io/v0/stream"
 TARGET_TABLE = "crude_compass.bronze.ais_positions"
 
-# K-Petroleum 가상 fleet — 시나리오 §4 "AIS open data 기반" 실증
-# 실데이터: SK Shipping operated VLCC fleet (한국 flag 440/441, DWT 299k-313k, VLCC)
-# 검증 5/14 VesselFinder. config: databricks/config/k_petroleum_fleet.yml
-# anonymize 매핑: MMSI → KPETRO_<NNN> (UI/저장 시점)
+# K-Petroleum fleet (SK Shipping operated VLCC 5척, 한국 flag 440/441).
+# anonymize: MMSI → KPETRO_<NNN> (UI/저장 시점).
 KPETRO_FLEET = {
-    "441450000": "KPETRO_001",  # C. CHALLENGER, 313,918 DWT, built 2013
-    "440266000": "KPETRO_002",  # UNIVERSAL LEADER, 299,981 DWT, built 2019
-    "440274000": "KPETRO_003",  # UNIVERSAL WINNER, 299,981 DWT, built 2019
-    "440271000": "KPETRO_004",  # UNIVERSAL PARTNER, 299,981 DWT, built 2019
-    "440265000": "KPETRO_005",  # UNIVERSAL CREATOR, 299,981 DWT, built 2019
+    "441450000": "KPETRO_001",  # C. CHALLENGER, 313,918 DWT
+    "440266000": "KPETRO_002",  # UNIVERSAL LEADER, 299,981 DWT
+    "440274000": "KPETRO_003",  # UNIVERSAL WINNER
+    "440271000": "KPETRO_004",  # UNIVERSAL PARTNER
+    "440265000": "KPETRO_005",  # UNIVERSAL CREATOR
 }
 KPETRO_MMSI_LIST = list(KPETRO_FLEET.keys())
 
-# 호르무즈 BBOX (시나리오 §6.5 leading indicator) + 한국 항구 BBOX
-# FiltersShipMMSI + BoundingBoxes는 AND. 5척이 어디 있든 잡으려면 글로벌 bbox 필요.
+# FiltersShipMMSI + BoundingBoxes는 AND. 5척 글로벌 추적 위해 global bbox.
 GLOBAL_BBOX = [[[-90.0, -180.0], [90.0, 180.0]]]
-
-# 호르무즈 bbox — 향후 background traffic 분석용
 HORMUZ_BBOX = [[[24.0, 54.0], [28.0, 58.0]]]
 
-# 한국 항구 UN/LOCODE (cargo lifecycle 분류)
 KOREA_PORTS = {"KRYSU", "KRUSN", "KRDSN", "KRINC"}
 ME_PORTS = {"SARTA", "SAJUM", "KWMEA", "AEFJR", "AEKHF", "AEJED"}
 
@@ -134,7 +121,7 @@ async def collect_ais(timeout_seconds: int = 60) -> list[dict]:
                         break  # 이미 받은 게 있으면 종료
                     continue
     except Exception as e:
-        print(f"  ⚠️  WebSocket error: {e}")
+        print(f"  WebSocket error: {e}")
     return out
 
 # COMMAND ----------
@@ -181,9 +168,6 @@ for msg in messages:
     rec["lat"] = rec["lat"] or float(meta.get("latitude", 0))
     rec["lon"] = rec["lon"] or float(meta.get("longitude", 0))
 
-# Filter: K-Petroleum 5척 (FiltersShipMMSI로 이미 server-side filter됨)
-# anonymize 매핑: 9-digit MMSI → KPETRO_<NNN>
-# 시나리오 §4 "AIS open data 기반 가상 VLCC 5척" + phase2_critique I8 정합
 rows = []
 for mmsi, r in positions.items():
     if not (r["lat"] and r["lon"]):
@@ -220,7 +204,7 @@ for row in rows:
           f"speed={row.speed_knots}kts status={row.status} hormuz={row.in_hormuz_bbox}")
 missing = set(KPETRO_FLEET.values()) - {r.mmsi for r in rows}
 if missing:
-    print(f"      ⚠️ no message during window: {missing}")
+    print(f"      no message during window: {missing}")
 
 # COMMAND ----------
 
@@ -238,9 +222,9 @@ if rows:
     ])
     df = spark.createDataFrame(rows, schema=schema)
     df.write.mode("append").saveAsTable(TARGET_TABLE)
-    print(f"\n✅ {len(rows)} rows appended to {TARGET_TABLE}")
+    print(f"\n{len(rows)} rows appended to {TARGET_TABLE}")
 else:
-    print("\nℹ️  No vessels in bbox during 30s window (호르무즈 봉쇄 영향 가능)")
+    print("\nNo vessels in window (호르무즈 봉쇄 영향 가능)")
 
 dbutils.notebook.exit(json.dumps({
     "rows_written": len(rows),

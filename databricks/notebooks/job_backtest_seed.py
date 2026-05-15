@@ -1,21 +1,9 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Sprint 3 Day 1 task 2 — Backtest Seed
+# MAGIC # backtest_seed
 # MAGIC
-# MAGIC ## 시나리오 v2 매핑
-# MAGIC - § 부록 C Mock Backtest 산출 (HEDGE 78% / OPP 71% / lead 12.4d)
-# MAGIC - § 6 양방향 direction backtest
-# MAGIC
-# MAGIC ## 작업
-# MAGIC 1. GDELT historical timelinetone — 5개월 (2025-12 ~ 2026-04)
-# MAGIC 2. 7 queries (평시 5개 + 위기 2개)
-# MAGIC 3. 일별 avg_tone + bucket 수 → bronze.news_articles 적재 (source_type='gdelt_backtest')
-# MAGIC 4. Brent daily price (별도 — Sprint 3 day 3에서)
-# MAGIC
-# MAGIC ## Sprint 3 day 3에서
-# MAGIC - Pattern Score threshold 70+/30- 돌파 시점 산출
-# MAGIC - 30일 outcome (Brent ±10%) 매핑
-# MAGIC - HEDGE 78% / OPP 71% 산출
+# MAGIC GDELT historical timelinetone 일괄 적재 → bronze.news_articles (source_type='gdelt_backtest').
+# MAGIC backtest_llm.py 입력용 7년 데이터 backfill. one-shot manual run.
 
 # COMMAND ----------
 
@@ -114,7 +102,7 @@ def fetch_timelinetone(query: str, start: str, end: str) -> list[dict]:
             return []
         except Exception as e:
             if attempt == 2:
-                print(f"  ⚠️  failed: {e}")
+                print(f"  failed: {e}")
                 return []
             time.sleep(2 ** attempt)
     return []
@@ -250,7 +238,7 @@ if all_rows:
     deleted_count = spark.sql(f"""
         DELETE FROM {TARGET_TABLE} WHERE source_type = 'gdelt_backtest'
     """)
-    print(f"🗑  cleared existing gdelt_backtest rows (idempotent)")
+    print(f"cleared existing gdelt_backtest rows (idempotent)")
 
     schema = StructType([
         StructField("article_id", StringType(), False),
@@ -277,7 +265,7 @@ if all_rows:
     df = spark.createDataFrame([Row(**asdict(r)) for r in all_rows], schema=schema)
     df = df.withColumn("raw_tone", col("raw_tone").cast("decimal(5,2)"))
     df.write.mode("append").saveAsTable(TARGET_TABLE)
-    print(f"✅ {len(all_rows)} rows appended to {TARGET_TABLE}")
+    print(f"{len(all_rows)} rows appended to {TARGET_TABLE}")
 
 # Verify
 result = spark.sql(f"""

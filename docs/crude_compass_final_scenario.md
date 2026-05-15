@@ -171,7 +171,7 @@ Pattern Score 30 이하 (기회) → OPPORTUNITY Mission Plan Agent 호출
 | **Fundamentals (실적)** | EIA 재고 weekly, Dubai daily close | 즉시~수일 (D-7 ~ D+1) | 정량적 (직접 cross-check) |
 
 **핵심 reframe**:
-- AIS의 진짜 가치는 **정확도가 아니라 lead time** — "호르무즈 통과 -93%"는 봉쇄 발발 D-day가 아닌 **D-3 ~ D-7 시점 detection**.
+- AIS의 진짜 가치는 **정확도가 아니라 lead time** — K-Petroleum 5척 fleet 출항 보류 패턴은 봉쇄 발발 D-day가 아닌 **D-3 ~ D-7 시점 detection** (정유사 입장 1차 시그널).
 - GDELT는 macro sentiment trend. 단일 적중률보다 **누적 mention burst 패턴**이 신호.
 - EIA / Dubai는 cross-validation anchor — leading 신호가 fundamentals와 일치할 때 confidence ↑.
 
@@ -476,9 +476,14 @@ draft → active →
 ### Phase 3 (01:30-02:00) — [1단계 라이브 모니터링]
 **화면**: Apps Discovery 페이지
 - 오늘 리스크 스코어 82 (HEDGE zone)
-- 시그널별 기여도: 호르무즈 35% / 두바이 프리미엄 28% / GDELT tone 22% / EIA 재고 15%
-- AIS 호르무즈 트래픽 차트 (7일 평균 대비 -93%)
+- 시그널별 기여도 horizontal bar: 호르무즈 35% / 두바이 프리미엄 28% / GDELT tone 22% / EIA 재고 15%
+- **K-Petroleum 5척 fleet 지도**: 5척 중 4척 출항 보류 (봉쇄 영향) — KPETRO_002만 active (Gulf of Mexico anchored). VLCC 평시 운용 패턴상 일부 idle은 자연스러우나, 봉쇄 narrative 강화 시 "4척 출항 대기" 강조.
+- Pattern Score 30일 sparkline + 6년 평시 가치 그래프 (호르무즈 봉우리 + 작은 봉우리들)
+- USD/KRW 환율 90일 line (랜딩 코스트 input)
+- WTI/Brent/Dubai 가격 비교 (Brent-Dubai spread)
+- 최근 7일 핵심 뉴스 (importance ≥ 60, bullish/bearish pill)
 - **Confidence Score 65%** 노출
+- D-14 narrative "AIS 호르무즈 통과 -93%"는 D-3 reframe됨 — KPETRO 5척 자체 fleet 상태로 봉쇄 영향 시각화 (silver.hormuz_traffic_hourly aggregated traffic은 별도 backlog).
 
 ### Phase 4 (02:00-02:45) — [2단계 자연어 질의 + Pre-emptive HEDGE Mission ⭐ Wow]
 **화면 분할**: 왼쪽 Slack / 오른쪽 Apps
@@ -487,7 +492,7 @@ draft → active →
 > "지금 텀 비중 어떻게 조정해야 해?"
 
 → Mission Plan Agent (Foundation Model API) + Genie 자연어 + Knowledge Assistant RAG + UC Function 종합 응답:
-> "현재 Pattern Score 82 (HEDGE), Confidence 65%. Term 60% → 75% (4주) 권고. 시뮬 봉쇄 발발 시 +410억, 평화 유지 시 -50억. 호르무즈 통과 -93%, OPEC MOMR 5월 사우디 추가 감산 시그널, GDELT 키워드 멘션 +280%."
+> "현재 Pattern Score 82 (HEDGE), Confidence 65%. Term 60% → 75% (4주) 권고. 시뮬 봉쇄 발발 시 +410억, 평화 유지 시 -50억. K-Petroleum 5척 중 4척 출항 보류, OPEC MOMR 사우디 추가 감산 시그널, GDELT 키워드 멘션 +280%."
 
 같은 시점 Slack에 Pre-emptive HEDGE Mission 도착:
 > 🚨 Pre-emptive HEDGE Mission · Score 82 · Confidence 65%

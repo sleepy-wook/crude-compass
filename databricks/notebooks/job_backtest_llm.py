@@ -222,7 +222,7 @@ w = WorkspaceClient()
 
 SYSTEM_PROMPT = """You are **Crude Compass Mission Plan Agent** for K-Petroleum refinery.
 
-## ⚠️ BACKTEST MODE
+## BACKTEST MODE
 Use ONLY data BEFORE the given date. DO NOT assume any post-date knowledge.
 
 ## K-Petroleum baseline (한국 정유사 실제)
@@ -278,8 +278,7 @@ def fetch_context(as_of_date):
     if not ps_rows: return None
     ps = ps_rows[0]
 
-    # ⭐ C — Signals grouped by recency
-    # Last 7d / 8-30d / 31-90d
+    # Signals grouped by recency: 7d / 8-30d / 31-90d (regime shift catch)
     sig_buckets = spark.sql(f"""
         SELECT
             CASE
@@ -322,8 +321,7 @@ def fetch_context(as_of_date):
     """).collect()
     balance_text = {r.bucket: f"bull={r.bull}, bear={r.bear}" for r in bucket_balance}
 
-    # ⭐ D — Structured fields
-    # EIA 최근 4주 평균
+    # Structured fields: EIA 4-week avg, OPEC gap, Dubai momentum + volatility
     eia = spark.sql(f"""
         SELECT AVG(CAST(delta_vs_prev_wk AS DOUBLE)) AS eia_4wk_avg
         FROM crude_compass.bronze.eia_inventory
@@ -435,7 +433,7 @@ def call_llm(as_of_date, ctx):
 - bullish_score: {ctx['bullish']:.1f}, bearish_score: {ctx['bearish']:.1f}
 - cross_val_bonus: {ctx['cv_bonus']:.1f}, total_signals_90d: {ctx['sig_count']}
 
-## 2) ⭐ Recency-weighted signals
+## 2) Recency-weighted signals
 ### 최근 7일 (가장 중요 — regime shift catch)
 - Direction balance: {ctx['balance'].get('recent_7d', 'no data')}
 - Top:
@@ -451,7 +449,7 @@ def call_llm(as_of_date, ctx):
 - Top:
 {old_text}
 
-## 3) ⭐ Structured market indicators
+## 3) Structured market indicators
 - **EIA 최근 4주 평균 재고 변화**: {eia_str}{eia_interp}
 - **OPEC supply - demand (latest monthly)**: {opec_str}{opec_interp}
 - **Dubai 7-day momentum**: {momentum_str}
@@ -567,7 +565,7 @@ for idx, (d, zone) in enumerate(sampled):
     })
 
 elapsed = _time.time() - t0
-print(f"✅ {len(results_rows)} records in {elapsed:.0f}s")
+print(f"{len(results_rows)} records in {elapsed:.0f}s")
 
 # COMMAND ----------
 
@@ -614,7 +612,7 @@ with psycopg.connect(conninfo, password=credential.token) as conn:
         cur.executemany(insert_sql, rows_tuples)
     conn.commit()
 
-print(f"✅ {len(rows_tuples)} rows inserted into Lakebase backtest_predictions")
+print(f"{len(rows_tuples)} rows inserted into Lakebase backtest_predictions")
 
 # COMMAND ----------
 

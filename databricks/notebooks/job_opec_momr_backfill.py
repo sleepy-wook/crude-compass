@@ -1,18 +1,9 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # OPEC MOMR Batch Backfill — 2020-2025 (~72 PDFs)
+# MAGIC # OPEC MOMR Batch Backfill — 2020-2025
 # MAGIC
-# MAGIC ## 시나리오 v3 push back 반영 (5/12)
-# MAGIC - 7년 backtest 위해 OPEC MOMR 2020-01 ~ 2025-12 (~72 PDFs) 일괄 추출
-# MAGIC - 기존 job_opec_momr.py와 동일 로직 (Document Intelligence + LLM extraction)
-# MAGIC - 단, 1회 1개월 → batch 72개월 loop
-# MAGIC
-# MAGIC ## 비용 추정
-# MAGIC - ~72 PDFs × $0.10 (DI + LLM) = ~$7-10
-# MAGIC - 소요 시간: ~3시간 (sequential)
-# MAGIC
-# MAGIC ## 4월 2026 access 차단 우회
-# MAGIC - 2020-2025만 처리 (publications.opec.org route 차단 회피)
+# MAGIC 7년 backtest용 ~72 PDFs 일괄 추출. job_opec_momr.py와 동일 로직, 72개월 loop.
+# MAGIC ~$7-10, ~3h sequential.
 
 # COMMAND ----------
 
@@ -283,7 +274,7 @@ for idx, (year, month) in enumerate(PENDING):
 
     found = find_pdf(year, month)
     if not found:
-        print(f"    ✗ no PDF found")
+        print(f"    no PDF found")
         fail_count += 1
         continue
     url, month_name, year_str = found
@@ -345,7 +336,7 @@ FROM parsed
     )
     insert_df = spark.createDataFrame([new_row], schema=insert_schema)
     insert_df.write.mode("append").saveAsTable(TARGET_TABLE)
-    print(f"    ✓ {report_month}")
+    print(f"    {report_month} done")
     success_count += 1
 
 # COMMAND ----------

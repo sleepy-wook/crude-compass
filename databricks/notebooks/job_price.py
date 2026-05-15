@@ -1,19 +1,9 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Job 3 — price_pipeline_5min
+# MAGIC # price_pipeline_5min
 # MAGIC
-# MAGIC ## 시나리오 v2 매핑
-# MAGIC - § 7 #2 OilPriceAPI (Brent/WTI/Dubai)
-# MAGIC - § 12 #3 cron `*/5 * * * *`
-# MAGIC - § 4 Layer 2 Reactive Trigger (가격 spike 감지)
-# MAGIC - § 8 실시간 트리거 (±2% spike → 즉시 Lakebase 갱신)
-# MAGIC
-# MAGIC ## Sprint 2 task 1 결정 — 1-by-1 sequential (batch 안 됨)
-# MAGIC 3 ticker × ~400ms = ~1.2s/cycle. 5min interval 안 충분 여유.
-# MAGIC
-# MAGIC ## Cost
-# MAGIC - 5/8-14 개발: 60min cron (504 calls/wk)
-# MAGIC - 5/15+: $15 Exploration plan (10K/mo) — 5min cron 가능
+# MAGIC OilPriceAPI (Brent/WTI/Dubai) → bronze.oil_prices. 5분 cron.
+# MAGIC 시나리오 §7 #2 + §8 Reactive Trigger (±2% spike).
 
 # COMMAND ----------
 
@@ -41,7 +31,6 @@ OILPRICE_API = "https://api.oilpriceapi.com/v1/prices/latest"
 TARGET_TABLE = "crude_compass.bronze.oil_prices"
 TICKERS = ["BRENT_CRUDE_USD", "WTI_USD", "DUBAI_CRUDE_USD"]
 
-# Sprint 2 task 1 검증 결과 — 1-by-1 sequential
 api_key = dbutils.secrets.get(scope="crude", key="oilprice_api_key")
 
 # COMMAND ----------
@@ -57,7 +46,7 @@ def fetch_price(ticker: str) -> dict | None:
         resp.raise_for_status()
         return resp.json().get("data")
     except (httpx.HTTPError, ValueError) as e:
-        print(f"  ⚠️  {ticker} failed: {e}")
+        print(f"  {ticker} failed: {e}")
         return None
 
 # COMMAND ----------
@@ -71,19 +60,18 @@ for ticker in TICKERS:
         continue
     price = float(data.get("price", 0))
     if price <= 0:
-        print(f"  ⚠️  {ticker} invalid price: {price}")
+        print(f"  {ticker} invalid price: {price}")
         continue
     rows.append(Row(
         fetched_at=now,
         ticker=ticker,
-        # DecimalType(8,2) field — Decimal 명시 (Spark Connect는 float→Decimal auto coerce 안 함)
         price_usd=Decimal(f"{price:.2f}"),
-        delta_pct_5min=None,  # 아래에서 spike 계산
+        delta_pct_5min=None,
         source="OilPriceAPI",
         raw_response=json.dumps(data)[:2000],
     ))
-    print(f"  ✅ {ticker}: ${price}")
-    time.sleep(0.5)  # rate limit safety
+    print(f"  {ticker}: ${price}")
+    time.sleep(0.5)
 
 print(f"\nFetched {len(rows)}/{len(TICKERS)} tickers")
 
@@ -153,12 +141,11 @@ spikes = df_with_delta.filter(
 ).collect()
 
 if spikes:
-    print(f"\n🚨 SPIKE detected: {len(spikes)} ticker(s)")
+    print(f"\nSPIKE detected: {len(spikes)} ticker(s)")
     for r in spikes:
         print(f"   {r.ticker}: {r.price_usd:+.2f} ({r.delta_pct_5min:+.2f}%)")
-    # Sprint 3에서 Reactive Trigger Mission Plan Agent 호출 추가
 else:
-    print(f"\n✅ {written} rows appended, no spike")
+    print(f"\n{written} rows appended, no spike")
 
 # COMMAND ----------
 

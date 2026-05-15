@@ -1,22 +1,10 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Job 7 — opec_momr_monthly + Document Intelligence ⭐
+# MAGIC # opec_momr_monthly + Document Intelligence
 # MAGIC
-# MAGIC ## 시나리오 v2 매핑
-# MAGIC - § 7 #6 OPEC MOMR PDF (월간)
-# MAGIC - § 9.6 Document Intelligence — `ai_parse_document()` SQL 한 줄 시연
-# MAGIC - § 12 #7 cron `0 0 12 * *` (매월 12일 — 보통 첫째~둘째 주 발표 후)
-# MAGIC - § 16 importance 80 anchor (월 1회 정기)
-# MAGIC
-# MAGIC ## URL pattern (검증됨)
-# MAGIC - https://www.opec.org/assets/assetdb/momr-{lowercase_month}-{year}.pdf
-# MAGIC - 예: momr-april-2026.pdf, momr-may-2026.pdf
-# MAGIC
-# MAGIC ## 처리
-# MAGIC 1. 최근 3개월 URL 시도 (HEAD 확인)
-# MAGIC 2. PDF download → UC Volume `/Volumes/crude_compass/bronze/opec_pdfs/`
-# MAGIC 3. `ai_parse_document()` → parsed text
-# MAGIC 4. LLM extraction → 핵심 indicator (saudi/iran production)
+# MAGIC OPEC MOMR PDF auto-fetch → UC Volume → `ai_parse_document()` SQL → LLM extraction.
+# MAGIC bronze.opec_momr_parsed 적재 (saudi/iran/total production + demand forecast).
+# MAGIC Cron: 매월 12일. 시나리오 §7 #6 + §9.6 Document Intelligence.
 
 # COMMAND ----------
 
@@ -69,12 +57,12 @@ def find_latest_pdf() -> tuple[str, str, str] | None:
         try:
             resp = httpx.head(url, timeout=15.0, follow_redirects=True)
             if resp.status_code == 200:
-                print(f"  ✅ found: {url}")
+                print(f"  found: {url}")
                 return url, month_name, str(y)
             else:
-                print(f"  ❌ {url} → HTTP {resp.status_code}")
+                print(f"  {url} -> HTTP {resp.status_code}")
         except httpx.HTTPError as e:
-            print(f"  ⚠️  {url} → {e}")
+            print(f"  {url} -> {e}")
     return None
 
 
@@ -104,12 +92,12 @@ def download_to_volume(url: str, year: str, month: str) -> str:
     resp = httpx.get(url, timeout=120.0, follow_redirects=True)
     resp.raise_for_status()
     pdf_bytes = resp.content
-    print(f"  📥 downloaded {len(pdf_bytes)} bytes")
+    print(f"  downloaded {len(pdf_bytes)} bytes")
 
-    # UC Volume에 쓰기 — dbutils.fs.put은 binary 직접 안 됨, /Volumes path는 local fs로 보임
-    local_path = target  # /Volumes/... 는 driver fs로 mount
+    # /Volumes/... 는 driver fs로 mount되어 binary write 가능 (dbutils.fs.put은 binary 미지원)
+    local_path = target
     Path(local_path).write_bytes(pdf_bytes)
-    print(f"  📁 saved to {target}")
+    print(f"  saved to {target}")
     return target
 
 # COMMAND ----------
@@ -120,13 +108,13 @@ if TARGET_MONTH_PARAM and TARGET_MONTH_PARAM != "auto":
         found = find_specific_pdf(int(yy), int(mm))
         print(f"  TARGET_MONTH={TARGET_MONTH_PARAM} → found={found}")
     except Exception as e:
-        print(f"  ⚠️  invalid target_month '{TARGET_MONTH_PARAM}': {e}")
+        print(f"  invalid target_month '{TARGET_MONTH_PARAM}': {e}")
         found = None
 else:
     found = find_latest_pdf()
 
 if not found:
-    print("⚠️  No PDF found — skipping")
+    print("No PDF found - skipping")
     dbutils.notebook.exit(json.dumps({"status": "skipped", "reason": "no_pdf_found"}))
 
 url, month_name, year = found
@@ -136,12 +124,11 @@ report_month = f"{year}-{MONTH_NAMES.index(month_name) + 1:02d}"
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## ai_parse_document() — SQL 한 줄 시연 ⭐
+# MAGIC ## ai_parse_document() — Document Intelligence
 
 # COMMAND ----------
 
-# Document Intelligence — `ai_parse_document()` GA function
-# Output: VARIANT type. Access via `:` operator (not `.`).
+# `ai_parse_document()` GA function. Output VARIANT, access via `:` operator.
 parse_sql = f"""
 WITH parsed AS (
     SELECT
@@ -179,23 +166,15 @@ tables_list = parsed_row["tables"] or []
 text_len = len(parsed_content)
 n_pages = len(pages_list)
 n_elements = len(tables_list)
-print(f"  ✅ parsed: {text_len} chars, pages={n_pages}, elements={n_elements}")
+print(f"  parsed: {text_len} chars, pages={n_pages}, elements={n_elements}")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## LLM extraction — 핵심 indicator (v2 robust)
+# MAGIC ## LLM extraction — Saudi/Iran/OPEC total/Demand
 # MAGIC
-# MAGIC v1 디버그 (5/11 verify 결과 0/3 NULL):
-# MAGIC - parsed_content[:30000] = JSON dump 앞부분만, production table 누락 가능
-# MAGIC - markdown code fence 처리 fragile
-# MAGIC - LLM 응답 파싱 실패 시 모두 NULL
-# MAGIC
-# MAGIC v2 개선:
-# MAGIC - parsed_content (Document Intelligence JSON)에서 relevant element만 추출
-# MAGIC - "Saudi Arabia" / "Iran" / "Total OPEC" / "world oil demand" 키워드 surrounding context
-# MAGIC - prompt 개선 + few-shot example
-# MAGIC - regex fallback (LLM 실패 시 raw text에서 직접 패턴 매칭)
+# MAGIC parsed_content → relevant element 추출 (keyword + digit density) → LLM JSON extraction.
+# MAGIC LLM 실패 시 regex range-based fallback.
 
 # COMMAND ----------
 
@@ -302,9 +281,8 @@ def regex_fallback(text: str) -> dict:
     return out
 
 
-# Step 1: relevant section 추출
 text_excerpt = extract_relevant_sections(parsed_content)
-print(f"  📄 relevant text extracted: {len(text_excerpt)} chars")
+print(f"  relevant text extracted: {len(text_excerpt)} chars")
 print(f"  preview: {text_excerpt[:300]}")
 
 # Step 2: LLM extraction
@@ -333,7 +311,7 @@ try:
         temperature=0.0,
     )
     raw = resp.choices[0].message.content if resp.choices else "{}"
-    print(f"  🤖 LLM raw response (first 500 chars): {raw[:500]}")
+    print(f"  LLM raw response (first 500 chars): {raw[:500]}")
 
     # markdown code fence 강건 stripping
     raw = raw.strip()
@@ -362,20 +340,19 @@ try:
             else:
                 extracted[k] = float(v)
 except Exception as e:
-    print(f"  ⚠️  LLM extraction failed: {e}")
+    print(f"  LLM extraction failed: {e}")
 
-# Step 3: regex fallback for any None values
 if not all(extracted.get(k) for k in [
     "saudi_production_kbbl_d", "iran_production_kbbl_d",
     "opec_total_kbbl_d", "forecast_demand_kbbl_d"
 ]):
-    print("  🔄 regex fallback for missing fields")
+    print("  regex fallback for missing fields")
     fb = regex_fallback(text_excerpt)
     for k, v in fb.items():
         if not extracted.get(k):
             extracted[k] = v
 
-print(f"  ✅ Extracted: {extracted}")
+print(f"  Extracted: {extracted}")
 
 # COMMAND ----------
 
@@ -430,7 +407,7 @@ new_row = SparkRow(
 )
 insert_df = spark.createDataFrame([new_row], schema=insert_schema)
 insert_df.write.mode("append").saveAsTable(TARGET_TABLE)
-print(f"\n✅ {report_month} OPEC MOMR parsed + extracted into {TARGET_TABLE}")
+print(f"\n{report_month} OPEC MOMR parsed + extracted into {TARGET_TABLE}")
 
 dbutils.notebook.exit(json.dumps({
     "status": "success",

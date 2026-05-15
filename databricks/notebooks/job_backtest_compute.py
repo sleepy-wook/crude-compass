@@ -1,28 +1,12 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Sprint 3 Day 3 — Mock Backtest 산출 ⭐ v3 (multi-source + horizon sweep)
+# MAGIC # backtest_compute — Rule-based Mock Backtest
 # MAGIC
-# MAGIC ## 시나리오 v2 매핑
-# MAGIC - § 부록 C Mock Backtest (양방향 architecture 검증)
-# MAGIC - § 14 Phase 7 (Time Travel 백테스트 슬라이더 source)
+# MAGIC Rule-based backtest (multi-source weighting + horizon sweep + CV bonus + vol-adj).
+# MAGIC bronze 5 source 모두 활용 → gold.backtest_results 적재.
 # MAGIC
-# MAGIC ## v3 변경점 (Day 3 후반 — 형욱님 push back 반영)
-# MAGIC - **A. Multi-source weighting**: GDELT + EIA inventory delta + OPEC MoM + FX delta
-# MAGIC - **B. Horizon sweep**: 14/30/60일 outcome 모두 측정 → 최선 horizon 선택
-# MAGIC - **C. Cross-validation bonus 강화**: 카테고리 2+ source confirm 시 +15 (기존 +5)
-# MAGIC - **D. Threshold tighten**: HEDGE 75+ / OPP 25- (기존 70/30)
-# MAGIC - **E. Volatility-adjusted outcome**: ±10% 절대 → ±1σ Dubai rolling
-# MAGIC
-# MAGIC ## 데이터 의존성
-# MAGIC - bronze.news_articles (gdelt_backtest, 17 queries × 3년 4개월)
-# MAGIC - bronze.oil_prices_daily (DUBAI ticker)
-# MAGIC - bronze.eia_inventory (3년 weekly)
-# MAGIC - bronze.opec_momr_parsed (monthly with extracted indicators)
-# MAGIC - bronze.fx_rates (KRW/USD daily)
-# MAGIC - UC Function `weighted_signal()`
-# MAGIC
-# MAGIC ## Widget toggles
-# MAGIC - variant: 'baseline' | 'D' | 'B' — D=A+B+C, B=A+B+C+D+E
+# MAGIC Widget variant: 'baseline' (z-score only) | 'D' (multi-source) | 'B' (full)
+# MAGIC LLM backtest는 별도 (job_backtest_llm.py).
 
 # COMMAND ----------
 
@@ -475,7 +459,7 @@ if typed_rows:
                accuracy_pct, avg_lead_time_days, threshold_used, current_timestamp() AS computed_at
         FROM _results_in
     """)
-    print(f"✅ {run_id} 적재")
+    print(f"{run_id} 적재")
 
 # COMMAND ----------
 

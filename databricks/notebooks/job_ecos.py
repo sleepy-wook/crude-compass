@@ -1,15 +1,9 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Job 6 — ecos_daily (KRW/USD)
+# MAGIC # ecos_daily
 # MAGIC
-# MAGIC ## 시나리오 v2 매핑
-# MAGIC - § 7 #5 ECOS 한국은행 (KRW/USD 일 1회)
-# MAGIC - § 12 #6 cron `0 18 * * 1-5` (평일 장 마감 후)
-# MAGIC
-# MAGIC ## API
-# MAGIC - https://ecos.bok.or.kr/api/StatisticSearch/{key}/json/kr/1/{N}/731Y001/D/{start}/{end}/0000001
-# MAGIC - 731Y001 = 시장평균환율 (daily) — 731Y004는 monthly+
-# MAGIC - 0000001 = 원/미국달러(매매기준율)
+# MAGIC ECOS 한국은행 API → bronze.fx_rates (USD/KRW). 평일 18:00 cron.
+# MAGIC Series: 731Y001 (시장평균환율 daily) + 0000001 (원/미국달러 매매기준율).
 
 # COMMAND ----------
 
@@ -65,7 +59,7 @@ data = resp.json()
 
 # ECOS 응답: {"StatisticSearch": {"list_total_count": N, "row": [...]}}
 items = data.get("StatisticSearch", {}).get("row", [])
-print(f"  ✅ {len(items)} daily records ({start_str} ~ {end_str})")
+print(f"  {len(items)} daily records ({start_str} ~ {end_str})")
 
 # COMMAND ----------
 
@@ -105,8 +99,8 @@ if rows:
         WHEN MATCHED THEN UPDATE SET *
         WHEN NOT MATCHED THEN INSERT *
     """)
-    print(f"✅ MERGE {len(rows)} rows")
+    print(f"MERGE {len(rows)} rows")
 else:
-    print("ℹ️  No rows")
+    print("No rows")
 
 dbutils.notebook.exit(json.dumps({"rows_written": len(rows)}))

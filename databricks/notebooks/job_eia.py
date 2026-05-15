@@ -1,15 +1,9 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Job 5 — eia_weekly
+# MAGIC # eia_weekly
 # MAGIC
-# MAGIC ## 시나리오 v2 매핑
-# MAGIC - § 7 #4 EIA Open Data API (정기 평시 시그널)
-# MAGIC - § 12 #5 cron `0 18 * * 3` (수요일 18:00 EIA 발표 직후)
-# MAGIC - § 16 importance 60 anchor (정기 시그널)
-# MAGIC
-# MAGIC ## API
-# MAGIC - https://api.eia.gov/v2/petroleum/stoc/wstk/data/  (Weekly Stocks)
-# MAGIC - series_id: WCESTUS1 (U.S. commercial crude stocks, kbbl)
+# MAGIC EIA Open Data API → bronze.eia_inventory. 수요일 18:00 cron.
+# MAGIC Series: WCESTUS1 (commercial crude) + WCSSTUS1 (SPR).
 
 # COMMAND ----------
 
@@ -83,7 +77,7 @@ for s in SERIES:
     print(f"\n─── EIA series {s['id']} ({s['type']}) ───")
     try:
         data = fetch_eia(s["id"], length=fetch_length, start_date=fetch_start)
-        print(f"  ✅ {len(data)} weekly records")
+        print(f"  {len(data)} weekly records")
 
         # WoW 변화량 계산을 위해 정렬
         data_sorted = sorted(data, key=lambda d: d.get("period", ""))
@@ -112,7 +106,7 @@ for s in SERIES:
             ))
             prev_value = value_f
     except Exception as e:
-        print(f"  ⚠️  failed: {e}")
+        print(f"  failed: {e}")
 
 print(f"\nTotal {len(all_rows)} rows")
 
@@ -139,8 +133,8 @@ if all_rows:
         WHEN MATCHED THEN UPDATE SET *
         WHEN NOT MATCHED THEN INSERT *
     """)
-    print(f"✅ MERGE {len(all_rows)} rows into {TARGET_TABLE}")
+    print(f"MERGE {len(all_rows)} rows into {TARGET_TABLE}")
 else:
-    print("ℹ️  No rows")
+    print("No rows")
 
 dbutils.notebook.exit(json.dumps({"rows_written": len(all_rows)}))

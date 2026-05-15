@@ -113,6 +113,38 @@ async def pattern_history(days: int = 90) -> dict:
 
 
 # ────────────────────────────────────────────────────────────────────────
+# /api/market/fx-history — gold.fx_with_delta view (D-3 추가)
+# 시나리오 §7 #5 anchor + §13 랜딩 코스트 — USD/KRW 일별 + 30일 변동성
+# ────────────────────────────────────────────────────────────────────────
+@router.get("/market/fx-history")
+async def fx_history(days: int = 90) -> dict:
+    """USD/KRW 일별 + 1d/7d delta + 30일 변동성."""
+    try:
+        rows = _q(f"""
+            SELECT date, rate, delta_1d, delta_7d, vol_30d
+            FROM crude_compass.gold.fx_with_delta
+            WHERE pair = 'USD/KRW'
+              AND date >= CURRENT_DATE() - INTERVAL {min(days, 2200)} DAYS
+            ORDER BY date
+        """)
+        return {
+            "pair": "USD/KRW",
+            "history": [
+                {
+                    "date": str(r[0]),
+                    "rate": float(r[1]) if r[1] is not None else None,
+                    "delta_1d": float(r[2]) if r[2] is not None else None,
+                    "delta_7d": float(r[3]) if r[3] is not None else None,
+                    "vol_30d": float(r[4]) if r[4] is not None else None,
+                }
+                for r in rows
+            ],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)})
+
+
+# ────────────────────────────────────────────────────────────────────────
 # /api/market/prices-wide — gold.oil_prices_wide view (D-3 추가)
 # 시나리오 §7 #4 anchor — Dubai/Brent/WTI 일별 가격 + Brent-Dubai spread
 # ────────────────────────────────────────────────────────────────────────

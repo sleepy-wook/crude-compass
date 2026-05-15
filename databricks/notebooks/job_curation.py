@@ -1,25 +1,14 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Job 5 — daily_curation 06:30 ⭐ Bidirectional Pattern Detection
+# MAGIC # daily_curation — Bidirectional Pattern Detection
 # MAGIC
-# MAGIC ## 시나리오 v2 매핑
-# MAGIC - § 6 Bidirectional Pattern Detection (양방향 핵심)
-# MAGIC - § 6.2 시간 감쇠 람다 차등 (UC Function `weighted_signal`)
-# MAGIC - § 6.3 시그널별 기여도 보존 (`weighted_contribution` 컬럼)
-# MAGIC - § 9.7 Mission Plan Agent trigger (Pattern Score 70+/30- 시)
-# MAGIC - § 12 #8 cron `30 6 * * *` KST
+# MAGIC 매일 06:30 KST cron. 시나리오 §6 양방향 Pattern Score 계산.
 # MAGIC
-# MAGIC ## 입력
-# MAGIC - bronze.news_articles (importance ≥ 50, 90일 window)
-# MAGIC - bronze.opec_momr_parsed (월간 정기 시그널)
-# MAGIC - bronze.eia_inventory (주간)
-# MAGIC - bronze.oil_prices (5min spike — Sprint 3 day 3 추가 예정)
-# MAGIC
-# MAGIC ## 출력
-# MAGIC - silver.signal_events_decayed: per-signal × time decay × credibility × direction sign
-# MAGIC - silver.pattern_scores_daily: Pattern Score (양방향 aggregate)
-# MAGIC - gold.daily_risk_score: latest snapshot (Lakebase cache 대상)
-# MAGIC - (Sprint 4) 70+/30- 시 Mission Plan Agent 호출 → Lakebase missions INSERT
+# MAGIC 입력: bronze (news/opec/eia/oil_prices/fx, 90일 window)
+# MAGIC 출력:
+# MAGIC - silver.signal_events_decayed (per-signal × time decay × credibility × direction)
+# MAGIC - silver.pattern_scores_daily (Pattern Score aggregate)
+# MAGIC - gold.daily_risk_score (latest snapshot, Lakebase Sync 대상)
 
 # COMMAND ----------
 
@@ -36,14 +25,10 @@ print(f"run_id: {run_id}")
 # MAGIC %md
 # MAGIC ## Step 1: signal_events_decayed 적재
 # MAGIC
-# MAGIC bronze.news_articles → signal_type 매핑 + weighted_signal() UC Function 적용.
-# MAGIC weighted_contribution은 direction 부호 반영 (bullish +, bearish -, neutral 0).
+# MAGIC bronze 5 source → signal_type 매핑 + weighted_signal() UC Function 적용.
+# MAGIC weighted_contribution = direction 부호 반영 (bullish +, bearish -, neutral 0).
 
 # COMMAND ----------
-
-# 90일 window. backtest seed로 5개월 데이터 있으니 오늘 = 2026-04-30 (backtest 마지막 날) 시뮬.
-# 실제 production은 CURRENT_DATE() 사용.
-# 데모용으로는 backtest 데이터 있는 마지막 날짜로 산출.
 
 step1_sql = f"""
 INSERT INTO crude_compass.silver.signal_events_decayed
@@ -207,7 +192,7 @@ FROM unioned
 # Idempotent: run_id별 중복 적재. 기존 run_id 있으면 스킵하고 다시 적재.
 spark.sql(f"DELETE FROM crude_compass.silver.signal_events_decayed WHERE job_run_id = '{run_id}'")
 spark.sql(step1_sql)
-print(f"  ✅ signal_events_decayed 적재 완료")
+print(f"  signal_events_decayed 적재 완료")
 
 step1_check = spark.sql(f"""
     SELECT
@@ -313,7 +298,7 @@ FROM final
 # Idempotent
 spark.sql("DELETE FROM crude_compass.silver.pattern_scores_daily WHERE date = CURRENT_DATE()")
 spark.sql(step2_sql)
-print(f"  ✅ pattern_scores_daily 적재 완료")
+print(f"  pattern_scores_daily 적재 완료")
 
 display(spark.sql("""
     SELECT *
@@ -374,7 +359,7 @@ FROM today, top_contributors_json tcj
 
 spark.sql("DELETE FROM crude_compass.gold.daily_risk_score WHERE date = CURRENT_DATE()")
 spark.sql(step3_sql)
-print(f"  ✅ daily_risk_score 적재 완료")
+print(f"  daily_risk_score 적재 완료")
 
 display(spark.sql("""
     SELECT date, pattern_score, mission_type, confidence_score, bullish_score, bearish_score, cross_val_bonus, top_contributors
@@ -385,7 +370,7 @@ display(spark.sql("""
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Step 4: Mission trigger 결정 (Sprint 4에서 실제 호출)
+# MAGIC ## Step 4: Mission trigger 결정 (zone 70+/30- 시 Mission Plan Agent 호출)
 
 # COMMAND ----------
 
@@ -397,14 +382,14 @@ today_score = spark.sql(f"""
 
 if today_score:
     s = today_score[0]
-    print(f"\n📊 Pattern Score: {s.pattern_score} ({s.mission_type})")
+    print(f"\nPattern Score: {s.pattern_score} ({s.mission_type})")
     print(f"   Confidence: {s.confidence_score}")
     if s.mission_type == 'HEDGE':
-        print(f"   🚨 → Mission Plan Agent 호출 (HEDGE 제안) — Sprint 4 implement")
+        print(f"   -> Mission Plan Agent 호출 (HEDGE 제안)")
     elif s.mission_type == 'OPPORTUNITY':
-        print(f"   🟢 → Mission Plan Agent 호출 (OPPORTUNITY 제안) — Sprint 4 implement")
+        print(f"   -> Mission Plan Agent 호출 (OPPORTUNITY 제안)")
     else:
-        print(f"   ✓ STABLE zone (30-70) — Mission trigger 안 함")
+        print(f"   STABLE zone (30-70), Mission trigger 안 함")
 
 # COMMAND ----------
 

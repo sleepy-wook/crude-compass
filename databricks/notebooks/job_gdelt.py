@@ -1,26 +1,10 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Job 2 — gdelt_15min (감지층)
+# MAGIC # gdelt_15min (감지층)
 # MAGIC
-# MAGIC ## 시나리오 v2 매핑
-# MAGIC - § 7 #3 GDELT (글로벌 뉴스 + tone score, 감지층)
-# MAGIC - § 4 Layer 1 News Fetch (15min cron)
-# MAGIC - § 6 양방향 direction (bullish/bearish/neutral) ⭐ 핵심
-# MAGIC - § 16 importance 0-100 anchors
-# MAGIC
-# MAGIC ## 입력
-# MAGIC - GDELT DOC API (https://api.gdeltproject.org/api/v2/doc/doc) — key 없음, 무료
-# MAGIC - Foundation Model API `databricks-claude-haiku-4-5` (LLM scoring)
-# MAGIC
-# MAGIC ## 출력
-# MAGIC - `crude_compass.bronze.news_articles` (importance ≥ 60 적재)
-# MAGIC
-# MAGIC ## DoD (Sprint 2 task 4)
-# MAGIC 1. timelinetone mode로 mention 강도 + tone score 추출
-# MAGIC 2. spike 감지 시 artlist mode로 article 본문 fetch
-# MAGIC 3. LLM scoring (importance, category, direction, horizon, confidence, entities)
-# MAGIC 4. bronze.news_articles에 append
-# MAGIC 5. 평시 query (OPEC/EIA/Saudi)도 mention 잡힘 검증
+# MAGIC GDELT DOC API → bronze.news_articles (importance >= 50 적재).
+# MAGIC 17 queries (bullish/bearish/auto) × timelinetone + artlist mode.
+# MAGIC Cron: 15분. 시나리오 §7 #3 + §6 양방향 direction.
 
 # COMMAND ----------
 
@@ -53,10 +37,10 @@ GDELT_API = "https://api.gdeltproject.org/api/v2/doc/doc"
 LLM_ENDPOINT = "databricks-claude-haiku-4-5"
 TARGET_TABLE = "crude_compass.bronze.news_articles"
 
-# 시나리오 § 2 평시 가치 + § 6 양방향 — 12 queries (5 bullish + 5 bearish + 2 auto)
-# verify (5/11) 결과 bearish 1.8% 편향 → bearish query 보강 + default_direction 명시
+# 17 queries: 7 bullish + 5 auto (tone-based) + 5 bearish.
+# 양방향 narrative 위해 default_direction 명시 (bearish 편향 보강).
 QUERIES = [
-    # bullish 본질 — 7개
+    # bullish — 7개
     {"label": "hormuz",            "query": "Strait of Hormuz Iran tanker", "tier": "A"},
     {"label": "iran_sanctions",    "query": "Iran sanctions oil export", "tier": "A"},
     {"label": "russia_ukraine",    "query": "Russia Ukraine oil sanctions", "tier": "A"},
@@ -64,13 +48,13 @@ QUERIES = [
     {"label": "opec_cut_surprise", "query": "OPEC production cut surprise", "tier": "A"},
     {"label": "libya_shutdown",    "query": "Libya oil production shutdown unrest", "tier": "A"},
     {"label": "venezuela_sanctions","query": "Venezuela oil sanctions PdVSA", "tier": "A"},
-    # auto (평시 정기, tone 부호로)
+    # auto — tone 부호로 direction 결정
     {"label": "opec_monthly",  "query": "OPEC monthly oil market report", "tier": "B"},
     {"label": "eia_inventory", "query": "EIA crude oil inventory weekly", "tier": "B"},
     {"label": "saudi_osp",     "query": "Saudi Aramco OSP official selling price", "tier": "B"},
     {"label": "china_demand",  "query": "China oil demand PMI manufacturing", "tier": "A"},
     {"label": "us_spr",        "query": "strategic petroleum reserve release", "tier": "A"},
-    # bearish 본질 — 5개
+    # bearish — 5개
     {"label": "china_recession",     "query": "China oil demand slowdown recession", "tier": "A"},
     {"label": "oecd_inventory_build","query": "OECD commercial crude inventory build", "tier": "A"},
     {"label": "saudi_osp_cut",       "query": "Saudi Aramco OSP price cut Asia", "tier": "A"},
@@ -170,10 +154,9 @@ def fetch_artlist(query: str, max_records: int = 5, timespan: str = "1d") -> lis
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Rule-based scoring (LLM 호출 X · 시나리오 § 4 Hard rule filter)
+# MAGIC ## Rule-based scoring (LLM 호출 X)
 # MAGIC
-# MAGIC Sprint 2: GDELT raw signal로 채점 (LLM 비용 $0).
-# MAGIC Sprint 3: borderline case (importance 50-65)만 LLM 보강 예정.
+# MAGIC GDELT raw signal (tone + mention_count) → importance + direction.
 
 # COMMAND ----------
 
@@ -263,21 +246,20 @@ def process_query(label: str, query: str, tier: str, run_id: str) -> list[NewsRo
     tl = fetch_timelinetone(query, timespan="1d")
     timeline = tl.get("timeline", [])
     if not timeline or not timeline[0].get("data"):
-        print(f"  ⚠️  no timeline data — skip")
+        print(f"  no timeline data, skip")
         return []
 
     tone_data = timeline[0]["data"]
     avg_tone = sum(p.get("value", 0.0) for p in tone_data) / max(len(tone_data), 1)
     mention_buckets = len(tone_data)
-    print(f"  📈 avg_tone={avg_tone:+.2f}, buckets={mention_buckets}")
+    print(f"  avg_tone={avg_tone:+.2f}, buckets={mention_buckets}")
 
-    # 2. Rule-based scoring (LLM 호출 X, $0 비용)
     score = score_from_gdelt(label, avg_tone, mention_buckets)
-    print(f"  🎯 importance={score['importance']} direction={score['direction']} category={score['category']}")
+    print(f"  importance={score['importance']} direction={score['direction']} category={score['category']}")
 
-    # 3. importance threshold (시나리오 § 16 30-60 log only, 60+ enrich)
+    # 시나리오 §16: importance 30-60 log only, 60+ enrich. 50을 threshold로 사용.
     if score["importance"] < 50:
-        print(f"  ⏭  importance < 50 — skip (시나리오 § 16: 30-60 log only)")
+        print(f"  importance < 50, skip")
         return []
 
     # 4. artlist에서 대표 article 1개 fetch (URL/title 보존용)
@@ -314,7 +296,7 @@ def process_query(label: str, query: str, tier: str, run_id: str) -> list[NewsRo
         fetched_at=now,
         url=url,
         title=title[:500],
-        body="",  # Sprint 3에서 보강
+        body="",
         body_lang=body_lang,
         raw_tone=round(avg_tone, 2),
         mention_count=mention_buckets,
@@ -325,9 +307,9 @@ def process_query(label: str, query: str, tier: str, run_id: str) -> list[NewsRo
         confidence=score["confidence"],
         entities=score["entities"][:10],
         job_run_id=run_id,
-        llm_model="rule_based_v1",  # LLM 미호출
+        llm_model="rule_based_v1",
     )
-    print(f"  ✅ row created · {title[:60]}")
+    print(f"  row created: {title[:60]}")
     return [row]
 
 # COMMAND ----------
@@ -343,7 +325,7 @@ for q in QUERIES:
         rows = process_query(q["label"], q["query"], q["tier"], run_id)
         all_rows.extend(rows)
     except Exception as e:
-        print(f"  ⚠️  {q['label']} skipped: {type(e).__name__}: {str(e)[:100]}")
+        print(f"  {q['label']} skipped: {type(e).__name__}: {str(e)[:100]}")
     time.sleep(0.5)  # rate limit safety
 
 print(f"\n{'='*60}")
@@ -390,9 +372,9 @@ if all_rows:
     # Bronze table에 raw_tone DECIMAL(5,2)이라 cast 필요
     df = df.withColumn("raw_tone", col("raw_tone").cast("decimal(5,2)"))
     df.write.mode("append").saveAsTable(TARGET_TABLE)
-    print(f"✅ {len(all_rows)} rows appended to {TARGET_TABLE}")
+    print(f"{len(all_rows)} rows appended to {TARGET_TABLE}")
 else:
-    print("ℹ️  No rows to write (all queries below importance threshold)")
+    print("No rows to write (all queries below importance threshold)")
 
 # COMMAND ----------
 
