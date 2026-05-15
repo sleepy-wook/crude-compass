@@ -15,9 +15,6 @@ resources:
           # 5/12 timeout 1회 발생 → 120s → 180s 안전 buffer
           timeout_seconds: 180
       max_concurrent_runs: 1
-      email_notifications:
-        on_failure:
-          - ${workspace.current_user.userName}
       tags:
         project: crude-compass
         layer: bronze

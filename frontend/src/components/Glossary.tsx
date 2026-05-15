@@ -55,6 +55,36 @@ const GLOSSARY: Record<string, { label: string; definition: string }> = {
     definition:
       "가상 K-Petroleum chartered VLCC 5척 (KPETRO_001~005 익명화). AIS 공개 데이터 (IMO mandate) 기반 실시간 위치 모니터링. 실제 회사 식별 X — 시나리오 §4 가상 정유사 narrative.",
   },
+  STRAIT_HORMUZ: {
+    label: "호르무즈 해협",
+    definition:
+      "Persian Gulf 출구 chokepoint — 전 세계 해상 원유 30%+ 통과. 봉쇄 위기 시 한국 정유사 직접 영향 (중동산 70%+ 의존).",
+  },
+  BRENT_DUBAI_SPREAD: {
+    label: "Brent-Dubai spread",
+    definition:
+      "Brent 가격 − Dubai 가격 (USD/bbl). 양수면 Dubai discount, 음수면 Dubai premium. 정유사 원유 조달 비용 직접 영향.",
+  },
+  USD_KRW: {
+    label: "USD/KRW 환율",
+    definition:
+      "원·달러 환율 (ECOS 한국은행 매매기준율). 한국 정유사 랜딩 코스트 직접 영향 — 원화 약세 = 원유 수입 비용 증가.",
+  },
+  OPEC_MOMR: {
+    label: "OPEC MOMR",
+    definition:
+      "OPEC Monthly Oil Market Report — 월간 사우디/이란/OPEC 총공급 + 세계 수요 forecast. Document Intelligence (ai_parse_document)로 PDF 직접 파싱.",
+  },
+  GDELT: {
+    label: "GDELT",
+    definition:
+      "Global Database of Events, Language and Tone — 무료 글로벌 뉴스 mention + tone score API. 15분 cron으로 17 query (호르무즈/이란/OPEC 등) 모니터링.",
+  },
+  CONFIDENCE_SCORE: {
+    label: "AI 자신감",
+    definition:
+      "Mission Plan Agent (LLM)의 결과 자신감 (0~100). signal cross-validation + recency + structured fields 일관성 기반. UI에 항상 노출 (transparency).",
+  },
 };
 
 interface TermProps {

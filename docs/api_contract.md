@@ -229,32 +229,19 @@ LLM Mission Plan Agent 호출 (full body 버전).
 
 ---
 
-## 3. Discovery Feed Endpoints
+## 3. Discovery Feed (frontend 직접 fetch — endpoint 없음)
 
-### 3.1 `GET /api/discovery/today`
-오늘의 발견 feed (5개 카드).
+D-14 시점 계획 (`/api/discovery/today` + `/api/discovery/{id}/dismiss`)은 미구현.
+Discovery 페이지는 다음 endpoint들을 frontend에서 직접 조합하여 feed를 구성:
+- `/api/missions/active` (mission proposal)
+- `/api/pattern-score/current` (오늘 점수)
+- `/api/signals/contribution` (시그널 기여도)
+- `/api/market/news-top` (최근 뉴스)
+- `/api/market/opec-latest` (OPEC 인용)
+- `/api/fleet/positions` (5척 fleet)
 
-**Response 200**:
-```json
-{
-  "feed_date": "2026-05-08",
-  "items": [
-    {
-      "item_id": "...",
-      "item_type": "mission_proposal",
-      "title": "Pre-emptive HEDGE Mission · Pattern Score 82",
-      "body": "...",
-      "related_mission_id": "...",
-      "metadata": {...}
-    }
-  ]
-}
-```
-
-### 3.2 `POST /api/discovery/{item_id}/dismiss`
-카드 닫기.
-
-**Response 200**: `{ ok: true }`
+복잡한 feed CRUD 불필요 → simplicity. discovery_feed_items Lakebase table은 reactive alert
+persist용 (현재 미사용, D-2 이후 옵션).
 
 ---
 
@@ -695,21 +682,19 @@ Spike 발견 시 **EventBus `reactive.alert` event broadcast** → WebSocket fro
 }
 ```
 
-### 8.2 `GET /api/meta/data-sources`
-sidebar에 표시할 데이터 source 상태.
+### 8.2 `GET /api/slack/health`
+Slack Bolt mount + signing secret 상태 확인 (Apps deploy 후 Slack interactivity URL 등록 검증용).
 
 **Response 200**:
 ```json
 {
-  "sources": [
-    { "name": "AIS aisstream", "status": "connected", "last_fetch": "...", "freshness": "real-time" },
-    { "name": "OilPriceAPI",   "status": "connected", "last_fetch": "...", "freshness": "real-time" },
-    { "name": "GDACS",         "status": "connected", "last_fetch": "...", "freshness": "real-time" },
-    { "name": "ECOS",          "status": "connected", "last_fetch": "...", "freshness": "30m" },
-    { "name": "Lakebase",      "status": "connected", "last_fetch": "...", "freshness": "real-time" }
-  ]
+  "enabled": true,
+  "default_channel": "C0B343F7771",
+  "signing_secret_set": true
 }
 ```
+
+> D-14 계획됐던 `GET /api/meta/data-sources`는 미구현 — sidebar에 데이터 source 상태 표시 narrative는 Apps 우상단 "AIS open standard · 5min cron · X on-map · Y external" 표시로 대체.
 
 ---
 

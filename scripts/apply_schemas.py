@@ -213,20 +213,7 @@ CREATE TABLE IF NOT EXISTS crude_compass.gold.daily_risk_score (
 )
 USING DELTA
 """),
-    Stmt("gold.backtest_results", """
-CREATE TABLE IF NOT EXISTS crude_compass.gold.backtest_results (
-    run_id              STRING        NOT NULL,
-    backtest_window     STRING        NOT NULL,
-    mission_type        STRING        NOT NULL,
-    signal_count        INT           NOT NULL,
-    correct_count       INT           NOT NULL,
-    accuracy_pct        DECIMAL(5, 2) NOT NULL,
-    avg_lead_time_days  DECIMAL(5, 1),
-    threshold_used      DECIMAL(5, 2),
-    computed_at         TIMESTAMP     NOT NULL
-)
-USING DELTA
-"""),
+    # gold.backtest_results: 2026-05-16 DROP (Apps 사용 0건, LLM backtest가 main).
     # gold.mission_outcomes / landing_cost_scenarios / backtest_risk_score:
     # 2026-05-15 DROP (narrative만 약속됐고 코드 0건 사용 — dead).
     # gold.llm_backtest_predictions: 2026-05-15 Lakebase Postgres로 마이그레이션

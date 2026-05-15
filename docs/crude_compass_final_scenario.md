@@ -650,7 +650,9 @@ confidence = avg(
 | "예측 정확도?" | "Decision Support reframe + Self-Critique 양방향 backtest + Confidence Score 노출" |
 | "회사 보안?" | "AIS 공개 데이터 + 익명화 가상 K-Petroleum + 실제 회사 정보 0" |
 | "Slack ↔ Apps 동기화?" | "Lakebase Single Source of Truth + optimistic concurrency + 5초 SLA" |
-| "Bidirectional 진짜?" | "Mock backtest 5개월 검증 + HEDGE 78% / OPP 71%" |
+| "Bidirectional 진짜?" | "**LLM Mission Plan Agent backtest 7년 (300 stratified samples) HEDGE 75% hit (n=298), +0.626% avg saving, $40-60M annual K-Petroleum conservative ROI**. rule-based v3 (Phase 2 archived: HEDGE 22%/OPP 27%, random 10% 대비 2.7배)도 보강." |
+| "왜 1척만 active? 호르무즈 봉쇄 narrative와 정합?" | "**SK Shipping operated VLCC 5척 공개 AIS 추적. VLCC fleet 평시 운용 패턴상 docking/maintenance/turnaround idle 비중 자연 60-80%**. 데모 시점 KPETRO_002만 active (Gulf of Mexico anchored, WTI 수입선 narrative). 나머지 4척은 출항 보류 — 봉쇄 시나리오와 정합. 가짜 시뮬 데이터 추가 X." |
+| "Rule-based vs LLM 둘 다 있는데 어느 게 main?" | "**LLM (Foundation Model API · Claude Haiku 4.5)이 production main**. rule-based v3는 Phase 2 baseline 검증 archive — 5/16 정리 (gold.backtest_results DROP). Apps WhatIf 페이지가 Lakebase backtest_predictions만 사용 — narrative single source." |
 | **"Bloomberg/Platts 풀버전 못 쓰는 한계?"** | **"의도적 Open data 선택 — 정유 빅5 외 democratize. Track 1 진짜 의도."** |
 | **"빅5는 Bloomberg 있는데 본 system 의미?"** | **"Bronze schema 동일 (mentions/tone/keywords/ts). 빅5도 본 Lakehouse 그대로 도입 시 GDELT 자리에 Bloomberg connector swap만 하면 됨. 차별화는 데이터 풀이 아니라 reasoning + bidirectional 양방향 + confidence calibration."** |
 | **"GDELT vs Bloomberg swap 가능?"** | **"Source connector layer 격리 설계. Bronze (mentions/tone/keywords/ts) 스키마 동일 → connector 1-day swap + downstream 람다 그대로 재사용. Lakehouse source-agnostic."** |
@@ -665,7 +667,7 @@ confidence = avg(
 - **Sprint 1 (5/8-10)** — ✅ 완료: skeleton + Lakebase 검증 + DDL + Bronze 정의
 - **Sprint 2 (5/11-13)**: Job 1-7 구현 + 첫 deploy
   - GDELT 15min + price 5min + AIS batch + EIA weekly + ECOS daily + OPEC MOMR monthly (Document Intelligence)
-- **Sprint 3 (5/14-16) ⭐**: Bidirectional Pattern Detection + Supervisor + sub-agents + Mock backtest 산출 (HEDGE 78%/OPP 71%)
+- **Sprint 3 (5/14-16)**: Bidirectional Pattern Detection + Mission Plan Agent (Foundation Model API) + LLM backtest 300건 (HEDGE 75%/+0.626% saving)
 - **Sprint 4 (5/17-19)**: Apps 3 페이지 + Slack Bolt + WebSocket sync + AI/BI embed + Time Travel 슬라이더
 - **Sprint 5 (5/20-22)**: 통합 + 데모 영상 (60% pre-recorded + 40% live)
 

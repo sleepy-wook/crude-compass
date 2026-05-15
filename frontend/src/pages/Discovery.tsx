@@ -150,13 +150,7 @@ export function Discovery() {
         </section>
       )}
 
-      {/* Persian Gulf map — K-Petroleum 5척 (시나리오 §6.5 leading indicator + §14 Phase 3) */}
-      <HormuzMap />
-
-      {/* K-Petroleum 5척 lifecycle (시나리오 §4) */}
-      <FleetLifecycleSection />
-
-      {/* Pattern Score Card */}
+      {/* Pattern Score Card (가장 큰 wow — 평가위원 첫 0.5초 grab) */}
       <section className="mb-8">
         {pattern.isLoading && (
           <div className="bg-panel rounded-xl border border-line-1 p-8">
@@ -219,12 +213,17 @@ export function Discovery() {
         )}
       </section>
 
-      {/* Pattern Score 30일 line + 6년 평시 가치 (시나리오 §14 Phase 7) */}
+      {/* Pattern Score 30일 line (Pattern Card 바로 옆 — 점수 추이 즉시 확인) */}
       <PatternScoreLine days={30} variant="mini" />
-      <PatternScoreLine days={2200} variant="long" />
 
-      {/* Signal Contribution — 시나리오 §6.3 #2 + §14 Phase 3 핵심 wow */}
+      {/* HormuzMap — 호르무즈 narrative anchor (시나리오 §14 Phase 3 핵심) */}
+      <HormuzMap />
+
+      {/* Signal Contribution — 점수 근거 시각화 (시나리오 §6.3 #2) */}
       <SignalContribution />
+
+      {/* K-Petroleum 5척 lifecycle (시나리오 §4) */}
+      <FleetLifecycleSection />
 
       {/* OPEC MOMR citation — Document Intelligence wow (§9.6) */}
       <OpecCitation />
@@ -237,6 +236,9 @@ export function Discovery() {
 
       {/* 최근 7일 핵심 뉴스 — 시나리오 §6.3 #3 anchor */}
       <NewsTopList limit={12} />
+
+      {/* 6년 평시 가치 long chart — 시나리오 §14 Phase 7 마지막 wow anchor */}
+      <PatternScoreLine days={2200} variant="long" />
 
       {/* Active Missions Summary */}
       <section className="mb-8">

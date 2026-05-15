@@ -15,9 +15,6 @@ resources:
           # PDF parsing + ai_parse_document() 여유 (600s → 900s)
           timeout_seconds: 900
       max_concurrent_runs: 1
-      email_notifications:
-        on_failure:
-          - ${workspace.current_user.userName}
       tags:
         project: crude-compass
         layer: bronze

@@ -35,23 +35,9 @@ USING DELTA;
 -- 3개 dead gold table DROP.
 -- 2026-05-16 정리: silver.hormuz_traffic_hourly + silver.dubai_premium_daily 2개 dead silver DROP.
 
--- ────────────────────────────────────────────────────────────────────
--- 2. backtest_results — Rule-based backtest 결과 (LLM backtest는 Lakebase)
--- ────────────────────────────────────────────────────────────────────
--- backtest_compute job 출력. AI/BI Dashboard에서 rule-based vs LLM 비교용.
--- Apps WhatIf 페이지는 Lakebase backtest_predictions 사용.
-CREATE TABLE IF NOT EXISTS crude_compass.gold.backtest_results (
-    run_id              STRING        NOT NULL,
-    backtest_window     STRING        NOT NULL COMMENT '2025-12 ~ 2026-04',
-    mission_type        STRING        NOT NULL,
-    signal_count        INT           NOT NULL,
-    correct_count       INT           NOT NULL,
-    accuracy_pct        DECIMAL(5, 2) NOT NULL,
-    avg_lead_time_days  DECIMAL(5, 1),
-    threshold_used      DECIMAL(5, 2) COMMENT '70 (HEDGE) or 30 (OPP)',
-    computed_at         TIMESTAMP     NOT NULL
-)
-USING DELTA;
+-- 2026-05-16 정리: gold.backtest_results DROP.
+-- LLM backtest (Lakebase backtest_predictions)가 main, rule-based 결과는
+-- Apps에서 사용 0건 → dead. Apps WhatIf 페이지는 Lakebase 사용.
 
 -- ────────────────────────────────────────────────────────────────────
 -- 3. missions_history (Lakehouse Sync target — Databricks UI에서 자동 생성)

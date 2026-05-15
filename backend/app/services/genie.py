@@ -20,7 +20,7 @@ from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-GENIE_TIMEOUT_SEC = 8.0  # cold start 대응 (planner PB2)
+GENIE_TIMEOUT_SEC = 8.0  # cold start 대응
 
 
 GenieSource = Literal["live", "fallback_data", "fallback_text", "fallback"]
