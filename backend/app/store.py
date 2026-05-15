@@ -198,8 +198,11 @@ def reset_store_for_testing() -> None:
 
 
 def _seed_demo_in_memory(store: InMemoryMissionStore) -> None:
-    """Seed 1 demo mission for empty-state UX (in-memory only)."""
-    demo = Mission(
+    """Seed 2 demo missions — Bidirectional 양방향 narrative (HEDGE + OPP).
+
+    시나리오 §6 Bidirectional 차별화 anchor: 위기(HEDGE)와 기회(OPP) 동시 demo.
+    """
+    hedge = Mission(
         mission_id=uuid4(),
         mission_type=MissionType.HEDGE,
         status=MissionStatus.PROPOSED,
@@ -213,7 +216,25 @@ def _seed_demo_in_memory(store: InMemoryMissionStore) -> None:
         created_at=datetime.now(timezone.utc),
         version=1,
     )
-    store._missions[demo.mission_id] = demo
+    opp = Mission(
+        mission_id=uuid4(),
+        mission_type=MissionType.OPPORTUNITY,
+        status=MissionStatus.PROPOSED,
+        goal_text="Pre-emptive OPPORTUNITY: Spot 40% → 55% (4주)",
+        pattern_score=22.0,
+        reasoning=(
+            "약세 신호 누적 — 중국 PMI 49.2 (수요 둔화) + OECD 재고 빌드 +280k/wk + "
+            "사우디 OSP $1.20 인하 (Asia bound). 평시 미세 조정 기회. AI confidence 64%."
+        ),
+        simulation_roi={"Brent_70_약세": 280.0, "Brent_80_안정": 90.0, "Brent_95_반등": -120.0},
+        urgency=MissionUrgency.DEFAULT,
+        target_pct=55,
+        duration_days=28,
+        created_at=datetime.now(timezone.utc),
+        version=1,
+    )
+    store._missions[hedge.mission_id] = hedge
+    store._missions[opp.mission_id] = opp
 
 
 # ════════════════════════════════════════════════════════════════════════

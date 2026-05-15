@@ -4,12 +4,14 @@
 - 정적 DSN 저장 X (token이 60분 만료라 의미 없음)
 - psycopg3 + psycopg_pool 사용 (Lakebase 공식 가이드 권장. asyncpg는 SASL 호환 X.)
 - Direct host 사용 (`ep-...databricks.com`). Pooled host (`-pooler`)는 SASL 호환 X.
-- Connection 생성 시마다 SDK로 fresh token 발급 (60분마다 rotation)
+- Custom Connection subclass `LakebaseConnection` — pool이 reconnect할 때마다
+  classmethod connect()가 호출되어 fresh token 자동 발급.
+- max_lifetime=3000s (50min) — token TTL 60min 안전 마진.
 """
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Iterator
+from typing import Any, Iterator
 
 import psycopg
 from databricks.sdk import WorkspaceClient
@@ -28,7 +30,7 @@ def _generate_token(endpoint_path: str) -> str:
 
 
 def _build_conninfo() -> str:
-    """psycopg conninfo string — password는 connect 시점에 별도로 주입."""
+    """psycopg conninfo string — password는 connect 시점에 kwargs로 주입."""
     s = get_settings()
     return (
         f"host={s.lakebase_host} "
@@ -39,29 +41,36 @@ def _build_conninfo() -> str:
     )
 
 
-def _new_connection() -> psycopg.Connection:
-    """Pool factory — 매 connection마다 fresh token 발급."""
-    settings = get_settings()
-    token = _generate_token(settings.lakebase_endpoint_path)
-    return psycopg.connect(_build_conninfo(), password=token)
+class LakebaseConnection(psycopg.Connection):
+    """psycopg.Connection subclass — connect()마다 fresh OAuth token 발급.
+
+    psycopg_pool이 new connection 만들 때 (init + reconnect 시) 이 classmethod 호출.
+    → token rotation 자동. pool 자체는 유지 (시나리오 §9 "Lakebase OAuth pool" 정합).
+    """
+
+    @classmethod
+    def connect(cls, conninfo: str = "", **kwargs: Any) -> "LakebaseConnection":
+        settings = get_settings()
+        # 매 connect 시 fresh token 발급. kwargs.password 항상 overwrite.
+        kwargs["password"] = _generate_token(settings.lakebase_endpoint_path)
+        return super().connect(conninfo, **kwargs)  # type: ignore[return-value]
 
 
 _pool: ConnectionPool | None = None
 
 
 def get_pool() -> ConnectionPool:
-    """Lazy singleton pool."""
+    """Lazy singleton pool — Custom Connection subclass로 token rotation 자동."""
     global _pool
     if _pool is None:
         _pool = ConnectionPool(
-            connection_class=psycopg.Connection,
+            conninfo=_build_conninfo(),
+            connection_class=LakebaseConnection,
             min_size=1,
             max_size=5,
-            # OAuth token life = 60min. max_lifetime 50min로 강제 reconnect → 토큰 만료 전 재발급.
-            # 만약 max_lifetime 미설정 시 idle 60min+ pool connection은 stale token으로 SQL 실패.
+            # token TTL 60min → max_lifetime 50min로 만료 전 reconnect 강제.
             max_lifetime=3000,
-            open=False,  # explicit open
-            connection=_new_connection,  # custom factory for token rotation
+            open=False,
         )
         _pool.open()
     return _pool

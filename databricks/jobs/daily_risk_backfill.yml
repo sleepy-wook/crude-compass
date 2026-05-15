@@ -1,0 +1,27 @@
+# Lakeflow Job — daily_risk_backfill (one-shot)
+#
+# 시나리오 §14 Phase 7 "평시 가치 6년 그래프" anchor 데이터 부재 fix.
+# 7년치 silver/gold daily 일괄 적재. manual run only (cron X).
+
+resources:
+  jobs:
+    daily_risk_backfill:
+      name: ${bundle.name}-daily-risk-backfill-${bundle.target}
+      description: "daily_risk_score 7년치 backfill (one-shot, manual Run now)"
+
+      tasks:
+        - task_key: backfill
+          notebook_task:
+            notebook_path: ../notebooks/job_daily_risk_backfill.py
+            source: WORKSPACE
+            base_parameters:
+              start_date: "2019-04-01"
+              end_date: "2026-05-15"
+          timeout_seconds: 1800
+
+      max_concurrent_runs: 1
+
+      tags:
+        project: crude-compass
+        layer: silver_gold
+        purpose: backfill_one_shot
