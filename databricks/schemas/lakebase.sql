@@ -1,23 +1,20 @@
 -- ====================================================================
 -- Crude Compass · Lakebase Postgres OLTP
 -- ====================================================================
--- 적재: FastAPI (mission CRUD) — Single Source of Truth
--- 실행: psql 또는 backend/scripts/run_lakebase_ddl.py (Sprint 1 day 2)
---
--- 인증: OAuth token (60분 lifetime, runtime 발급)
---   psql 한 번 실행:
---     databricks postgres generate-database-credential \
---         projects/crude-compass-pg/branches/production/endpoints/primary \
---         --profile crude-compass
---     → token 출력 → psql 명령에 paste:
---     psql "postgresql://hyeongwook.lee%40lginnotek.com@<host>/databricks_postgres?sslmode=require" \
---          -f databricks/schemas/lakebase.sql
+-- 적재: FastAPI (mission CRUD) + job_backtest_llm (predictions).
+-- 인증: OAuth token (60분 lifetime, runtime 발급 via databricks SDK).
+-- 실행 (DDL apply):
+--   databricks postgres generate-database-credential \
+--       projects/crude-compass-pg/branches/production/endpoints/primary \
+--       --profile crude-compass
+--   psql "postgresql://<user>@<host>/databricks_postgres?sslmode=require" \
+--        -f databricks/schemas/lakebase.sql
 -- ====================================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;  -- gen_random_uuid()
 
 -- ────────────────────────────────────────────────────────────────────
--- 1. missions  ⭐ Single Source of Truth
+-- 1. missions — Single Source of Truth (양방향 sync 핵심)
 -- ────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS missions (
     mission_id        UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -121,12 +118,10 @@ CREATE INDEX IF NOT EXISTS idx_discovery_date
     ON discovery_feed_items (feed_date DESC);
 
 -- ────────────────────────────────────────────────────────────────────
--- 5. backtest_predictions  (AI-generated batch output)
+-- 5. backtest_predictions — LLM backtest output (AI-generated → OLTP)
 -- ────────────────────────────────────────────────────────────────────
--- LLM (Foundation Model API) backtest run의 predictions 결과.
--- AI-generated content → operational OLTP (정석 Lakebase).
--- Read pattern: WhatIf 페이지 진입 시 300 rows fetch (ms latency 필요).
--- Write pattern: backtest notebook batch (1 run = ~300 INSERT).
+-- Read: WhatIf 페이지 300 rows fetch (ms latency).
+-- Write: job_backtest_llm batch (1 run = ~300 INSERT via psycopg executemany).
 CREATE TABLE IF NOT EXISTS backtest_predictions (
     id                BIGSERIAL    PRIMARY KEY,
     run_id            VARCHAR(80)  NOT NULL,
@@ -159,9 +154,6 @@ CREATE INDEX IF NOT EXISTS idx_backtest_as_of
     ON backtest_predictions (as_of_date DESC);
 
 -- ────────────────────────────────────────────────────────────────────
--- Smoke test query (Sprint 1 day 2 검증용)
+-- Smoke test (DDL apply 후 dialect 검증)
 -- ────────────────────────────────────────────────────────────────────
--- SELECT
---   gen_random_uuid()                                AS test_uuid,
---   '{"Brent_130": 320}'::jsonb                       AS test_jsonb,
---   pg_typeof(NOW())                                  AS test_timestamptz;
+-- SELECT gen_random_uuid(), '{"k": 1}'::jsonb, pg_typeof(NOW());

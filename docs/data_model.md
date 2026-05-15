@@ -12,22 +12,30 @@
 crude_compass (Unity Catalog)
 ├── bronze
 │   ├── news_articles
-│   ├── oil_prices
+│   ├── oil_prices                   (5min realtime)
+│   ├── oil_prices_daily              (KNOC OPINET daily close)
 │   ├── ais_positions
-│   └── fx_rates
+│   ├── fx_rates                      (ECOS USD/KRW)
+│   ├── eia_inventory                 (EIA weekly)
+│   └── opec_momr_parsed              (Document Intelligence)
 ├── silver
-│   ├── pattern_scores_daily
-│   └── hormuz_traffic_hourly
+│   ├── pattern_scores_daily          (Pattern Score daily)
+│   └── signal_events_decayed         (시간 감쇠 적용)
 └── gold
-    ├── mission_outcomes
-    ├── backtest_results
-    └── missions_history       ← Lakehouse Sync (CDC) target
+    ├── daily_risk_score              (Pattern Score snapshot)
+    ├── backtest_results              (rule-based backtest)
+    ├── missions_history              (Lakehouse Sync CDC)
+    └── (8 analytics views)           ← oil_prices_wide / fleet_current_state /
+                                        signal_contribution_30d / eia_rolling /
+                                        opec_demand_gap / fx_with_delta /
+                                        news_top_signals / pattern_score_latest
 
 lakebase (Postgres OLTP, schema: public)
-├── missions
-├── decisions
+├── missions                          ← Single Source of Truth (양방향 sync)
+├── decisions                         (audit log)
 ├── pivot_history
-└── discovery_feed_items
+├── discovery_feed_items
+└── backtest_predictions              (AI-generated → OLTP, 2026-05-15 신규)
 ```
 
 ---
@@ -155,25 +163,27 @@ TBLPROPERTIES (delta.autoOptimize.optimizeWrite = true);
 }
 ```
 
-### 2.2 `silver.hormuz_traffic_hourly`
+### 2.2 `silver.signal_events_decayed`
 
-```sql
-CREATE TABLE crude_compass.silver.hormuz_traffic_hourly (
-    hour_start          TIMESTAMP    NOT NULL    PRIMARY KEY,
-    vessel_count        INT          NOT NULL,
-    delta_pct_vs_7d_avg DECIMAL(5, 2),
-    is_anomaly          BOOLEAN
-)
-USING DELTA;
-```
+시그널별 시간 감쇠 적용 결과 — `weighted_contribution` 보존.
+실제 column은 `databricks/schemas/silver.sql` 참조.
+
+> 2026-05-16 정리: `silver.hormuz_traffic_hourly` + `silver.dubai_premium_daily` 2개 DROP
+> (populating job 0, 0 rows, code 참조 0).
 
 ---
 
 ## 3. Gold (Delta, analytics)
 
-### 3.1 `gold.mission_outcomes`
+> 2026-05-15 정리: `gold.mission_outcomes` / `gold.landing_cost_scenarios` /
+> `gold.backtest_risk_score` 3개 dead table DROP. `gold.llm_backtest_predictions`는
+> Lakebase `backtest_predictions`로 마이그레이션 (AI-generated content → OLTP).
+> 실제 column은 `databricks/schemas/gold.sql` 참조.
+
+### 3.1 (archived) `gold.mission_outcomes` — DROP됨
 
 ```sql
+-- 참고용 archived schema (2026-05-15 DROP, dead table)
 CREATE TABLE crude_compass.gold.mission_outcomes (
     mission_id        STRING       NOT NULL    PRIMARY KEY,
     mission_type      STRING       NOT NULL,

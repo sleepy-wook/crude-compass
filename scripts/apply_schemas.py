@@ -1,12 +1,7 @@
 """Apply Bronze/Silver/Gold DDL via Databricks SQL Statement Execution API.
 
-Sprint 2 task 3 — 13 테이블 + 2 schema 자동 생성.
-
-방식:
-- Databricks SDK statement_execution API 사용
-- Serverless Starter Warehouse 자동 시작 (STOPPED 상태에서)
-- 각 DDL을 단일 statement로 sequential 실행
-- 실패 시 즉시 stop + 에러 보고
+Bootstrap script — bronze/silver/gold schema + tables 일괄 생성.
+실제 DDL은 databricks/schemas/{bronze,silver,gold}.sql과 동기화 유지.
 
 사용:
     cd backend
@@ -174,15 +169,7 @@ CREATE TABLE IF NOT EXISTS crude_compass.silver.pattern_scores_daily (
 )
 USING DELTA
 """),
-    Stmt("silver.hormuz_traffic_hourly", """
-CREATE TABLE IF NOT EXISTS crude_compass.silver.hormuz_traffic_hourly (
-    hour_start            TIMESTAMP     NOT NULL,
-    vessel_count          INT           NOT NULL,
-    delta_pct_vs_7d_avg   DECIMAL(5, 2),
-    is_anomaly            BOOLEAN
-)
-USING DELTA
-"""),
+    # silver.hormuz_traffic_hourly: 2026-05-16 DROP (populating job 0, 0 rows, dead).
     Stmt("silver.signal_events_decayed", """
 CREATE TABLE IF NOT EXISTS crude_compass.silver.signal_events_decayed (
     event_date            DATE          NOT NULL,
@@ -201,17 +188,7 @@ CREATE TABLE IF NOT EXISTS crude_compass.silver.signal_events_decayed (
 USING DELTA
 PARTITIONED BY (event_date)
 """),
-    Stmt("silver.dubai_premium_daily", """
-CREATE TABLE IF NOT EXISTS crude_compass.silver.dubai_premium_daily (
-    date              DATE          NOT NULL,
-    brent_close       DECIMAL(8, 2) NOT NULL,
-    dubai_close       DECIMAL(8, 2) NOT NULL,
-    spread_usd        DECIMAL(6, 2) NOT NULL,
-    spread_7d_avg     DECIMAL(6, 2),
-    is_premium_anomaly BOOLEAN
-)
-USING DELTA
-"""),
+    # silver.dubai_premium_daily: 2026-05-16 DROP (gold.oil_prices_wide의 brent_dubai_spread로 대체).
 ]
 
 # ════════════════════════════════════════════════════════════════════════
@@ -236,42 +213,25 @@ CREATE TABLE IF NOT EXISTS crude_compass.gold.daily_risk_score (
 )
 USING DELTA
 """),
-    Stmt("gold.mission_outcomes", """
-CREATE TABLE IF NOT EXISTS crude_compass.gold.mission_outcomes (
-    mission_id        STRING        NOT NULL,
-    mission_type      STRING        NOT NULL,
-    proposed_at       TIMESTAMP     NOT NULL,
-    confirmed_at      TIMESTAMP,
-    completed_at      TIMESTAMP,
-    final_status      STRING        NOT NULL,
-    pattern_score     DECIMAL(5, 2),
-    confidence_score  DECIMAL(5, 2),
-    target_pct        INT,
-    actual_pct        INT,
-    roi_simulated     DECIMAL(12, 2),
-    roi_realized      DECIMAL(12, 2),
-    pivot_count       INT
+    Stmt("gold.backtest_results", """
+CREATE TABLE IF NOT EXISTS crude_compass.gold.backtest_results (
+    run_id              STRING        NOT NULL,
+    backtest_window     STRING        NOT NULL,
+    mission_type        STRING        NOT NULL,
+    signal_count        INT           NOT NULL,
+    correct_count       INT           NOT NULL,
+    accuracy_pct        DECIMAL(5, 2) NOT NULL,
+    avg_lead_time_days  DECIMAL(5, 1),
+    threshold_used      DECIMAL(5, 2),
+    computed_at         TIMESTAMP     NOT NULL
 )
 USING DELTA
 """),
-    Stmt("gold.landing_cost_scenarios", """
-CREATE TABLE IF NOT EXISTS crude_compass.gold.landing_cost_scenarios (
-    scenario_id       STRING        NOT NULL,
-    computed_at       TIMESTAMP     NOT NULL,
-    benchmark         STRING        NOT NULL,
-    benchmark_price   DECIMAL(8, 2) NOT NULL,
-    route             STRING        NOT NULL,
-    war_zone_premium  DECIMAL(6, 2),
-    freight_cost      DECIMAL(8, 2),
-    insurance_total   DECIMAL(8, 2),
-    landing_cost_usd  DECIMAL(8, 2) NOT NULL,
-    extra_days        INT
-)
-USING DELTA
-"""),
-    # NOTE: llm_backtest_predictions was migrated to Lakebase Postgres
-    # (AI-generated content → OLTP). See databricks/schemas/lakebase.sql §5
-    # `backtest_predictions`. UC Delta table dropped 2026-05-15.
+    # gold.mission_outcomes / landing_cost_scenarios / backtest_risk_score:
+    # 2026-05-15 DROP (narrative만 약속됐고 코드 0건 사용 — dead).
+    # gold.llm_backtest_predictions: 2026-05-15 Lakebase Postgres로 마이그레이션
+    # (AI-generated content → OLTP). databricks/schemas/lakebase.sql §5 참조.
+    # gold analytics views 8개는 별도 — databricks/schemas/gold.sql 직접 실행.
 ]
 
 
@@ -286,10 +246,10 @@ def execute(w: WorkspaceClient, stmt: Stmt) -> None:
     dt = (time.perf_counter() - t0) * 1000
     state = resp.status.state.value if resp.status else "unknown"
     if state in ("SUCCEEDED",):
-        print(f"  ✅ {stmt.label:<40} ({dt:.0f}ms · {state})")
+        print(f"  OK  {stmt.label:<40} ({dt:.0f}ms · {state})")
     else:
         err = resp.status.error.message if resp.status and resp.status.error else "?"
-        print(f"  ❌ {stmt.label:<40} ({dt:.0f}ms · {state})")
+        print(f"  FAIL {stmt.label:<40} ({dt:.0f}ms · {state})")
         print(f"     {err}")
         raise RuntimeError(f"DDL failed: {stmt.label}")
 
@@ -303,15 +263,15 @@ def main() -> None:
     print(f"  host: {w.config.host}")
     print(f"  user: {w.current_user.me().user_name}")
 
-    print(f"\n📦 Bronze ({len(BRONZE)} tables)")
+    print(f"\nBronze ({len(BRONZE)} stmts)")
     for s in BRONZE:
         execute(w, s)
 
-    print(f"\n📦 Silver ({len(SILVER)} stmts: 1 schema + 4 tables)")
+    print(f"\nSilver ({len(SILVER)} stmts: 1 schema + 2 tables)")
     for s in SILVER:
         execute(w, s)
 
-    print(f"\n📦 Gold ({len(GOLD)} stmts: 1 schema + 3 tables)")
+    print(f"\nGold ({len(GOLD)} stmts: 1 schema + 2 tables)")
     for s in GOLD:
         execute(w, s)
 
@@ -334,7 +294,7 @@ def main() -> None:
         for row in verify.result.data_array:
             print(f"  {row[0]:<10}  {row[1]} 테이블")
 
-    print("\n🎉 Schema apply 완료")
+    print("\nSchema apply 완료")
 
 
 if __name__ == "__main__":

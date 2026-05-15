@@ -1,16 +1,15 @@
 -- ====================================================================
 -- Crude Compass · Bronze layer (Delta, append-only)
 -- ====================================================================
--- 적재: Lakeflow Jobs (1 news / 2 price / 3 ais batch / 4 ecos)
--- 보존: 90일 (Pattern Detection window 90일이면 충분)
--- 실행: databricks/notebooks/setup_bronze.py 또는 SQL warehouse에서 직접
+-- 적재: Lakeflow Jobs (gdelt / price / ais / ecos / eia / opec / oil_prices_daily)
+-- 보존: 90일 (Pattern Detection window)
 -- ====================================================================
 
 CREATE CATALOG IF NOT EXISTS crude_compass;
 CREATE SCHEMA  IF NOT EXISTS crude_compass.bronze;
 
 -- ────────────────────────────────────────────────────────────────────
--- 1. news_articles  ⭐ Bidirectional Pattern Detection 핵심
+-- 1. news_articles — GDELT + RSS (gdelt_detect + gdelt_backtest source_type)
 -- ────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS crude_compass.bronze.news_articles (
     article_id      STRING        NOT NULL COMMENT 'SHA256(url) or GDELT artid',
@@ -24,7 +23,7 @@ CREATE TABLE IF NOT EXISTS crude_compass.bronze.news_articles (
     body            STRING,
     body_lang       STRING        COMMENT 'ko | en',
 
-    -- GDELT timelinetone output (Sprint 2 task 2 검증 결과 매핑)
+    -- GDELT timelinetone output
     raw_tone        DECIMAL(5, 2) COMMENT 'GDELT tone score, range -10 ~ 10',
     mention_count   INT           COMMENT 'GDELT mention count (기간 내)',
 
@@ -62,13 +61,10 @@ PARTITIONED BY (DATE(fetched_at))
 CLUSTER BY (ticker, fetched_at);
 
 -- ────────────────────────────────────────────────────────────────────
--- 2-b. oil_prices_daily  ⭐ KNOC OPINET historical close (Dubai 중심)
+-- 2-b. oil_prices_daily — KNOC OPINET daily close (Dubai 중심)
 -- ────────────────────────────────────────────────────────────────────
--- 한국 정유사 baseline = Dubai (중동 원유 70%+ 수입 의존)
--- 출처: OPINET (한국석유공사 공식) — 1996~ daily close
--- 적재: scripts/ingest_opinet_history.py (one-shot 3-4년) + Job daily increment
--- backtest 진입 baseline + production daily anchor
--- ────────────────────────────────────────────────────────────────────
+-- 한국 정유사 baseline = Dubai (중동 원유 70%+ 수입). 1996~ daily.
+-- 적재: job_oil_prices_daily.py (daily | historical mode).
 CREATE TABLE IF NOT EXISTS crude_compass.bronze.oil_prices_daily (
     trade_date      DATE          NOT NULL COMMENT 'KNOC 공시 거래일',
     ticker          STRING        NOT NULL COMMENT 'DUBAI | BRENT | WTI',
@@ -91,7 +87,7 @@ CREATE TABLE IF NOT EXISTS crude_compass.bronze.ais_positions (
     speed_knots     DECIMAL(4, 1),
     heading_deg     INT,
     in_hormuz_bbox  BOOLEAN       COMMENT '호르무즈 bounding box',
-    status          STRING        COMMENT 'transit | stranded | safe'
+    status          STRING        COMMENT 'transit | stranded | anchored | safe'
 )
 USING DELTA
 PARTITIONED BY (DATE(fetched_at));
@@ -109,7 +105,7 @@ USING DELTA
 PARTITIONED BY (date);
 
 -- ────────────────────────────────────────────────────────────────────
--- 5. eia_inventory  (D-14 추가, 시나리오 §7 #4 + §16 importance 60 anchor)
+-- 5. eia_inventory — EIA Open Data API (weekly crude stocks)
 -- ────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS crude_compass.bronze.eia_inventory (
     week_ending       DATE          NOT NULL COMMENT '주간 보고서 종료일 (수요일 직전 금요일)',
@@ -124,9 +120,9 @@ USING DELTA
 PARTITIONED BY (week_ending);
 
 -- ────────────────────────────────────────────────────────────────────
--- 6. opec_momr_parsed  (D-14 추가, 시나리오 §9.6 Document Intelligence)
+-- 6. opec_momr_parsed — Document Intelligence (시나리오 §9.6)
 -- ────────────────────────────────────────────────────────────────────
--- ai_parse_document() 결과 적재. Sprint 2 task 8에서 OPEC MOMR PDF → 이 테이블.
+-- ai_parse_document() 결과 적재. OPEC MOMR PDF monthly cron.
 CREATE TABLE IF NOT EXISTS crude_compass.bronze.opec_momr_parsed (
     report_month      STRING        NOT NULL COMMENT 'YYYY-MM (예: 2026-04)',
     pdf_volume_path   STRING        NOT NULL COMMENT '/Volumes/crude_compass/bronze/opec_pdfs/...',
@@ -137,7 +133,7 @@ CREATE TABLE IF NOT EXISTS crude_compass.bronze.opec_momr_parsed (
     pages             ARRAY<STRUCT<page_num INT, content STRING>> COMMENT 'Page-level structure',
     tables            ARRAY<STRING> COMMENT 'Extracted tables (JSON)',
 
-    -- 추출된 핵심 indicator (Job 7에서 LLM extraction)
+    -- LLM extraction (job_opec_momr.py)
     saudi_production_kbbl_d  DECIMAL(10, 2),
     iran_production_kbbl_d   DECIMAL(10, 2),
     opec_total_kbbl_d        DECIMAL(10, 2),

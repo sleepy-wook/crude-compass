@@ -1,14 +1,14 @@
 -- ====================================================================
 -- Crude Compass · Silver layer (Delta, transformed)
 -- ====================================================================
--- 적재: Job 5 daily_curation + Job 3 ais (집계)
--- 보존: 365일
+-- 적재: daily_curation job (signal_events_decayed + pattern_scores_daily).
+-- 보존: 365일.
 -- ====================================================================
 
 CREATE SCHEMA IF NOT EXISTS crude_compass.silver;
 
 -- ────────────────────────────────────────────────────────────────────
--- 1. pattern_scores_daily  ⭐ Bidirectional Pattern Detection 결과
+-- 1. pattern_scores_daily — Bidirectional Pattern Detection 결과
 -- ────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS crude_compass.silver.pattern_scores_daily (
     date              DATE          NOT NULL,
@@ -27,22 +27,16 @@ TBLPROPERTIES (
     delta.autoOptimize.optimizeWrite = true
 );
 
--- ────────────────────────────────────────────────────────────────────
--- 2. hormuz_traffic_hourly
--- ────────────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS crude_compass.silver.hormuz_traffic_hourly (
-    hour_start            TIMESTAMP     NOT NULL,
-    vessel_count          INT           NOT NULL,
-    delta_pct_vs_7d_avg   DECIMAL(5, 2),
-    is_anomaly            BOOLEAN
-)
-USING DELTA;
+-- 2026-05-16 D-3 정리: silver.hormuz_traffic_hourly + silver.dubai_premium_daily
+-- 2개 dead table DROP (populating job 0, code 참조 0, 0 rows).
+-- hormuz traffic은 K-Petroleum 5척 fleet narrative (시나리오 §6.5.2)로 대체.
+-- dubai premium은 gold.oil_prices_wide의 brent_dubai_spread_usd로 대체.
 
 -- ────────────────────────────────────────────────────────────────────
--- 3. signal_events_decayed  (D-14 추가, 시나리오 §6.2 시간 감쇠)
+-- 2. signal_events_decayed — 시간 감쇠 적용 (시나리오 §6.2)
 -- ────────────────────────────────────────────────────────────────────
--- 모든 시그널 (news/price/ais/eia/fx/opec)의 시간 감쇠 적용 결과.
--- weighted_contribution 보존 → "오늘 점수 82는 호르무즈 35%, 두바이 28% ..." 시각화.
+-- 모든 시그널 (news/price/ais/eia/fx/opec) × 시간 감쇠 + credibility + direction.
+-- weighted_contribution 보존 → gold.signal_contribution_30d view 입력.
 CREATE TABLE IF NOT EXISTS crude_compass.silver.signal_events_decayed (
     event_date            DATE          NOT NULL,
     signal_type           STRING        NOT NULL COMMENT 'news_tone|ais_traffic|eia_inventory|opec_momr|fx_krw_usd|price_spike',
@@ -62,16 +56,3 @@ CREATE TABLE IF NOT EXISTS crude_compass.silver.signal_events_decayed (
 )
 USING DELTA
 PARTITIONED BY (event_date);
-
--- ────────────────────────────────────────────────────────────────────
--- 4. dubai_premium_daily  (D-14 추가, 시나리오 §13 What-If 차트)
--- ────────────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS crude_compass.silver.dubai_premium_daily (
-    date              DATE          NOT NULL    PRIMARY KEY,
-    brent_close       DECIMAL(8, 2) NOT NULL,
-    dubai_close       DECIMAL(8, 2) NOT NULL,
-    spread_usd        DECIMAL(6, 2) NOT NULL COMMENT 'Dubai - Brent (양수면 Dubai premium)',
-    spread_7d_avg     DECIMAL(6, 2),
-    is_premium_anomaly BOOLEAN     COMMENT '7일 평균 대비 ±2σ 초과'
-)
-USING DELTA;

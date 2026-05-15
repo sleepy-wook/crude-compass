@@ -1,17 +1,17 @@
 -- ====================================================================
 -- Crude Compass · Gold layer (Delta, analytics)
 -- ====================================================================
--- 적재: Job 6 weekly_self_critique (mock stub) + Lakehouse Sync (CDC)
--- 보존: infinite
+-- 적재: daily_curation (daily_risk_score) + backtest_compute (backtest_results)
+-- + Lakehouse Sync (missions_history mirror).
+-- 보존: infinite.
 -- ====================================================================
 
 CREATE SCHEMA IF NOT EXISTS crude_compass.gold;
 
 -- ────────────────────────────────────────────────────────────────────
--- 1. daily_risk_score  ⭐ (D-14 추가, 시나리오 §6 + §13 핵심)
+-- 1. daily_risk_score — Pattern Score daily snapshot (Lakebase Sync 대상)
 -- ────────────────────────────────────────────────────────────────────
--- 매일 야간 배치로 갱신. Lakebase 캐시 sync.
--- Apps Discovery 첫 화면 ms 응답용.
+-- Apps Discovery 첫 화면 ms 응답용. daily_curation job이 매일 06:30 갱신.
 CREATE TABLE IF NOT EXISTS crude_compass.gold.daily_risk_score (
     date              DATE          NOT NULL    PRIMARY KEY,
     pattern_score     DECIMAL(5, 2) NOT NULL COMMENT '0-100',
@@ -31,13 +31,15 @@ CREATE TABLE IF NOT EXISTS crude_compass.gold.daily_risk_score (
 )
 USING DELTA;
 
--- 2026-05-15 정리: mission_outcomes / landing_cost_scenarios / backtest_risk_score 3개는
--- 시나리오 narrative만 약속됐고 코드 0건 사용 (dead table). DROP via w.tables.delete().
--- Genie/평가위원 노출 최소화 + medallion gold layer 정직 정리.
+-- 2026-05-15 정리: mission_outcomes / landing_cost_scenarios / backtest_risk_score
+-- 3개 dead gold table DROP.
+-- 2026-05-16 정리: silver.hormuz_traffic_hourly + silver.dubai_premium_daily 2개 dead silver DROP.
 
 -- ────────────────────────────────────────────────────────────────────
--- 2. backtest_results  ⭐ Mock backtest narrative source (78%/71%)
+-- 2. backtest_results — Rule-based backtest 결과 (LLM backtest는 Lakebase)
 -- ────────────────────────────────────────────────────────────────────
+-- backtest_compute job 출력. AI/BI Dashboard에서 rule-based vs LLM 비교용.
+-- Apps WhatIf 페이지는 Lakebase backtest_predictions 사용.
 CREATE TABLE IF NOT EXISTS crude_compass.gold.backtest_results (
     run_id              STRING        NOT NULL,
     backtest_window     STRING        NOT NULL COMMENT '2025-12 ~ 2026-04',
@@ -52,13 +54,10 @@ CREATE TABLE IF NOT EXISTS crude_compass.gold.backtest_results (
 USING DELTA;
 
 -- ────────────────────────────────────────────────────────────────────
--- 3. missions_history  (Lakehouse Sync target — auto)
+-- 3. missions_history (Lakehouse Sync target — Databricks UI에서 자동 생성)
 -- ────────────────────────────────────────────────────────────────────
 -- Lakebase missions 테이블의 CDC append-only mirror.
--- 형욱님 직접 만들지 않음. Sprint 4 진입 시 Lakebase UI에서 Lakehouse Sync 활성화 →
--- Databricks가 자동 생성. 여기는 placeholder 주석.
---
--- Schema: Lakebase missions schema + (cdc_op, cdc_ts, cdc_seq)
+-- Schema: Lakebase missions + (cdc_op, cdc_ts, cdc_seq).
 
 -- ════════════════════════════════════════════════════════════════════
 -- ANALYTICS VIEWS (D-3 추가, Genie / AI-BI Dashboard / Apps consumption)

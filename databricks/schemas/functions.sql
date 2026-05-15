@@ -1,8 +1,7 @@
 -- ====================================================================
 -- Crude Compass · UC Functions
 -- ====================================================================
--- 시나리오 §9.5 — Genie + Mission Plan + UC Function 공통 호출용.
--- Sprint 3 day 2에 등록 완료.
+-- 시나리오 §9.5 — Genie + Mission Plan + curation/backtest 공통 호출용.
 -- ====================================================================
 
 CREATE SCHEMA IF NOT EXISTS crude_compass.functions;
