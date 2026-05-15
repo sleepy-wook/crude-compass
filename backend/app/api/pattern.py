@@ -113,6 +113,69 @@ async def pattern_history(days: int = 90) -> dict:
 
 
 # ────────────────────────────────────────────────────────────────────────
+# /api/market/prices-wide — gold.oil_prices_wide view (D-3 추가)
+# 시나리오 §7 #4 anchor — Dubai/Brent/WTI 일별 가격 + Brent-Dubai spread
+# ────────────────────────────────────────────────────────────────────────
+@router.get("/market/prices-wide")
+async def prices_wide(days: int = 90) -> dict:
+    """Daily oil prices wide format (WTI/Brent/Dubai pivot + spread)."""
+    try:
+        rows = _q(f"""
+            SELECT trade_date, wti_usd, brent_usd, dubai_usd, brent_dubai_spread_usd
+            FROM crude_compass.gold.oil_prices_wide
+            WHERE trade_date >= CURRENT_DATE() - INTERVAL {min(days, 2200)} DAYS
+            ORDER BY trade_date
+        """)
+        return {
+            "prices": [
+                {
+                    "trade_date": str(r[0]),
+                    "wti_usd": float(r[1]) if r[1] is not None else None,
+                    "brent_usd": float(r[2]) if r[2] is not None else None,
+                    "dubai_usd": float(r[3]) if r[3] is not None else None,
+                    "brent_dubai_spread_usd": float(r[4]) if r[4] is not None else None,
+                }
+                for r in rows
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)})
+
+
+# ────────────────────────────────────────────────────────────────────────
+# /api/market/news-top — gold.news_top_signals view (D-3 추가)
+# 시나리오 §6.3 #3 anchor — 최근 7일 importance Top 5/day/direction
+# ────────────────────────────────────────────────────────────────────────
+@router.get("/market/news-top")
+async def news_top(limit: int = 20) -> dict:
+    """최근 7일 importance ≥ 60 뉴스 (bullish/bearish only)."""
+    try:
+        rows = _q(f"""
+            SELECT event_date, source, tier, title, category, direction,
+                   importance, raw_tone, mention_count, url
+            FROM crude_compass.gold.news_top_signals
+            ORDER BY event_date DESC, importance DESC
+            LIMIT {min(limit, 100)}
+        """)
+        return {
+            "items": [
+                {
+                    "event_date": str(r[0]),
+                    "source": r[1], "tier": r[2], "title": r[3],
+                    "category": r[4], "direction": r[5],
+                    "importance": int(r[6]) if r[6] is not None else None,
+                    "raw_tone": float(r[7]) if r[7] is not None else None,
+                    "mention_count": int(r[8]) if r[8] is not None else None,
+                    "url": r[9],
+                }
+                for r in rows
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)})
+
+
+# ────────────────────────────────────────────────────────────────────────
 # /api/market/opec-latest — Document Intelligence wow (시나리오 §9.6)
 # OPEC MOMR PDF → ai_parse_document() → bronze.opec_momr_parsed
 # Discovery 페이지 citation badge "OPEC MOMR 2026-03 · 사우디 10,110 kbbl/d"

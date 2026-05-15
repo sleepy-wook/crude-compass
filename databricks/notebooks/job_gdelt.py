@@ -121,12 +121,17 @@ QUERY_META = {
 
 # COMMAND ----------
 
-def _safe_get(params: dict, max_attempts: int = 3) -> dict | None:
-    """Robust GET — 429 retry + 빈 body / 비-JSON graceful return None."""
+def _safe_get(params: dict, max_attempts: int = 2) -> dict | None:
+    """Robust GET — 429 retry + 빈 body / 비-JSON graceful return None.
+
+    5/15 D-3 진단: GDELT API timeout 빈번 → worst case 17 query × 135s = 38min
+    초과 → 600s timeout fail. timeout 20→8, max_attempts 3→2로 단축.
+    Worst case 17 query × 20s = 340s. 600s 안에 fit.
+    """
     for attempt in range(max_attempts):
         try:
-            time.sleep(1)  # rate limit safety
-            resp = httpx.get(GDELT_API, params=params, timeout=20.0)
+            time.sleep(0.5)  # rate limit safety
+            resp = httpx.get(GDELT_API, params=params, timeout=8.0)
             if resp.status_code == 429:
                 time.sleep(2 ** (attempt + 1))
                 continue

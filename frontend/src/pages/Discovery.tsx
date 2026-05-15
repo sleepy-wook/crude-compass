@@ -16,6 +16,8 @@ import { HormuzMap } from "../components/HormuzMap";
 import { SignalContribution } from "../components/SignalContribution";
 import { PatternScoreLine } from "../components/PatternScoreLine";
 import { OpecCitation } from "../components/OpecCitation";
+import { PriceLineChart } from "../components/PriceLineChart";
+import { NewsTopList } from "../components/NewsTopList";
 import type { Mission, PatternScoreCurrent } from "../lib/types";
 
 
@@ -225,6 +227,12 @@ export function Discovery() {
 
       {/* OPEC MOMR citation — Document Intelligence wow (§9.6) */}
       <OpecCitation />
+
+      {/* Dubai/Brent/WTI 가격 라인 — 시나리오 §7 #4 anchor */}
+      <PriceLineChart days={90} />
+
+      {/* 최근 7일 핵심 뉴스 — 시나리오 §6.3 #3 anchor */}
+      <NewsTopList limit={12} />
 
       {/* Active Missions Summary */}
       <section className="mb-8">

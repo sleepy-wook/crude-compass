@@ -288,6 +288,39 @@ LLM Mission Plan Agent 호출 (full body 버전).
 최근 30일 signal_type × direction 기여도 (`gold.signal_contribution_30d` view).
 시나리오 §6.3 #2 "오늘 점수 82는 호르무즈 35%, 두바이 28% ..." anchor.
 
+### 4.4a `GET /api/market/prices-wide?days=90`
+일별 WTI/Brent/Dubai 가격 wide format (`gold.oil_prices_wide` view).
+시나리오 §7 #4 anchor — Brent-Dubai spread 포함.
+
+**Response 200**:
+```json
+{
+  "prices": [
+    {"trade_date": "2026-05-14", "wti_usd": 78.5, "brent_usd": 82.1, "dubai_usd": 81.2, "brent_dubai_spread_usd": 0.9}
+  ]
+}
+```
+
+### 4.4b `GET /api/market/news-top?limit=20`
+최근 7일 importance ≥ 60 + direction bullish/bearish 뉴스 (`gold.news_top_signals` view).
+시나리오 §6.3 #3 anchor — Discovery 페이지 "오늘의 발견" 뉴스 리스트.
+
+**Response 200**:
+```json
+{
+  "items": [
+    {
+      "event_date": "2026-05-14",
+      "source": "Reuters", "tier": "A",
+      "title": "...",
+      "category": "geopolitics", "direction": "bullish",
+      "importance": 78, "raw_tone": -3.5, "mention_count": 12,
+      "url": "https://..."
+    }
+  ]
+}
+```
+
 ### 4.4 `GET /api/market/opec-latest`
 최신 OPEC MOMR snapshot (`gold.opec_demand_gap` view). Document Intelligence wow (§9.6) citation badge용.
 시나리오 §14 Phase 4 narrator anchor "OPEC MOMR 사우디 추가 감산 시그널".

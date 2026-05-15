@@ -101,6 +101,33 @@ export const api = {
   patternHistory: (days = 90) =>
     request<{ history: PatternHistory[] }>(`/api/pattern-score/history?days=${days}`),
 
+  pricesWide: (days = 90) =>
+    request<{
+      prices: {
+        trade_date: string;
+        wti_usd: number | null;
+        brent_usd: number | null;
+        dubai_usd: number | null;
+        brent_dubai_spread_usd: number | null;
+      }[];
+    }>(`/api/market/prices-wide?days=${days}`),
+
+  newsTop: (limit = 20) =>
+    request<{
+      items: {
+        event_date: string;
+        source: string | null;
+        tier: string | null;
+        title: string;
+        category: string | null;
+        direction: "bullish" | "bearish" | "neutral";
+        importance: number | null;
+        raw_tone: number | null;
+        mention_count: number | null;
+        url: string | null;
+      }[];
+    }>(`/api/market/news-top?limit=${limit}`),
+
   opecLatest: () =>
     request<{
       latest: {

@@ -17,6 +17,8 @@ export const queryKeys = {
   fleetPositions: ["fleet", "positions"] as const,
   signalContribution: ["signals", "contribution"] as const,
   opecLatest: ["market", "opec-latest"] as const,
+  pricesWide: (days: number) => ["market", "prices-wide", days] as const,
+  newsTop: (limit: number) => ["market", "news-top", limit] as const,
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -93,6 +95,22 @@ export function useOpecLatest() {
     queryKey: queryKeys.opecLatest,
     queryFn: () => api.opecLatest(),
     staleTime: 3600_000,
+  });
+}
+
+export function usePricesWide(days: number) {
+  return useQuery({
+    queryKey: queryKeys.pricesWide(days),
+    queryFn: () => api.pricesWide(days),
+    staleTime: 300_000,
+  });
+}
+
+export function useNewsTop(limit: number) {
+  return useQuery({
+    queryKey: queryKeys.newsTop(limit),
+    queryFn: () => api.newsTop(limit),
+    staleTime: 120_000,
   });
 }
 

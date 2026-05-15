@@ -25,9 +25,10 @@ resources:
           notebook_task:
             notebook_path: ../notebooks/job_gdelt.py
             source: WORKSPACE
-          timeout_seconds: 600
-          # Serverless compute (시나리오 § 비용 — Standard mode)
-          # bundle deploy 시 default serverless compute 사용
+          # 5/15 D-3 진단: 17 queries × GDELT API latency 증가 → 600s timeout 빈번 fail
+          # Fix: notebook에서 httpx timeout 20→8s, max_attempts 3→2 + job timeout 900s.
+          # 15분 cron이지만 max_concurrent_runs=1이라 900s 넘으면 next skip (안전).
+          timeout_seconds: 900
 
       max_concurrent_runs: 1
 
