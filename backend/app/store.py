@@ -1,8 +1,8 @@
 """Mission store + WebSocket event bus.
 
 Pluggable backends:
-- InMemoryMissionStore (Sprint 1-4 default, dict)
-- LakebaseMissionStore (Sprint 5 production, psycopg pool)
+- InMemoryMissionStore (dev/demo default, dict)
+- LakebaseMissionStore (production, psycopg pool)
 
 선택은 USE_LAKEBASE env var (true → Lakebase, 그 외 → in-memory).
 """
@@ -37,7 +37,7 @@ class MissionStore(Protocol):
 
 
 # ════════════════════════════════════════════════════════════════════════
-# In-memory store (Sprint 1-4 default, demo-friendly)
+# In-memory store (dev/demo default)
 # ════════════════════════════════════════════════════════════════════════
 class InMemoryMissionStore:
     """Dict-backed store. asyncio.Lock for concurrency safety."""
@@ -79,16 +79,14 @@ class InMemoryMissionStore:
 
 
 # ════════════════════════════════════════════════════════════════════════
-# Lakebase store (Sprint 5 production, psycopg pool)
+# Lakebase store (production, psycopg pool)
 # ════════════════════════════════════════════════════════════════════════
 class LakebaseMissionStore:
     """Postgres-backed store via psycopg pool.
 
     DDL: databricks/schemas/lakebase.sql
     Repository: app/db/repositories/missions.py
-
-    Sync DB calls are wrapped in asyncio.to_thread to keep event loop responsive.
-    For Sprint 5 PoC, single-thread executor is fine; production may switch to psycopg async.
+    Sync DB calls wrapped in asyncio.to_thread (psycopg async는 추후 옵션).
     """
 
     def __init__(self):

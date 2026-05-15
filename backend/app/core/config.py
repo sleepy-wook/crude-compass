@@ -34,7 +34,7 @@ class Settings(BaseModel):
     aisstream_api_key: str = Field(default_factory=lambda: os.getenv("AISSTREAM_API_KEY", ""))
     ecos_api_key: str = Field(default_factory=lambda: os.getenv("ECOS_API_KEY", ""))
 
-    # Slack (Sprint 4 진입 시 등록 — Databricks profile=crude-compass scope=crude)
+    # Slack (Databricks secret scope=crude)
     slack_bot_token: str = Field(default_factory=lambda: os.getenv("SLACK_BOT_TOKEN", ""))
     slack_signing_secret: str = Field(
         default_factory=lambda: os.getenv("SLACK_SIGNING_SECRET", "")

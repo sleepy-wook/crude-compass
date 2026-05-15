@@ -1,14 +1,13 @@
 """Mission CRUD against Lakebase Postgres.
 
-Schema: databricks/schemas/lakebase.sql:22-51
+Schema: databricks/schemas/lakebase.sql §1 missions.
 Key features:
-- gen_random_uuid() (pgcrypto extension) for mission_id default
+- gen_random_uuid() (pgcrypto) for mission_id default
 - JSONB for simulation_roi + pivot_history
 - Optimistic concurrency via `version` column (UPDATE ... WHERE version = :v)
 - TIMESTAMPTZ throughout
-- pgcrypto + jsonb 호환성 Sprint 1 dialect test에서 검증 완료
 
-이 모듈은 psycopg3 Connection을 직접 받는다. Pool 관리는 store.py / db.lakebase.py에서.
+psycopg3 Connection 직접 받음. Pool 관리는 store.py / db.lakebase.py에서.
 """
 from __future__ import annotations
 

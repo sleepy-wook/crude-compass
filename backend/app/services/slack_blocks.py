@@ -18,7 +18,7 @@ from app.schemas.mission import Mission, MissionType, MissionUrgency
 ActionState = Literal["proposed", "confirmed", "rejected", "pivoted", "paused", "aborted"]
 
 
-# 색·이모지 — Block Kit 자체엔 color 옵션 X (attachment 필요)이므로 emoji + text로 표현
+# Slack shortcode + emoji=True flag → Slack이 자동 렌더링 (Python code는 char-free)
 _URGENCY_LABEL: dict[MissionUrgency, str] = {
     MissionUrgency.URGENT: ":rotating_light: *URGENT*",
     MissionUrgency.DEFAULT: ":warning: *PROACTIVE*",
@@ -67,32 +67,32 @@ def _action_buttons(mission: Mission, apps_url_base: str = "http://localhost:517
                 "type": "button",
                 "action_id": "mission_confirm",
                 "style": "primary",
-                "text": {"type": "plain_text", "text": "✅ Confirm", "emoji": True},
+                "text": {"type": "plain_text", "text": ":white_check_mark: Confirm", "emoji": True},
                 "value": value,
             },
             {
                 "type": "button",
                 "action_id": "mission_reject",
                 "style": "danger",
-                "text": {"type": "plain_text", "text": "❌ Reject", "emoji": True},
+                "text": {"type": "plain_text", "text": ":x: Reject", "emoji": True},
                 "value": value,
             },
             {
                 "type": "button",
                 "action_id": "mission_pivot",
-                "text": {"type": "plain_text", "text": "🔄 Pivot", "emoji": True},
+                "text": {"type": "plain_text", "text": ":arrows_counterclockwise: Pivot", "emoji": True},
                 "value": value,
             },
             {
                 "type": "button",
                 "action_id": "mission_modify",
-                "text": {"type": "plain_text", "text": "✏️ Modify", "emoji": True},
+                "text": {"type": "plain_text", "text": ":pencil2: Modify", "emoji": True},
                 "value": value,
             },
             {
                 "type": "button",
                 "action_id": "mission_open_apps",
-                "text": {"type": "plain_text", "text": "🔗 Open in Apps", "emoji": True},
+                "text": {"type": "plain_text", "text": ":link: Open in Apps", "emoji": True},
                 "url": f"{apps_url_base}/missions/{mission.mission_id}",
                 "value": value,
             },
@@ -199,7 +199,7 @@ def build_mission_card(
                 {
                     "type": "button",
                     "action_id": "mission_open_apps",
-                    "text": {"type": "plain_text", "text": "🔗 Open in Apps", "emoji": True},
+                    "text": {"type": "plain_text", "text": ":link: Open in Apps", "emoji": True},
                     "url": f"{apps_url_base}/missions/{mission.mission_id}",
                     "value": _mission_value(mission),
                 }

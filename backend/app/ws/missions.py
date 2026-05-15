@@ -1,7 +1,7 @@
-"""WebSocket route /api/ws/missions — 5초 sync ⭐.
+"""WebSocket route /api/ws/missions — 5초 sync.
 
 API contract: docs/api_contract.md §5.
-Server → Client events:
+Server -> Client events:
   - mission.proposed / mission.confirmed / mission.pivoted / mission.updated
   - pattern.changed
   - reactive.alert

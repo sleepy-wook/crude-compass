@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { GlossaryModal } from "./Glossary";
 import { cn } from "../lib/utils";
@@ -12,8 +12,14 @@ const navItems = [
 
 export function Sidebar() {
   const { status, lastEventAt } = useMissionsWebSocket();
-  const elapsed = lastEventAt ? Math.floor((Date.now() - lastEventAt) / 1000) : null;
   const [glossaryOpen, setGlossaryOpen] = useState(false);
+  // Date.now()는 impure → useState + setInterval로 re-render trigger
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(t);
+  }, []);
+  const elapsed = lastEventAt ? Math.floor((now - lastEventAt) / 1000) : null;
 
   return (
     <aside className="w-72 bg-sidebar-bg text-white flex flex-col h-screen sticky top-0">

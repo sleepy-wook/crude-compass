@@ -1,16 +1,14 @@
 """Mission Plan Agent — Bidirectional 양방향 Mission 생성 + Pivot 권고.
 
-시나리오 v2 § 9.7 + § 10 (Living Mission Lifecycle).
+시나리오 §9.7 + §10 (Living Mission Lifecycle).
 
 핵심 책임:
 1. Pattern Score 70+/30- threshold 시 새 Mission 제안
 2. 진행 중 mission이 시장 변화 catch 시 Pivot 권고 (양방향 반전)
-3. Lifecycle 7 상태 (proposed/active/on_track/at_risk/paused/pivoted/aborted/completed) 인지
+3. Lifecycle 7 상태 인지 (proposed/active/on_track/at_risk/paused/pivoted/aborted/completed)
 4. Confidence Score 함께 산출 (UI 노출용)
 
-호출:
-- Sprint 3: 단일 SDK call로 검증 (이 파일)
-- Sprint 4: Agent Bricks Custom Agent로 등록 + Model Serving endpoint
+구현: Foundation Model API (Claude Haiku 4.5) 직접 호출.
 """
 from __future__ import annotations
 
@@ -189,10 +187,7 @@ def _strip_markdown(text: str) -> str:
 # Main entry
 # ════════════════════════════════════════════════════════════════════════
 def call_mission_plan_agent(input_data: MissionPlanInput) -> MissionPlanOutput | None:
-    """Foundation Model API 호출 → Mission 권고 생성.
-
-    Sprint 3: 직접 호출. Sprint 4: Agent Bricks Custom Agent endpoint으로 wrapping.
-    """
+    """Foundation Model API 호출 → Mission 권고 생성."""
     # Local dev: DATABRICKS_CONFIG_PROFILE=crude-compass (LLM endpoint 등록된 profile).
     # Apps deploy: workspace env auto-injection이라 profile 무관.
     import os

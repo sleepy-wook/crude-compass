@@ -14,7 +14,7 @@
  */
 import { useEffect, type ReactNode } from "react";
 
-export const GLOSSARY: Record<string, { label: string; definition: string }> = {
+const GLOSSARY: Record<string, { label: string; definition: string }> = {
   PATTERN_SCORE: {
     label: "위기 신호 점수",
     definition:

@@ -52,7 +52,7 @@ async def demo_trigger_spike(ticker: str = "BRENT_CRUDE_USD", delta: float = 2.5
     bus = get_bus()
     await bus.publish({
         "type": "reactive.alert",
-        "title": f"🚨 {ticker} {sign}{delta:.2f}% spike (demo)",
+        "title": f"[SPIKE] {ticker} {sign}{delta:.2f}% (demo)",
         "body": (
             f"현재 가격 ${price_now:.2f}. 5분 단위 {direction} 시그널 감지. "
             f"진행 중 Mission Pivot 검토 권고."
@@ -119,7 +119,7 @@ async def check_spike() -> SpikeCheckResponse:
     bus = get_bus()
     await bus.publish({
         "type": "reactive.alert",
-        "title": f"🚨 {latest['ticker']} {sign}{latest['delta_pct_5min']:.2f}% spike",
+        "title": f"[SPIKE] {latest['ticker']} {sign}{latest['delta_pct_5min']:.2f}%",
         "body": (
             f"현재 가격 ${latest['price_usd']:.2f}. 5분 단위 {direction} 시그널 감지. "
             f"진행 중 Mission Pivot 검토 권고."

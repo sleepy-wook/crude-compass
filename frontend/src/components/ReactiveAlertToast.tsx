@@ -23,13 +23,15 @@ export function ReactiveAlertToast() {
     if (!lastEvent) return;
     if ((lastEvent as WSEvent).type !== "reactive.alert") return;
     const ev = lastEvent as Extract<WSEvent, { type: "reactive.alert" }>;
+    // 의도된 패턴: external WS event → React state sync. Effect가 적절한 사용처.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAlert({
       id: Date.now(),
       title: ev.title,
       body: ev.body,
       direction: ev.direction,
     });
-    const timer = setTimeout(() => setAlert(null), 8000); // 8초 후 사라짐
+    const timer = setTimeout(() => setAlert(null), 8000);
     return () => clearTimeout(timer);
   }, [lastEvent]);
 

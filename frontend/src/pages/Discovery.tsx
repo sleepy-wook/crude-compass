@@ -127,7 +127,7 @@ export function Discovery() {
               className="shrink-0 px-4 py-2 rounded-md bg-ink text-white text-xs font-medium hover:bg-ink-2 disabled:opacity-50 transition-colors whitespace-nowrap"
               title="Databricks Foundation Model API (Claude Haiku) — 5-10초 cold start"
             >
-              {recommendMut.isPending ? "🤖 AI 분석 중..." : "🤖 지금 새 추천 생성"}
+              {recommendMut.isPending ? "AI 분석 중..." : "지금 새 추천 생성"}
             </button>
           </div>
           {recommendError && (
@@ -143,7 +143,7 @@ export function Discovery() {
           )}
           {recommendMut.isSuccess && recommendMut.data?.mission && (
             <div className="mt-2 text-xs text-opportunity-700">
-              ✅ 새 Mission 생성: {recommendMut.data.mission.goal_text} (신뢰도 {recommendMut.data.confidence_score?.toFixed(0)}/100)
+              새 Mission 생성: {recommendMut.data.mission.goal_text} (신뢰도 {recommendMut.data.confidence_score?.toFixed(0)}/100)
               · 진행 중 미션 목록 자동 update.
             </div>
           )}

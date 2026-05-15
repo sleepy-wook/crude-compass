@@ -174,7 +174,7 @@ async def _do_mission_action(
         return new, None
 
     if action_id == "mission_pivot":
-        # Sprint 4: Pivot은 Slack에서 HEDGE↔OPP 토글로 처리 (modal D-3 deferred).
+        # Pivot은 Slack에서 HEDGE<->OPP 토글로 처리 (full modal은 Apps에서).
         current = await store.get(mission_id)
         if current is None:
             return None, "미션을 찾을 수 없습니다."

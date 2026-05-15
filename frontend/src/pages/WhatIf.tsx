@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useBacktestPredictions, useBacktestResults } from "../lib/queries";
 import { MissionTypePill } from "../components/StatusPill";
@@ -16,7 +16,6 @@ const GENIE_EXAMPLES = [
 export function WhatIf() {
   const preds = useBacktestPredictions(300);
   const summary = useBacktestResults();
-  const predictions = preds.data?.predictions || [];
 
   // Genie widget state
   const [genieQuestion, setGenieQuestion] = useState("");
@@ -39,23 +38,16 @@ export function WhatIf() {
     genieMut.mutate({ question: q, conversationId: genieConvId });
   };
 
-  // Sort by date asc for slider
-  const sorted = useMemo(
-    () =>
-      [...predictions].sort((a, b) =>
-        a.as_of_date.localeCompare(b.as_of_date)
-      ),
-    [predictions]
-  );
+  // Sort by date asc for slider — preds.data가 바뀔 때만 재계산
+  const sorted = useMemo(() => {
+    const list = preds.data?.predictions || [];
+    return [...list].sort((a, b) => a.as_of_date.localeCompare(b.as_of_date));
+  }, [preds.data]);
 
-  // 첫 시점 자동 선택 = 가장 최근 (sorted.length-1)
+  // Slider state — 사용자가 움직이면 setIdx로 override. idx === null이면 sorted[-1] 자동 사용.
   const [idx, setIdx] = useState<number | null>(null);
-  useEffect(() => {
-    if (idx === null && sorted.length > 0) {
-      setIdx(sorted.length - 1);
-    }
-  }, [sorted.length, idx]);
-  const current = idx === null ? undefined : sorted[idx];
+  const effectiveIdx = idx ?? (sorted.length > 0 ? sorted.length - 1 : null);
+  const current = effectiveIdx === null ? undefined : sorted[effectiveIdx];
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -109,7 +101,7 @@ export function WhatIf() {
               type="range"
               min={0}
               max={sorted.length - 1}
-              value={idx ?? 0}
+              value={effectiveIdx ?? 0}
               onChange={(e) => setIdx(Number(e.target.value))}
               className="w-full mb-3 accent-crisis-500"
             />

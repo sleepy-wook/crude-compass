@@ -229,11 +229,7 @@ async def modify(mission_id: UUID, body: ModifyRequest) -> dict:
 # ────────────────────────────────────────────────────────────────────────
 @router.post("/recommend")
 async def recommend(payload: MissionPlanInput) -> dict:
-    """LLM Mission Plan Agent — Pattern Score + signals → recommend mission.
-
-    Sprint 4: 직접 call_mission_plan_agent (services/mission_plan.py)
-    Sprint 5: Agent Bricks Custom Agent endpoint으로 swap (형욱님 manual 등록)
-    """
+    """LLM Mission Plan Agent — Pattern Score + signals → recommend mission."""
     result = call_mission_plan_agent(payload)
     if result is None:
         raise HTTPException(status_code=500, detail={"code": "LLM_CALL_FAILED"})
@@ -276,7 +272,7 @@ class RecommendNowRequest(BaseModel):
     pattern_score: float | None = None
     bullish_score: float | None = None
     bearish_score: float | None = None
-    use_demo_signals: bool = False  # ⭐ default 변경: silver fetch 사용
+    use_demo_signals: bool = False  # default: silver fetch (true면 demo seed)
 
 
 # 데모 narrative anchor signals (시나리오 §14 Phase 4 핵심 시그널)
