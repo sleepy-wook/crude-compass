@@ -60,7 +60,6 @@
 | 화면 | 뭘 보여주는지 |
 |---|---|
 | oil_prices_wide | 두바이·브렌트·WTI 일일 가격 한눈에 |
-| fleet_current_state | 우리 유조선 5척 현재 위치 + 어느 해역에 있는지 |
 | signal_contribution_30d | 최근 30일 어떤 뉴스/지표가 위기 점수를 끌어올렸는지 |
 | eia_rolling | 미국 원유 재고 4주 평균 변화 |
 | opec_demand_gap | OPEC 공급 - 수요 = 시장 균형 |
@@ -68,27 +67,28 @@
 | news_top_signals | 최근 7일 가장 중요한 뉴스 상위 5개/일 |
 | pattern_score_latest | 위기 점수 30일 추이 |
 
-이 8개를 D-2에 Genie(AI 데이터 어시스턴트)와 대시보드에서 그대로 씁니다.
+이 7개를 D-2에 Genie(AI 데이터 어시스턴트)와 대시보드에서 그대로 씁니다. (D-2 5/16 정리: fleet_current_state view는 AIS Stream source 제거와 동반 DROP.)
 
-### 5. 메인 화면에 시나리오 시각화 4개 추가 (`0e765e1`)
+### 5. 메인 화면에 시나리오 시각화 추가 (`0e765e1`)
 
 가장 큰 작업. **시나리오에서 약속한 것들이 실제 화면에 안 보이는 문제** (정합성 52%)를 발견하고 메꿨습니다.
 
-- **호르무즈 해협 지도** — Persian Gulf 지도 위에 우리 유조선 5척 점으로 표시. 봉쇄 위험 구역은 빨갛게 발광. 디자인 mockup에 이미 있던 SVG를 React로 옮김. **지도 라이브러리 없이 순수 SVG**로 만들어서 가벼움.
-- **시그널 기여도 막대 차트** — "오늘 위기 점수 82점은 호르무즈 35% + 두바이 28% + 뉴스 22% + EIA 15% 기여" 한눈에 표시.
+- **시그널 기여도 막대 차트** — "오늘 위기 점수 82점은 GDELT 뉴스 톤 35% + OPEC 28% + EIA 22% + FX 15% 기여" 한눈에 표시.
 - **위기 점수 추이 차트** — 30일 미니 차트 + **6년 long 차트** (호르무즈 봉우리 + 작은 봉우리들 = 매주 평시 시그널 = 일상 도구 narrative).
 - **OPEC MOMR 인용 박스** — "OPEC 월간 보고서 PDF에서 직접 파싱한 결과: 사우디 +24 kbbl/d 증산" 명시. AI가 PDF를 읽었다는 증거 노출.
 
-→ 신규 컴포넌트 4개 + 백엔드 API 2개. **외부 라이브러리 0개 추가** (모두 순수 SVG + CSS).
+→ 신규 컴포넌트 + 백엔드 API. **외부 라이브러리 0개 추가** (모두 순수 SVG + CSS).
 
-### 6. 시나리오 ↔ 코드 정합성 수정
+> D-2 (5/16) 후속 정리: HormuzMap (호르무즈 해협 지도) 컴포넌트는 AIS Stream 데이터 출처 제거와 동반 삭제. 호르무즈 narrative anchor는 GDELT 뉴스 키워드 mention burst 카드 (이란/호르무즈 +280%) 로 단일화.
 
-코드에서는 SK Shipping이 운용하는 실제 유조선 5척을 추적하고 있는데, 시나리오에는 "윤리적 이유로 실제 추적은 안 함"이라고 잘못 적혀있었어요. 토론 후 결정:
-- 정유사가 자기 회사 fleet 모니터링은 industry standard (합법)
-- AIS는 공개 데이터 (IMO 의무사항)
-- 화면에는 익명 표시(KPETRO_001~005)로 브랜드 노출만 회피
+### 6. 시나리오 ↔ 코드 정합성 수정 (D-2 reframe)
 
-→ 시나리오 §6.5.2 narrative 수정해서 코드와 일치시킴.
+D-3 시점에는 "정유사 자사 fleet AIS 추적 = industry standard" 로 narrative 명시했으나, D-2 (5/16) 시점 결정 — AIS Stream 데이터 source 자체를 완전 제거:
+- 7년 backtest에 ais_traffic row 0건 (silver.signal_events_decayed)
+- 글로벌 8min scout 결과 한국 flag VLCC 0척 active
+- "실시간 추적" narrative가 실데이터 없이는 mock 시뮬이 되어 신뢰성 risk
+
+→ 시나리오 §4 가상 fleet + §6.5 leading 시그널 + §7 source 7→6 통째 재구성. 코드/스키마/문서 consistent update (commit `533cefb`).
 
 ### 7. 자동 실행 작업 12개 audit (`d42703f`)
 

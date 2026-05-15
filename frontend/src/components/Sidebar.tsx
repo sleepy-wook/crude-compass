@@ -59,14 +59,14 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Glossary trigger — 평가위원이 1 click에 8개 용어 풀이 */}
+      {/* Glossary trigger — 평가위원이 1 click에 12개 용어 풀이 */}
       <button
         type="button"
         onClick={() => setGlossaryOpen(true)}
         className="text-left w-full px-6 py-3 border-t border-sidebar-bg2 text-sm text-sidebar-muted hover:text-white hover:bg-sidebar-bg2 transition-colors flex items-center justify-between"
       >
         <span>핵심 용어 보기</span>
-        <span className="text-xs text-sidebar-muted2">8개 →</span>
+        <span className="text-xs text-sidebar-muted2">12개 →</span>
       </button>
 
       <div className="p-5 border-t border-sidebar-bg2">

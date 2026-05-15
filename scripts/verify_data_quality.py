@@ -200,12 +200,7 @@ def main() -> None:
     SG_TABLES = [
         ("silver.signal_events_decayed", "event_date"),
         ("silver.pattern_scores_daily",  "date"),
-        ("silver.hormuz_traffic_hourly", "hour_start"),
-        ("silver.dubai_premium_daily",   "date"),
         ("gold.daily_risk_score",        "date"),
-        ("gold.mission_outcomes",        "proposed_at"),
-        ("gold.landing_cost_scenarios",  "computed_at"),
-        ("gold.backtest_results",        "computed_at"),
     ]
     for tbl, dt_col in SG_TABLES:
         rows = q(w, f"""
