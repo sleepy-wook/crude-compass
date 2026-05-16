@@ -247,6 +247,34 @@ def main() -> None:
     for s in GOLD:
         execute(w, s)
 
+    # ════════════════════════════════════════════════════════════════════
+    # Dead object DROP — idempotent migration
+    # ════════════════════════════════════════════════════════════════════
+    # 5/15-5/16 cleanup 결정한 dead objects가 schema 파일에는 DROP 코멘트
+    # 적혀있지만 workspace에 실제 적용 안 되어 stale state 잔존.
+    # 본 섹션에서 idempotent DROP IF EXISTS 실행 — apply_schemas.py 1회 실행으로 정리.
+    DROP_STATEMENTS = [
+        Stmt("DROP bronze.ais_positions (5/16 D-2 AIS removal)",
+             "DROP TABLE IF EXISTS crude_compass.bronze.ais_positions"),
+        Stmt("DROP silver.hormuz_traffic_hourly (5/16 D-3 dead)",
+             "DROP TABLE IF EXISTS crude_compass.silver.hormuz_traffic_hourly"),
+        Stmt("DROP silver.dubai_premium_daily (5/16 D-3 dead)",
+             "DROP TABLE IF EXISTS crude_compass.silver.dubai_premium_daily"),
+        Stmt("DROP gold.fleet_current_state (5/16 D-2 AIS removal)",
+             "DROP VIEW IF EXISTS crude_compass.gold.fleet_current_state"),
+        Stmt("DROP gold.backtest_results (5/16 D-3 LLM backtest로 대체)",
+             "DROP TABLE IF EXISTS crude_compass.gold.backtest_results"),
+        Stmt("DROP gold.mission_outcomes (5/15 D-3 dead)",
+             "DROP TABLE IF EXISTS crude_compass.gold.mission_outcomes"),
+        Stmt("DROP gold.landing_cost_scenarios (5/15 D-3 dead)",
+             "DROP TABLE IF EXISTS crude_compass.gold.landing_cost_scenarios"),
+        Stmt("DROP gold.backtest_risk_score (5/15 D-3 dead)",
+             "DROP TABLE IF EXISTS crude_compass.gold.backtest_risk_score"),
+    ]
+    print(f"\nDead object cleanup ({len(DROP_STATEMENTS)} DROP IF EXISTS)")
+    for s in DROP_STATEMENTS:
+        execute(w, s)
+
     # 최종 검증
     print("\n" + "=" * 70)
     print("최종 검증 — information_schema.tables")
