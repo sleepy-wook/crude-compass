@@ -211,21 +211,8 @@ def main() -> None:
             n, mn, mx = rows[0]
             print(f"  {tbl:<35} n={n:>6} | {mn} ~ {mx}")
 
-    # ────────────────────────────────────────────────────────────────────
-    section("6. backtest_results 최신 run")
-    # ────────────────────────────────────────────────────────────────────
-    rows = q(w, """
-        SELECT run_id, backtest_window, mission_type, signal_count, correct_count,
-               accuracy_pct, avg_lead_time_days
-        FROM crude_compass.gold.backtest_results
-        ORDER BY computed_at DESC
-        LIMIT 10
-    """, label="backtest_results")
-    if rows:
-        print(f"  {'run_id':<35} {'type':<13} {'n':>4} {'hit':>4} {'prec':>6} {'lead'}")
-        for r in rows:
-            run, win, t, n, hit, prec, lead = r
-            print(f"  {run[:35]:<35} {t:<13} {n:>4} {hit:>4} {prec or 0:>6} {lead or '-'}")
+    # 2026-05-16 D-2 정리: section 6 'backtest_results 최신 run' 삭제.
+    # gold.backtest_results 테이블 DROP (rule-based backtest 폐기, LLM backtest는 Lakebase backtest_predictions로 migration).
 
     # ────────────────────────────────────────────────────────────────────
     section("7. 시나리오 의도 vs 실제 — Gap 진단")
