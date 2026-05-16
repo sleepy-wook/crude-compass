@@ -61,6 +61,17 @@ class Settings(BaseModel):
         """Genie Space ID 등록되어 있으면 live SDK 호출."""
         return bool(self.genie_space_id)
 
+    # Agent Bricks Supervisor Agent endpoint (D-2 형욱 manual 등록 — 4 sub-agent 오케스트레이션)
+    # 비어있으면 /api/supervisor/query는 Genie fallback으로 graceful degrade.
+    supervisor_endpoint_name: str = Field(
+        default_factory=lambda: os.getenv("SUPERVISOR_ENDPOINT_NAME", "")
+    )
+
+    @property
+    def supervisor_enabled(self) -> bool:
+        """Supervisor endpoint 등록되어 있으면 live OpenAI client 호출."""
+        return bool(self.supervisor_endpoint_name)
+
     # Databricks SDK는 환경변수 또는 ~/.databrickscfg 자동 로드
     # (DATABRICKS_HOST + DATABRICKS_TOKEN 또는 PROFILE)
 

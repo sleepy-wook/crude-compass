@@ -110,6 +110,24 @@ export interface BacktestPrediction {
   dubai_30d_usd: number | null;
 }
 
+/** Agent Bricks Supervisor Agent — Multi-Agent orchestration (4 sub-agents) */
+
+export interface SubAgentCall {
+  name: string;
+  arguments: string | null;
+  result_preview: string | null;
+}
+
+export interface SupervisorQueryResponse {
+  answer: string;
+  source: "live" | "fallback";
+  tools_used: SubAgentCall[];
+  /** 'fallback' 모드 시 genie 4-tier 정보 (transparency) */
+  fallback_genie_source?: string;
+  fallback_sql?: string | null;
+  fallback_data?: Record<string, unknown>[] | null;
+}
+
 /** Genie 자연어 질의 — docs/api_contract.md §7.3 */
 export type GenieSource =
   | "live"            // Genie Conversation API 정상 호출

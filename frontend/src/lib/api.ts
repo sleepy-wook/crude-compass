@@ -9,6 +9,7 @@ import type {
   Mission,
   PatternHistory,
   PatternScoreCurrent,
+  SupervisorQueryResponse,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
@@ -179,6 +180,13 @@ export const api = {
     request<GenieQueryResponse>("/api/genie/query", {
       method: "POST",
       body: JSON.stringify({ question, conversation_id: conversationId ?? null }),
+    }),
+
+  // Agent Bricks Supervisor Agent — Multi-Agent orchestration (Genie + KA + IE + FMA)
+  supervisorQuery: (question: string) =>
+    request<SupervisorQueryResponse>("/api/supervisor/query", {
+      method: "POST",
+      body: JSON.stringify({ question }),
     }),
 
   // Mission Plan Agent — '지금 새 추천 생성' demo wrapper

@@ -4,38 +4,52 @@ import { useBacktestPredictions, useBacktestResults } from "../lib/queries";
 import { MissionTypePill } from "../components/StatusPill";
 import { Term } from "../components/Glossary";
 import { api } from "../lib/api";
-import type { GenieQueryResponse } from "../lib/types";
+import type { SupervisorQueryResponse } from "../lib/types";
 import { formatPct, formatScore, formatUsd } from "../lib/utils";
 
-const GENIE_EXAMPLES = [
-  "최근 OPEC 사우디 공급 변화는?",
-  "이번 주 EIA 재고 변화는?",
-  "두바이유 7일 momentum은?",
+const SUPERVISOR_EXAMPLES = [
+  "오늘 위기 점수 어디서 왔고 추천도 알려줘",
+  "OPEC 5월 사우디 감산 근거는?",
+  "최근 OPEC 사우디 공급 수치 보여줘",
+  "두바이유 7일 momentum + 매입 비중 추천",
 ];
+
+const SUBAGENT_LABEL: Record<string, { label: string; color: string }> = {
+  // Sub-agent name 패턴 매칭 (Supervisor가 반환하는 tool name)
+  genie: { label: "Genie SQL", color: "bg-blue-50 text-blue-700 border-blue-200" },
+  knowledge: { label: "Knowledge Assistant", color: "bg-purple-50 text-purple-700 border-purple-200" },
+  ka: { label: "Knowledge Assistant", color: "bg-purple-50 text-purple-700 border-purple-200" },
+  extraction: { label: "Information Extraction", color: "bg-amber-50 text-amber-700 border-amber-200" },
+  ie: { label: "Information Extraction", color: "bg-amber-50 text-amber-700 border-amber-200" },
+  haiku: { label: "Mission Plan (Claude Haiku)", color: "bg-green-50 text-green-700 border-green-200" },
+  claude: { label: "Mission Plan (Claude Haiku)", color: "bg-green-50 text-green-700 border-green-200" },
+};
+
+function labelSubAgent(name: string): { label: string; color: string } {
+  const lower = name.toLowerCase();
+  for (const [key, val] of Object.entries(SUBAGENT_LABEL)) {
+    if (lower.includes(key)) return val;
+  }
+  return { label: name, color: "bg-line-1 text-ink-2 border-line-2" };
+}
 
 export function WhatIf() {
   const preds = useBacktestPredictions(300);
   const summary = useBacktestResults();
 
-  // Genie widget state
-  const [genieQuestion, setGenieQuestion] = useState("");
-  const [genieConvId, setGenieConvId] = useState<string | null>(null);
-  const [genieResp, setGenieResp] = useState<GenieQueryResponse | null>(null);
-  const [showSql, setShowSql] = useState(false);
+  // Supervisor Agent widget state — Multi-Agent orchestration (Genie + KA + IE + FMA)
+  const [supervisorQuestion, setSupervisorQuestion] = useState("");
+  const [supervisorResp, setSupervisorResp] = useState<SupervisorQueryResponse | null>(null);
 
-  const genieMut = useMutation({
-    mutationFn: ({ question, conversationId }: { question: string; conversationId: string | null }) =>
-      api.genieQuery(question, conversationId),
-    onSuccess: (res) => {
-      setGenieResp(res);
-      if (res.conversation_id) setGenieConvId(res.conversation_id);
-    },
+  const supervisorMut = useMutation({
+    mutationFn: ({ question }: { question: string }) => api.supervisorQuery(question),
+    onSuccess: (res) => setSupervisorResp(res),
   });
 
-  const submitGenie = () => {
-    const q = genieQuestion.trim();
+  const submitSupervisor = () => {
+    const q = supervisorQuestion.trim();
     if (q.length < 2) return;
-    genieMut.mutate({ question: q, conversationId: genieConvId });
+    supervisorMut.mutate({ question: q });
   };
 
   // Sort by date asc for slider — preds.data가 바뀔 때만 재계산
@@ -254,30 +268,28 @@ export function WhatIf() {
         </div>
       </section>
 
-      {/* Genie 자연어 질의 — 시나리오 §9.3 anchor */}
+      {/* Agent Bricks Supervisor — Multi-Agent orchestration (시나리오 §9.7 anchor) */}
       <section className="mt-6 bg-panel rounded-xl border border-line-1 p-6">
         <div className="flex items-baseline justify-between mb-3">
           <h2 className="font-display text-lg font-semibold text-ink">
-            Genie 자연어 질의
+            AI 어시스턴트 (Supervisor)
           </h2>
           <span className="text-[11px] text-ink-3">
-            Databricks Genie Space · 정형 데이터 자연어
+            Agent Bricks · 4 sub-agent (Genie · KA · IE · FMA) 자동 라우팅
           </span>
         </div>
         <p className="text-xs text-ink-3 mb-4 leading-relaxed">
-          평가위원님 직접 질문해보세요. 예시 chip 클릭 또는 자유 입력 가능.
-          응답은 {" "}
-          <code className="px-1 py-0.5 bg-line-1 rounded text-[10px]">source</code> field로
-          live / fallback 모드 항상 표시 (transparency).
+          자연어 질의 1개 → Supervisor가 적절한 sub-agent에 자동 delegate.
+          응답 하단에 <code className="px-1 py-0.5 bg-line-1 rounded text-[10px]">사용된 sub-agent</code> 표시 (transparency).
         </p>
 
         {/* Example chips */}
         <div className="flex flex-wrap gap-2 mb-3">
-          {GENIE_EXAMPLES.map((ex) => (
+          {SUPERVISOR_EXAMPLES.map((ex) => (
             <button
               key={ex}
               type="button"
-              onClick={() => setGenieQuestion(ex)}
+              onClick={() => setSupervisorQuestion(ex)}
               className="text-xs px-3 py-1.5 rounded-full border border-line-2 text-ink-2 hover:bg-line-1 hover:border-ink-3 transition-colors"
             >
               {ex}
@@ -287,121 +299,123 @@ export function WhatIf() {
 
         {/* Textarea */}
         <textarea
-          value={genieQuestion}
-          onChange={(e) => setGenieQuestion(e.target.value)}
-          placeholder="자유 입력 (예: 지금 텀 비중 어떻게 조정?)"
+          value={supervisorQuestion}
+          onChange={(e) => setSupervisorQuestion(e.target.value)}
+          placeholder="자유 입력 (예: 오늘 매입 비중 어떻게 조정?)"
           rows={2}
           className="w-full text-sm p-3 border border-line-2 rounded-md focus:outline-none focus:border-ink-3 mb-3"
         />
         <div className="flex items-center justify-between mb-4">
           <button
             type="button"
-            onClick={submitGenie}
-            disabled={genieMut.isPending || genieQuestion.trim().length < 2}
+            onClick={submitSupervisor}
+            disabled={supervisorMut.isPending || supervisorQuestion.trim().length < 2}
             className="px-4 py-2 rounded-md bg-ink text-white text-sm font-medium hover:bg-ink-2 disabled:opacity-50 transition-colors"
           >
-            {genieMut.isPending ? "Genie 호출 중..." : "질문하기"}
+            {supervisorMut.isPending ? "Supervisor 호출 중..." : "질문하기"}
           </button>
-          {genieConvId && (
+          {supervisorResp && (
             <button
               type="button"
               onClick={() => {
-                setGenieConvId(null);
-                setGenieResp(null);
-                setGenieQuestion("");
+                setSupervisorResp(null);
+                setSupervisorQuestion("");
               }}
               className="text-xs text-ink-3 hover:text-ink underline"
             >
-              새 대화 시작
+              새 질의
             </button>
           )}
         </div>
 
         {/* Response area */}
-        {genieMut.isError && (
+        {supervisorMut.isError && (
           <div className="text-xs text-crisis-700 mb-3">
-            에러: {(genieMut.error as Error)?.message || "Genie 호출 실패"}
+            에러: {(supervisorMut.error as Error)?.message || "Supervisor 호출 실패"}
           </div>
         )}
-        {genieResp && (
+        {supervisorResp && (
           <div className="border-t border-line-1 pt-4 mt-2">
             {/* Source badge */}
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
               <span
                 className={
-                  genieResp.source === "live"
+                  supervisorResp.source === "live"
                     ? "text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-opportunity-50 text-opportunity-700 border border-opportunity-100"
                     : "text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-line-1 text-ink-2 border border-line-2"
                 }
                 title={
-                  genieResp.source === "live"
-                    ? "Databricks Genie Space에서 라이브 응답"
-                    : genieResp.source === "fallback_data"
-                    ? "Genie 미연동 — Lakebase 직접 SQL fallback"
-                    : genieResp.source === "fallback_text"
-                    ? "SQL 실패 — hardcoded 설명"
-                    : "키워드 매칭 실패 — 일반 안내"
+                  supervisorResp.source === "live"
+                    ? "Agent Bricks Supervisor 라이브 호출"
+                    : "Supervisor endpoint 미등록 — Genie fallback 모드"
                 }
               >
-                {genieResp.source === "live" ? "● Live Genie" : `● ${genieResp.source}`}
+                {supervisorResp.source === "live" ? "● Live Supervisor" : `● Fallback`}
               </span>
-              {genieResp.conversation_id && (
+              {supervisorResp.source === "fallback" && supervisorResp.fallback_genie_source && (
                 <span className="text-[10px] font-mono text-ink-3">
-                  conv: {genieResp.conversation_id.slice(0, 12)}...
+                  via {supervisorResp.fallback_genie_source}
                 </span>
               )}
             </div>
 
             {/* Answer */}
             <p className="text-sm text-ink leading-relaxed whitespace-pre-wrap mb-3">
-              {genieResp.answer}
+              {supervisorResp.answer}
             </p>
 
-            {/* Optional: data table (max 5 rows) */}
-            {genieResp.data && genieResp.data.length > 0 && (
-              <div className="overflow-x-auto bg-paper rounded-md border border-line-1 mb-3">
-                <table className="w-full text-xs">
-                  <thead className="bg-line-1">
-                    <tr>
-                      {Object.keys(genieResp.data[0]).map((k) => (
-                        <th key={k} className="py-2 px-3 text-left font-mono text-ink-3">
-                          {k}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {genieResp.data.slice(0, 5).map((row, ri) => (
-                      <tr key={ri} className="border-t border-line-1">
-                        {Object.values(row).map((v, ci) => (
-                          <td key={ci} className="py-1.5 px-3 font-mono">
-                            {String(v)}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {/* Tools used (Supervisor sub-agent routing trace) */}
+            {supervisorResp.tools_used && supervisorResp.tools_used.length > 0 && (
+              <div className="border-t border-line-1 pt-3 mt-3">
+                <div className="text-[10px] uppercase tracking-widest text-ink-3 mb-2">
+                  사용된 sub-agent ({supervisorResp.tools_used.length})
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {supervisorResp.tools_used.map((t, i) => {
+                    const { label, color } = labelSubAgent(t.name);
+                    return (
+                      <span
+                        key={`${t.name}-${i}`}
+                        className={`text-[11px] px-2 py-0.5 rounded-full border ${color}`}
+                        title={t.arguments || t.name}
+                      >
+                        {label}
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
-            {/* Optional: SQL toggle (collapsed by default — PB4) */}
-            {genieResp.sql && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setShowSql((v) => !v)}
-                  className="text-xs text-ink-3 hover:text-ink underline"
-                >
-                  {showSql ? "SQL 숨기기 ▲" : "SQL 보기 ▼"}
-                </button>
-                {showSql && (
-                  <pre className="text-[11px] font-mono bg-ink text-white p-3 rounded-md mt-2 overflow-x-auto whitespace-pre-wrap">
-                    {genieResp.sql}
-                  </pre>
-                )}
-              </div>
-            )}
+            {/* Fallback path data (Genie SQL transparency) */}
+            {supervisorResp.source === "fallback" &&
+              supervisorResp.fallback_data &&
+              supervisorResp.fallback_data.length > 0 && (
+                <div className="overflow-x-auto bg-paper rounded-md border border-line-1 mt-3">
+                  <table className="w-full text-xs">
+                    <thead className="bg-line-1">
+                      <tr>
+                        {Object.keys(supervisorResp.fallback_data[0]).map((k) => (
+                          <th key={k} className="py-2 px-3 text-left font-mono text-ink-3">
+                            {k}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {supervisorResp.fallback_data.slice(0, 5).map((row, ri) => (
+                        <tr key={ri} className="border-t border-line-1">
+                          {Object.values(row).map((v, ci) => (
+                            <td key={ci} className="py-1.5 px-3 font-mono">
+                              {String(v)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
           </div>
         )}
       </section>

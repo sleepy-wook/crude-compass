@@ -73,12 +73,15 @@
    │  └──────────────────────────────┘   └──────────────┬──────────────┘    │
    │                 ↑                                  ↓                    │
    │  ┌────────────────────────────────────────────────────────────────┐   │
-   │  │  Agent Bricks Custom Agents (Model Serving endpoints)          │   │
+   │  │  Agent Bricks 3 types (D-2 scope-in)                            │   │
    │  │                                                                  │   │
-   │  │  Agent 1: Monitoring         (얇게, Job 1 안에 통합)            │   │
-   │  │  Agent 2: Simulation          (mock — Genie + canned)          │   │
-   │  │  Agent 3: Mission Plan ⭐    (real — Pre-emptive 양방향 제안)  │   │
-   │  │  Agent 4: Self-Critique      (mock — hard-coded backtest)      │   │
+   │  │  ⭐ Supervisor Agent (`crude-compass-supervisor`)                │   │
+   │  │     OpenAI chat completions 호환 + return_trace                  │   │
+   │  │     │                                                            │   │
+   │  │     ├─ Genie Space (정형 SQL)                                    │   │
+   │  │     ├─ Knowledge Assistant (OPEC PDF RAG + citation)             │   │
+   │  │     ├─ Information Extraction (OPEC PDF → 5 fields)              │   │
+   │  │     └─ Mission Plan FMA (Claude Haiku 4.5 Bidirectional)         │   │
    │  └────────────────────────────────────────────────────────────────┘   │
    │                                       ↓                                │
    │  ┌────────────────────────────────────────────────────────────────┐   │

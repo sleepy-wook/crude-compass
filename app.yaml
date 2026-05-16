@@ -52,6 +52,11 @@ env:
   - name: GENIE_SPACE_ID
     valueFrom: genie_space_id
 
+  # Agent Bricks Supervisor Agent endpoint (D-2 형욱 manual 등록 후)
+  # 4 sub-agent (Genie + KA + IE + FMA) 오케스트레이션. 미설정이면 Genie fallback.
+  - name: SUPERVISOR_ENDPOINT_NAME
+    valueFrom: supervisor_endpoint_name
+
   # External API (OilPriceAPI / ECOS / EIA)
   - name: OILPRICE_API_KEY
     valueFrom: oilprice_api_key
