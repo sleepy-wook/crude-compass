@@ -27,22 +27,23 @@ def _resolve_endpoint_path(secret_path: str) -> str:
     """Lakebase endpoint path resolver.
 
     Secret value가 `endpoints/primary` (display name)일 수 있지만 실제 endpoint id는
-    auto-generated `ep-<random>` 형태. PGHOST env에서 추출해서 path 재구성.
+    auto-generated `ep-<random>` 형태. Actual host에서 추출해서 path 재구성.
+
+    Lookup order (둘 중 먼저 found):
+    1. PGHOST env (Apps Database resource binding 자동 주입 — 만약 app.yaml에서 expose)
+    2. LAKEBASE_HOST env (secret으로 등록된 actual host) — 우리 app.yaml 패턴
 
     예:
       secret_path = 'projects/crude-compass-pg/branches/production/endpoints/primary'
-      PGHOST     = 'ep-lucky-star-d1rlmmrr.database.us-west-2.cloud.databricks.com'
+      host       = 'ep-lucky-star-d1rlmmrr.database.us-west-2.cloud.databricks.com'
       → 'projects/crude-compass-pg/branches/production/endpoints/ep-lucky-star-d1rlmmrr'
-
-    Apps Database resource binding이 PGHOST 자동 주입 (또는 secret과 동일).
-    PGHOST 없으면 secret_path 그대로 반환 (fallback).
     """
     import os as _os
-    pghost = _os.getenv("PGHOST", "").strip()
-    if not pghost or "endpoints/" not in secret_path:
+    host = _os.getenv("PGHOST", "").strip() or _os.getenv("LAKEBASE_HOST", "").strip()
+    if not host or "endpoints/" not in secret_path:
         return secret_path
-    # PGHOST first segment = endpoint_id (예: ep-lucky-star-d1rlmmrr)
-    endpoint_id = pghost.split(".")[0]
+    # host first segment = endpoint_id (예: ep-lucky-star-d1rlmmrr)
+    endpoint_id = host.split(".")[0]
     if not endpoint_id.startswith("ep-"):
         return secret_path  # not Lakebase host pattern
     # path의 endpoints/<x> 를 endpoints/<actual_id> 로 교체
