@@ -93,6 +93,17 @@ export interface BacktestResults {
   summary: BacktestSummary | null;
   by_zone: BacktestZoneBreakdown[];
   by_confidence: BacktestConfBreakdown[];
+  /** Lakebase OAuth role binding 상태 (Apps Database resource pending 시 false) */
+  lakebase_available?: boolean;
+  reason?: string;
+  message?: string;
+}
+
+export interface BacktestPredictionsResponse {
+  predictions: BacktestPrediction[];
+  lakebase_available?: boolean;
+  reason?: string;
+  message?: string;
 }
 
 export interface BacktestPrediction {

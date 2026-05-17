@@ -21,10 +21,19 @@ const DIRECTION_LABEL: Record<string, { label: string; cls: string }> = {
 
 const CATEGORY_LABEL: Record<string, string> = {
   geopolitics: "지정학",
+  geopolitical: "지정학",
   supply: "공급",
   demand: "수요",
   macro: "거시",
   policy: "정책",
+  sanctions: "제재",
+  conflict: "분쟁",
+  inventory: "재고",
+  production_cut: "감산",
+  shipping: "해운",
+  recession: "경기 침체",
+  energy: "에너지",
+  trade: "교역",
 };
 
 export function NewsTopList({ limit = 12 }: { limit?: number }) {

@@ -316,6 +316,24 @@ export function Discovery() {
             />
           </div>
         )}
+        {backtest.data && !backtest.data.summary && backtest.data.lakebase_available === false && (
+          <div className="bg-panel rounded-xl border-2 border-dashed border-line-2 p-5">
+            <div className="flex items-start gap-3">
+              <span className="text-[10px] uppercase tracking-widest text-ink-3 mt-1 shrink-0">
+                데모 모드
+              </span>
+              <div className="flex-1">
+                <h3 className="font-display text-base font-semibold text-ink mb-1.5">
+                  Backtest 데이터 — Lakebase OAuth 연동 진행 중
+                </h3>
+                <p className="text-xs text-ink-2 leading-relaxed">
+                  Lakebase OLTP에 적재된 backtest_predictions는 Apps Database resource binding 완료 시 즉시 라이브.
+                  <Link to="/what-if" className="ml-1 text-ink underline">What-if에서 상세 →</Link>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

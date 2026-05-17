@@ -228,9 +228,9 @@ def _seed_demo_in_memory(store: InMemoryMissionStore) -> None:
         mission_id=uuid4(),
         mission_type=MissionType.HEDGE,
         status=MissionStatus.PROPOSED,
-        goal_text="Pre-emptive HEDGE: Term 60% → 75% (4주)",
+        goal_text="사전 위험방어 — 장기계약 비중 60% → 75% (4주)",
         pattern_score=82.0,
-        reasoning="호르무즈 위기 누적 — Iran 제재 + Russia-Ukraine + UK Maritime alerts. AI confidence 78%.",
+        reasoning="호르무즈 위기 누적 — 이란 제재 + 러시아·우크라이나 + UK 해상 경보. AI 자신감 78%.",
         simulation_roi={"Brent_130_봉쇄": 410.0, "Brent_110_긴장": 140.0, "Brent_90_평화": -50.0},
         urgency=MissionUrgency.URGENT,
         target_pct=75,
@@ -242,11 +242,11 @@ def _seed_demo_in_memory(store: InMemoryMissionStore) -> None:
         mission_id=uuid4(),
         mission_type=MissionType.OPPORTUNITY,
         status=MissionStatus.PROPOSED,
-        goal_text="Pre-emptive OPPORTUNITY: Spot 40% → 55% (4주)",
+        goal_text="사전 기회포착 — 즉시구매 비중 40% → 55% (4주)",
         pattern_score=22.0,
         reasoning=(
-            "약세 신호 누적 — 중국 PMI 49.2 (수요 둔화) + OECD 재고 빌드 +280k/wk + "
-            "사우디 OSP $1.20 인하 (Asia bound). 평시 미세 조정 기회. AI confidence 64%."
+            "약세 신호 누적 — 중국 PMI 49.2 (수요 둔화) + OECD 재고 증가 +280k/주 + "
+            "사우디 OSP $1.20 인하 (아시아향). 평시 미세 조정 기회. AI 자신감 64%."
         ),
         simulation_roi={"Brent_70_약세": 280.0, "Brent_80_안정": 90.0, "Brent_95_반등": -120.0},
         urgency=MissionUrgency.DEFAULT,

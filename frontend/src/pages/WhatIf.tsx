@@ -92,6 +92,31 @@ export function WhatIf() {
         </section>
       )}
 
+      {/* Lakebase 미연동 disclosure — Apps Database resource pending 시 정직 표기 */}
+      {summary.data && summary.data.lakebase_available === false && (
+        <section className="mb-6 bg-panel rounded-xl border-2 border-dashed border-line-2 p-5">
+          <div className="flex items-start gap-3">
+            <span className="text-[10px] uppercase tracking-widest text-ink-3 mt-1 shrink-0">
+              데모 모드
+            </span>
+            <div className="flex-1">
+              <h3 className="font-display text-base font-semibold text-ink mb-1.5">
+                Backtest 데이터 — Lakebase OAuth 연동 진행 중
+              </h3>
+              <p className="text-xs text-ink-2 leading-relaxed">
+                Lakebase (Postgres OLTP)에 backtest_predictions 적재 완료.
+                Production Apps의 Service Principal OAuth role binding이 진행 중이라
+                <strong className="text-ink"> Apps Database resource 추가</strong>가 끝나면
+                즉시 라이브 데이터로 전환됩니다.
+              </p>
+              <p className="text-[11px] text-ink-3 mt-2 font-mono">
+                자체 평가 5차 (D-1) §"Known limitations" 명시 — 정직 disclosure
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Time travel slider */}
       <section className="mb-6 bg-panel rounded-xl border border-line-1 p-6">
         <div className="flex items-baseline justify-between mb-2">

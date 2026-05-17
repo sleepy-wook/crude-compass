@@ -1,4 +1,4 @@
-import { cn } from "../lib/utils";
+import { cn, statusLabel } from "../lib/utils";
 
 type Variant = "crisis" | "opportunity" | "ok" | "warn" | "ink3";
 
@@ -23,14 +23,16 @@ const statusToVariant: Record<string, Variant> = {
 
 export function StatusPill({ status, label }: { status: string; label?: string }) {
   const variant: Variant = statusToVariant[status] || "ink3";
+  // default fallback — label 미전달 시 한국어 자동 라벨 (영문 노출 방지)
+  const display = label || statusLabel(status);
   return (
     <span
       className={cn(
-        "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider border font-medium",
+        "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] tracking-wider border font-medium",
         variantClass[variant]
       )}
     >
-      {label || status}
+      {display}
     </span>
   );
 }

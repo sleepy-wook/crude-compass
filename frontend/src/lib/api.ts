@@ -3,7 +3,7 @@
  * Backend: http://localhost:8000 (dev), Apps deploy URL (prod).
  */
 import type {
-  BacktestPrediction,
+  BacktestPredictionsResponse,
   BacktestResults,
   GenieQueryResponse,
   Mission,
@@ -178,7 +178,7 @@ export const api = {
   // backtest
   backtestResults: () => request<BacktestResults>("/api/backtest/results"),
   backtestPredictions: (limit = 50) =>
-    request<{ predictions: BacktestPrediction[] }>(`/api/backtest/predictions?limit=${limit}`),
+    request<BacktestPredictionsResponse>(`/api/backtest/predictions?limit=${limit}`),
 
   // genie 자연어 질의
   genieQuery: (question: string, conversationId?: string | null) =>

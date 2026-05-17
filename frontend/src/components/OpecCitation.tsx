@@ -52,7 +52,7 @@ export function OpecCitation() {
 
       {!isLoading && !isError && latest && (
         <div className="rounded-xl border border-line-1 bg-panel p-4">
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center gap-3 mb-3 flex-wrap">
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] border bg-ink/5 text-ink-2 border-line-2 font-mono">
               MOMR {latest.report_month}
             </span>
@@ -69,6 +69,22 @@ export function OpecCitation() {
                 {BALANCE_LABEL[latest.market_balance] ?? latest.market_balance}
               </span>
             )}
+            {(() => {
+              // 최신 보고서 vs 현재 달 lag — 2개월+ 이상이면 disclosure
+              const m = latest.report_month?.slice(0, 7);
+              if (!m) return null;
+              const [y, mm] = m.split("-").map(Number);
+              const now = new Date();
+              const lag = (now.getFullYear() - y) * 12 + (now.getMonth() + 1 - mm);
+              if (lag >= 2) {
+                return (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] border bg-line-1 text-ink-3 border-line-2 font-mono">
+                    최신 보고서 {lag}개월 lag · 4월 미수집 (anti-bot)
+                  </span>
+                );
+              }
+              return null;
+            })()}
             <span className="text-[10px] text-ink-3 font-mono">
               {data?.source ?? "PDF parsed"}
             </span>
@@ -121,8 +137,8 @@ export function OpecCitation() {
                 {formatKbbl(latest.forecast_demand_kbbl_d)}
               </div>
               {latest.supply_demand_gap_kbbl_d != null && (
-                <div className="text-[11px] font-mono text-ink-3">
-                  gap {(latest.supply_demand_gap_kbbl_d / 1000).toFixed(1)}M
+                <div className="text-[11px] font-mono text-ink-3" title="수요 - OPEC 공급 (M b/d 단위, 음수 = OPEC 공급 부족)">
+                  수급 gap {(latest.supply_demand_gap_kbbl_d / 1000).toFixed(1)}M b/d
                 </div>
               )}
             </div>

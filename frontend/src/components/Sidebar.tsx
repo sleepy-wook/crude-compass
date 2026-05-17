@@ -30,12 +30,28 @@ export function Sidebar() {
         <div className="font-display text-xl font-semibold tracking-tight">
           K-Petroleum
         </div>
+        <div className="text-[10px] text-sidebar-muted2 mt-1 leading-snug italic">
+          데모용 가상 정유사 · 100% open data
+        </div>
         <div className="text-sm text-sidebar-muted mt-3 leading-relaxed">
           한국 정유사 원유 조달<br />의사결정 AI 비서
         </div>
         <div className="text-xs text-sidebar-muted2 mt-3 leading-relaxed">
-          공개 데이터 6개 · Slack ↔ Apps 5초 sync · 7년 backtest 75% 적중
+          공개 데이터 6개 · Slack ↔ Apps 5초 sync · 양방향 Mission (위기+기회)
         </div>
+      </div>
+
+      {/* 4 tool 매핑 — Track 1 평가 가시성 (Apps URL만으론 부족) */}
+      <div className="px-6 py-4 border-b border-sidebar-bg2">
+        <div className="text-[10px] uppercase tracking-widest text-sidebar-muted2 mb-2">
+          Databricks 4 tool
+        </div>
+        <ul className="text-[11px] text-sidebar-muted space-y-1 leading-snug">
+          <li>• <span className="text-white/90">Apps</span> — 본 페이지 (Vite + FastAPI 단일 컨테이너)</li>
+          <li>• <span className="text-white/90">Lakebase</span> — Mission CRUD + Backtest OLTP</li>
+          <li>• <span className="text-white/90">Genie</span> — Crude Oil Market Analysis Space</li>
+          <li>• <span className="text-white/90">Agent Bricks</span> — Supervisor + KA + Mission Plan</li>
+        </ul>
       </div>
 
       <nav className="flex-1 p-4">
