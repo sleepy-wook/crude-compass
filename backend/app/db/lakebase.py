@@ -1,19 +1,18 @@
 """Lakebase Autoscaling connection — OAuth token runtime rotation.
 
-핵심 패턴:
+핵심 패턴 (Databricks 공식 Lakebase Apps tutorial 정합):
 - 정적 DSN 저장 X (token이 60분 만료라 의미 없음)
 - psycopg3 + psycopg_pool 사용 (Lakebase 공식 가이드 권장. asyncpg는 SASL 호환 X.)
-- Direct host 사용 (`ep-...databricks.com`). Pooled host (`-pooler`)는 SASL 호환 X.
-- Custom Connection subclass `LakebaseConnection` — pool이 reconnect할 때마다
-  classmethod connect()가 호출되어 fresh token 자동 발급.
+- Custom Connection subclass — pool이 reconnect할 때마다 classmethod connect()가
+  호출되어 fresh token 자동 발급.
 - max_lifetime=3000s (50min) — token TTL 60min 안전 마진.
 
-SDK API: `w.database.generate_database_credential(request_id, instance_names=[...])`
-(databricks-sdk v0.56+ — v0.30대의 `w.postgres.generate_database_credential(endpoint=...)`는 deprecated)
+SDK API (v0.81+ — Lakebase 공식 tutorial):
+  w.postgres.generate_database_credential(endpoint='projects/<id>/branches/<id>/endpoints/<id>')
+  → DatabaseCredential.token (PG password로 사용)
 """
 from __future__ import annotations
 
-import uuid
 from contextlib import contextmanager
 from typing import Any, Iterator
 
@@ -24,36 +23,15 @@ from psycopg_pool import ConnectionPool
 from app.core.config import get_settings
 
 
-def _extract_instance_name(path_or_name: str) -> str:
-    """Lakebase endpoint path → instance name 추출.
-
-    Secret 값이 두 가지 형태 가능:
-    - Path: 'projects/<NAME>/branches/<BRANCH>/endpoints/<ENDPOINT>' (Apps Database
-      resource binding이 자동 주입하는 형태)
-    - Simple name: '<NAME>' (수동 secret 등록)
-
-    둘 다 처리 — path면 두 번째 segment (NAME) 추출.
-    """
-    s = path_or_name.strip()
-    if s.startswith("projects/"):
-        parts = s.split("/")
-        if len(parts) >= 2 and parts[1]:
-            return parts[1]
-    return s
-
-
-def _generate_token(path_or_name: str) -> str:
+def _generate_token(endpoint_path: str) -> str:
     """SDK로 Lakebase OAuth token 발급 (60분 lifetime).
 
-    LAKEBASE_ENDPOINT_PATH env가 path 형태든 단순 name이든 둘 다 처리.
-    v0.56+ API는 instance_names=['<NAME>']만 받음 (path 아닌 simple name).
+    endpoint_path: Lakebase endpoint full path
+      (예: 'projects/crude-compass-pg/branches/production/endpoints/primary')
+    Apps Database resource binding이 자동 주입 (또는 secret으로 수동 등록).
     """
-    instance_name = _extract_instance_name(path_or_name)
     w = WorkspaceClient()
-    credential = w.database.generate_database_credential(
-        request_id=str(uuid.uuid4()),
-        instance_names=[instance_name],
-    )
+    credential = w.postgres.generate_database_credential(endpoint=endpoint_path)
     if not credential.token:
         raise RuntimeError("Lakebase OAuth token empty")
     return credential.token
