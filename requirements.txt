@@ -3,7 +3,7 @@
 # 변경 시 backend/pyproject.toml 먼저 update → 본 파일 sync.
 
 aiohttp>=3.13.5
-databricks-sdk>=0.60
+databricks-sdk[openai]>=0.60
 fastapi>=0.136.1
 feedparser>=6.0.12
 httpx>=0.28.1

@@ -24,12 +24,31 @@ from psycopg_pool import ConnectionPool
 from app.core.config import get_settings
 
 
-def _generate_token(instance_name: str) -> str:
+def _extract_instance_name(path_or_name: str) -> str:
+    """Lakebase endpoint path → instance name 추출.
+
+    Secret 값이 두 가지 형태 가능:
+    - Path: 'projects/<NAME>/branches/<BRANCH>/endpoints/<ENDPOINT>' (Apps Database
+      resource binding이 자동 주입하는 형태)
+    - Simple name: '<NAME>' (수동 secret 등록)
+
+    둘 다 처리 — path면 두 번째 segment (NAME) 추출.
+    """
+    s = path_or_name.strip()
+    if s.startswith("projects/"):
+        parts = s.split("/")
+        if len(parts) >= 2 and parts[1]:
+            return parts[1]
+    return s
+
+
+def _generate_token(path_or_name: str) -> str:
     """SDK로 Lakebase OAuth token 발급 (60분 lifetime).
 
-    instance_name: Lakebase database instance 이름 (예: 'crude-compass-pg').
-    LAKEBASE_ENDPOINT_PATH env에 instance name 직접 저장 (path 형태 X — v0.56+ API).
+    LAKEBASE_ENDPOINT_PATH env가 path 형태든 단순 name이든 둘 다 처리.
+    v0.56+ API는 instance_names=['<NAME>']만 받음 (path 아닌 simple name).
     """
+    instance_name = _extract_instance_name(path_or_name)
     w = WorkspaceClient()
     credential = w.database.generate_database_credential(
         request_id=str(uuid.uuid4()),
