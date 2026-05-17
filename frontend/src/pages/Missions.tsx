@@ -23,10 +23,17 @@ export function MissionsList() {
   const missions = data?.missions || [];
   return (
     <div className="max-w-5xl mx-auto">
-      <header className="mb-6">
-        <h1 className="font-display text-3xl font-semibold">진행 중 미션</h1>
-        <p className="text-sm text-ink-3 mt-1">
-          AI가 제안한 매입 비중 조정 — Slack 또는 Apps에서 승인하면 5초 안에 양쪽 동기화
+      <header className="py-12 text-center border-b border-line-1 mb-10">
+        <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-3">
+          K-Petroleum · 진행 중 임무
+        </div>
+        <h1 className="font-display text-4xl font-semibold tracking-tight mb-3">
+          AI가 양방향으로 권고합니다
+        </h1>
+        <p className="text-sm text-ink-3 max-w-xl mx-auto">
+          위기 신호 누적 → 위험방어 · 약세 신호 누적 → 기회포착
+          <br />
+          Slack 또는 Apps에서 승인 시 5초 안에 양쪽 동기화.
         </p>
       </header>
       {isLoading && <div className="text-ink-3">로딩 중...</div>}
@@ -93,7 +100,7 @@ export function MissionsList() {
                 </span>
                 {m.target_pct !== null && (
                   <span>
-                    {m.mission_type === "HEDGE" ? "Term" : "Spot"} {m.target_pct}%
+                    {m.mission_type === "HEDGE" ? "장기계약" : "즉시구매"} {m.target_pct}%
                   </span>
                 )}
                 <span>{m.duration_days}일</span>

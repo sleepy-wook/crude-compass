@@ -63,11 +63,11 @@ export function PatternScoreLine({ days = 30, variant = "mini" }: Props) {
   const last = history[history.length - 1];
   const first = history[0];
 
-  const title = variant === "long" ? "Pattern Score · 6년 평시 가치" : `Pattern Score · ${days}일`;
+  const title = variant === "long" ? "위기 신호 점수 · 6년 평시 가치" : `위기 신호 점수 · ${days}일`;
   const subtitle =
     variant === "long"
       ? "호르무즈 봉우리 + 작은 봉우리들 (OPEC 회의, EIA 재고, 허리케인). 매주 작은 시그널 종합 = 일상 도구."
-      : "70+ 위기 (HEDGE) · 30- 약세 (OPPORTUNITY) · 중간 STABLE";
+      : "70+ 위험방어 · 30- 기회포착 · 중간 관망";
 
   return (
     <section className="mb-8">

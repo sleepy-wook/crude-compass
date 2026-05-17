@@ -39,7 +39,7 @@ export function SignalContribution() {
         </span>
       </div>
       <p className="text-xs text-ink-3 mb-4">
-        Pattern Score를 끌어올린 source × direction 기여도. 시간 감쇠 적용된{" "}
+        위기 신호 점수를 끌어올린 소스 × 방향 기여도. 시간 감쇠 적용된{" "}
         <code className="text-[11px]">weighted_contribution</code> 절댓값 share.
       </p>
 

@@ -79,3 +79,16 @@ export function missionTypeLabel(t: string): string {
   if (t === "OPPORTUNITY") return "기회 포착";
   return t;
 }
+
+/** Mission type → 계약 형태 한글 (Term/Spot 영문 잔재 제거) */
+export function termSpotLabel(t: string): string {
+  if (t === "HEDGE") return "장기계약";
+  if (t === "OPPORTUNITY") return "즉시구매";
+  return t;
+}
+
+/** Mission type → 영문 잔재 없는 한글 비중 표기 (예: "장기계약 75%") */
+export function termSpotPct(t: string, pct: number | null | undefined): string {
+  if (pct === null || pct === undefined) return "—";
+  return `${termSpotLabel(t)} ${pct}%`;
+}

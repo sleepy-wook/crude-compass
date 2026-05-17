@@ -18,7 +18,7 @@ const GLOSSARY: Record<string, { label: string; definition: string }> = {
   PATTERN_SCORE: {
     label: "위기 신호 점수",
     definition:
-      "공개 데이터 6 source (GDELT·EIA·OPEC·FX·Dubai·OilPriceAPI)의 시간 감쇠 누적 점수 (0~100). 70 이상 = 위험방어(HEDGE), 30 이하 = 기회포착(OPP). Backtest 결과는 What-if 페이지에서 라이브.",
+      "공개 6 소스(GDELT·EIA·OPEC·FX·Dubai·OilPriceAPI) 시간 감쇠 누적 점수 (0~100). 70 이상 = 위험방어, 30 이하 = 기회포착. 백테스트 결과는 과거 시점 복원 페이지에서 라이브.",
   },
   HEDGE: {
     label: "위험 방어",
@@ -73,7 +73,7 @@ const GLOSSARY: Record<string, { label: string; definition: string }> = {
   CONFIDENCE_SCORE: {
     label: "AI 자신감",
     definition:
-      "Mission Plan Agent (LLM)의 결과 자신감 (0~100). signal cross-validation + recency + structured fields 일관성 기반. UI에 항상 노출 (transparency).",
+      "AI 권고의 자신감 (0~100). 시그널 cross-validation + 최신성 + 구조 일관성 기반. 화면에 항상 노출 (투명성).",
   },
 };
 

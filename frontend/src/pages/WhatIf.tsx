@@ -19,8 +19,8 @@ const SUBAGENT_LABEL: Record<string, { label: string; color: string }> = {
   genie: { label: "Genie SQL", color: "bg-blue-50 text-blue-700 border-blue-200" },
   knowledge: { label: "Knowledge Assistant", color: "bg-purple-50 text-purple-700 border-purple-200" },
   ka: { label: "Knowledge Assistant", color: "bg-purple-50 text-purple-700 border-purple-200" },
-  haiku: { label: "Mission Plan (Claude Haiku)", color: "bg-green-50 text-green-700 border-green-200" },
-  claude: { label: "Mission Plan (Claude Haiku)", color: "bg-green-50 text-green-700 border-green-200" },
+  haiku: { label: "임무 권고 (Claude Haiku)", color: "bg-green-50 text-green-700 border-green-200" },
+  claude: { label: "임무 권고 (Claude Haiku)", color: "bg-green-50 text-green-700 border-green-200" },
 };
 
 function labelSubAgent(name: string): { label: string; color: string } {
@@ -63,13 +63,17 @@ export function WhatIf() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <header className="mb-6">
-        <h1 className="font-display text-3xl font-semibold">
-          과거 시점 복원 + AI 추천 검증
+      <header className="py-12 text-center border-b border-line-1 mb-10">
+        <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-3">
+          K-Petroleum · 과거 시점 복원
+        </div>
+        <h1 className="font-display text-4xl font-semibold tracking-tight mb-3">
+          AI 권고를 따랐다면 어떻게 됐을까?
         </h1>
-        <p className="text-sm text-ink-2 mt-2 max-w-3xl">
-          데이터: 2019-2026 사이 300개 시점 · 슬라이더로 과거 임의 시점 선택 → AI가
-          <strong> 그 시점 데이터만 보고 추천한 결정</strong>과 실제 30/90일 후 가격 비교.
+        <p className="text-sm text-ink-3 max-w-xl mx-auto">
+          2019-2026 시점을 슬라이더로 임의 선택 →
+          <strong className="text-ink-2"> 그 시점 데이터만 보고 추천한 결정</strong>
+          과 실제 30/90일 후 가격 비교.
         </p>
       </header>
 
@@ -87,8 +91,8 @@ export function WhatIf() {
             value={formatPct(summary.data.summary.avg_save_pct, 2)}
             accent="ok"
           />
-          <Stat label="HEDGE" value={`${summary.data.summary.n_hedge}건`} accent="crisis" />
-          <Stat label="OPP" value={`${summary.data.summary.n_opp}건`} accent="opp" />
+          <Stat label="위험방어" value={`${summary.data.summary.n_hedge}건`} accent="crisis" />
+          <Stat label="기회포착" value={`${summary.data.summary.n_opp}건`} accent="opp" />
         </section>
       )}
 
@@ -212,7 +216,7 @@ export function WhatIf() {
               </div>
               <div className="text-sm font-medium">
                 {current.action_type === "new_mission"
-                  ? `${current.mission_type === "HEDGE" ? "Term" : "Spot"} ${current.target_pct}% (${current.duration_days}일)`
+                  ? `${current.mission_type === "HEDGE" ? "장기계약" : "즉시구매"} ${current.target_pct}% · ${current.duration_days}일`
                   : "관망 (대기)"}
               </div>
               <div className="text-xs text-ink-3 mt-1">
@@ -251,7 +255,7 @@ export function WhatIf() {
                 <Outcome label="90일" value={current.saving_90d_pct} />
               </div>
               <div className="text-[11px] text-ink-3 mt-2">
-                양수 = 평시(Term 60 / Spot 40) 대비 절감 (좋음)
+                양수 = 평시 비중(장기 60% · 즉시 40%) 대비 절감 (좋음)
               </div>
             </div>
           </div>
