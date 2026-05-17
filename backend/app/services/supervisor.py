@@ -23,7 +23,7 @@ from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-SUPERVISOR_TIMEOUT_SEC = 60.0  # cold start + multi-agent orchestration
+SUPERVISOR_TIMEOUT_SEC = 180.0  # cold start (30-60s) + 3 sub-agent fan-out + LLM synthesis
 
 
 class SupervisorNotConfigured(RuntimeError):

@@ -23,15 +23,49 @@ from psycopg_pool import ConnectionPool
 from app.core.config import get_settings
 
 
+def _resolve_endpoint_path(secret_path: str) -> str:
+    """Lakebase endpoint path resolver.
+
+    Secret value가 `endpoints/primary` (display name)일 수 있지만 실제 endpoint id는
+    auto-generated `ep-<random>` 형태. PGHOST env에서 추출해서 path 재구성.
+
+    예:
+      secret_path = 'projects/crude-compass-pg/branches/production/endpoints/primary'
+      PGHOST     = 'ep-lucky-star-d1rlmmrr.database.us-west-2.cloud.databricks.com'
+      → 'projects/crude-compass-pg/branches/production/endpoints/ep-lucky-star-d1rlmmrr'
+
+    Apps Database resource binding이 PGHOST 자동 주입 (또는 secret과 동일).
+    PGHOST 없으면 secret_path 그대로 반환 (fallback).
+    """
+    import os as _os
+    pghost = _os.getenv("PGHOST", "").strip()
+    if not pghost or "endpoints/" not in secret_path:
+        return secret_path
+    # PGHOST first segment = endpoint_id (예: ep-lucky-star-d1rlmmrr)
+    endpoint_id = pghost.split(".")[0]
+    if not endpoint_id.startswith("ep-"):
+        return secret_path  # not Lakebase host pattern
+    # path의 endpoints/<x> 를 endpoints/<actual_id> 로 교체
+    parts = secret_path.split("/")
+    # parts = ['projects', '<project>', 'branches', '<branch>', 'endpoints', '<endpoint>']
+    if len(parts) >= 6 and parts[4] == "endpoints":
+        parts[5] = endpoint_id
+        return "/".join(parts)
+    return secret_path
+
+
 def _generate_token(endpoint_path: str) -> str:
     """SDK로 Lakebase OAuth token 발급 (60분 lifetime).
 
     endpoint_path: Lakebase endpoint full path
-      (예: 'projects/crude-compass-pg/branches/production/endpoints/primary')
+      (예: 'projects/crude-compass-pg/branches/production/endpoints/ep-...')
     Apps Database resource binding이 자동 주입 (또는 secret으로 수동 등록).
+
+    Secret value가 display name (`endpoints/primary`)이면 PGHOST로 실제 endpoint_id 추론.
     """
+    resolved_path = _resolve_endpoint_path(endpoint_path)
     w = WorkspaceClient()
-    credential = w.postgres.generate_database_credential(endpoint=endpoint_path)
+    credential = w.postgres.generate_database_credential(endpoint=resolved_path)
     if not credential.token:
         raise RuntimeError("Lakebase OAuth token empty")
     return credential.token
