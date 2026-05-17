@@ -77,9 +77,23 @@ def _actor(request: Request) -> str:
 async def list_active() -> dict:
     """D-2 진단 모드: endpoint reachable + Lakebase 단계별 진단 noexcept."""
     import traceback, os
+    # D-2: SP identity 진단
+    sp_identity = {}
+    try:
+        from databricks.sdk import WorkspaceClient
+        w = WorkspaceClient()
+        me = w.current_user.me()
+        sp_identity = {
+            "user_name": me.user_name,
+            "display_name": me.display_name,
+            "id": me.id,
+        }
+    except Exception as e:
+        sp_identity = {"err": f"{type(e).__name__}: {e}"}
     result = {
         "missions": [],
         "_debug_marker": "list_active entered",
+        "_debug_sp_identity": sp_identity,
         "_debug_env": {
             "USE_LAKEBASE": os.getenv("USE_LAKEBASE", "(missing)"),
             "LAKEBASE_HOST": (os.getenv("LAKEBASE_HOST") or "")[:30],
