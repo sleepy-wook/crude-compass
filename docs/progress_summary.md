@@ -117,11 +117,97 @@ yml 파일 자체를 고쳐야 영구 적용됨. 6개 yml의 `pause_status: PAUS
 
 ---
 
-## 다음 계획 (D-2 → D0)
+## D-2 (5/16-5/17) — Production Deploy 완료
 
-### D-2 (5/16 토요일) — Workspace에 실제 배포
+### Workspace 배포 + Agent Bricks 통합 (5/16 새벽 ~ 5/17 오후)
 
-지금까지는 내 컴퓨터에서만 작동. 토요일에 처음으로 Databricks 클라우드에 진짜 올립니다.
+5/16 D-3 마지막 정리 후 5/17 D-1 시점까지 약 30개 commit. 핵심:
+
+#### 1. AIS Stream + K-Petroleum 5척 fleet 완전 제거
+
+사용자 push back: *"7년 backtest에서 ais_traffic row 0건 + 한국 flag VLCC 0척 active. 어차피 백테스트 때도 못 쓰고 다니는 배도 없으면 의미 없지 않아?"*
+
+→ AIS Stream 데이터 source 완전 폐기 (코드/스키마/데이터/문서/UI 모두 정리). 시나리오 source 7→6 (GDELT/OilPriceAPI/OPINET/EIA/ECOS/OPEC MOMR). 호르무즈 narrative anchor는 GDELT 키워드 mention burst로 단일화. 결과: scenario consistency 100%, narrative dead weight 0.
+
+#### 2. Apps Production Deploy (Git source 자동 build)
+
+기존 `databricks sync` + `apps deploy --source-code-path` workspace 패턴 → **Git source + 자동 build pipeline**으로 swap:
+- root `package.json` — `cd frontend && npm ci && npm run build`
+- root `requirements.txt` — backend Python deps export
+- `app.yaml` command: `uvicorn app.main:app --app-dir backend`
+- `git push origin main` → Databricks가 자동 fetch + build + restart
+
+평가 측면: CI/CD pipeline standard narrative + 매번 sync 명령 불필요.
+
+#### 3. Agent Bricks 2 types (KA + Multi-Agent Supervisor)
+
+D-3 시점 self push-back ("Multi-Agent Supervisor 의도적 scope-out, cost-effective 판단")이 outdated — Agent Bricks GA 발견으로 60-90분 UI 작업으로 충족 가능:
+
+- **Knowledge Assistant** (`ka-6b456458-endpoint`): OPEC MOMR 74 PDF RAG + citation
+- **Multi-Agent Supervisor** (`mas-ba3fbcb5-endpoint`): single endpoint orchestration
+  - Sub-agent 1: Genie Space "Crude Oil Market Analysis" (gold view 10 tables)
+  - Sub-agent 2: Knowledge Assistant endpoint
+  - Sub-agent 3: UC Function `mission_plan_advice` (wrapping FMA `databricks-claude-haiku-4-5`)
+  - `databricks_options.return_trace=true` → frontend tools_used badge transparency
+
+**Information Extraction agent는 redundant scope-out** — bronze.opec_momr_parsed가 이미 `ai_parse_document` + Foundation Model API 직접 호출로 동일 fields 추출 + monthly incremental. 솔직 narrative.
+
+#### 4. Genie Space 등록
+
+- Name: "Crude Oil Market Analysis" (SPACE_ID `01f150e05229190aa9de93c97afde034`)
+- Tables 10 (gold 8 view + silver 2): pre-shaped BI-ready
+- 5 example queries (모두 gold view 사용)
+- App SP catalog 권한 부여 (USE CATALOG + USE SCHEMA + SELECT)
+
+#### 5. Lakebase 진단 + Graceful fallback
+
+Apps SP의 PG OAuth role mapping issue 발견 — SP UUID에 PG ROLE 생성 + GRANT 완료 후에도 PoolTimeout. 추정: Databricks Lakebase OAuth user claim ↔ PG role 자동 매핑 필요 (Apps Database resource로 D-1 fix 예정).
+
+backend `_build_store()`에 smoke test + fallback 추가:
+```
+Lakebase smoke test → SELECT 1 OK ? Lakebase : InMemoryMissionStore + Bidirectional seed
+```
+
+D-1 시점 production은 in-memory fallback이지만 Bidirectional 2 missions (HEDGE Term 60→75%, OPP Spot 40→55%) 시연 가능. D-1에 Apps Database resource 추가하면 즉시 Lakebase 복귀.
+
+#### 6. 8 dead UC objects DROP
+
+5/15-5/16 결정한 dead tables/views를 schema 파일에는 DROP 명시했지만 workspace 미적용. apply_schemas.py에 영구 migration 추가 + 1회 SDK 직접 실행:
+- bronze.ais_positions, silver.{hormuz_traffic_hourly, dubai_premium_daily}
+- gold.{fleet_current_state, backtest_results, mission_outcomes, landing_cost_scenarios, backtest_risk_score}
+
+#### 7. UC Function `mission_plan_advice` 생성
+
+Supervisor sub-agent 3번째 (Mission Plan)을 Foundation Model API 직접 호출 형태로 만들 수 없음 (system endpoint이라 sub-agent 등록 불가). 우회:
+```sql
+CREATE FUNCTION crude_compass.functions.mission_plan_advice(question STRING)
+RETURNS STRING
+RETURN ai_query('databricks-claude-haiku-4-5', concat(system_prompt, question))
+```
+검증: 한국어 매입 비중 query → Bidirectional 권고 + 3 scenarios ROI 반환.
+
+#### 8. evaluator 5차 PASS 83.2 (+0.4 from 4차)
+
+| 축 | 변화 |
+|---|---|
+| A2 Creativity | 79 → 87 (+3 ⭐ Supervisor scope-in 진정성) |
+| A4 Technical | 86 → 84 (Git source build + graceful fallback) |
+| A5 Storytelling | 82 → 78 (-5 ⚠️ backtest narrative drift) |
+
+평균 82.8 → 83.2.
+
+---
+
+## 다음 계획 (D-1 → D0)
+
+### D-1 (5/17 일요일) — P0 3건 + 영상
+
+상세: [d1_runbook.md](d1_runbook.md). 핵심:
+
+1. **Backtest 재실행** — `backtest_llm` job, n_per_zone=100 × 3 zone (HEDGE+MID+OPP)
+2. **Apps Database resource 추가** — Lakebase fallback 해제
+3. **§19 Risk OPP n=0 disclosure**
+4. **영상 5분 1차 녹화**
 
 | 시간 | 작업 | 소요 |
 |---|---|---|

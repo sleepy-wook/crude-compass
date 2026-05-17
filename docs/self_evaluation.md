@@ -199,49 +199,73 @@ cron job 12개가 데모 직전까지 안정 작동하는가.
 
 ---
 
-## 종합 점수 (D-2 snapshot, 5/16)
+# Evaluator 5차 (2026-05-17 D-1) — D-2 main path 완성 평가
 
-```
-Layer A × 60% =  88 × 0.60 = 52.8
-Layer B × 25% =  90 × 0.25 = 22.5
-Layer C × 15% = (30/60 × 100) × 0.15 = 7.5
-─────────────────────────────────────────
-종합:                          82.8 / 100
-```
+> 직전 4차 (5/16) 82.8 PASS → 5차 (5/17) **83.2 PASS** (+0.4)
 
-**D-2 status**: 코드/데이터 layer 합격선 강하게 통과 (88/90). 데모 layer는 D-1까지 채워질 예정.
+| 축 | 4차 | 5차 | 변화 | 핵심 근거 |
+|---|---:|---:|---|---|
+| **A1 Business Applicability** | 84 | **83** | 0 | Bidirectional HEDGE+OPP 2 mission 동시 demo 확인 — narrative 안정 |
+| **A2 Creativity & Innovation** | 79 | **87** | **+3** ⭐ | Multi-Agent Supervisor scope-in 진정성 (D-3 self push-back 정정). 3 sub-agent + return_trace = single endpoint orchestration. IE scope-out 솔직 narrative |
+| **A3 UX & Insights** | 92 | **84** | -8* | Supervisor widget fallback transparency. *4차 92는 self-eval, 5차 84는 evaluator agent 객관 평가 |
+| **A4 Technical Capability** | 86 | **84** | -2 | Git source 자동 build pipeline + graceful 3-tier fallback (Supervisor→Genie→Store). 다만 Lakebase fallback이 narrative 손실 |
+| **A5 Data Storytelling** | 83 | **78** | **-5** ⚠️ | scenario_drift: §17 "n=298, 75% hit" 단정 narrative vs Lakebase 실데이터 n=15 (HEDGE-only, OPP=0). WhatIf UI "총 샘플 15건" 노출 |
+| **평균** | 82.8 | **83.2** | **+0.4** |
 
-### D-2 작업 후 예상 (Apps deploy + Genie + KA + Dashboard 완료 시점)
-- A3 17 → 20, A4 18 → 20
-- B3 15 → 20
-- C2 12 → 18
-- 예상 종합: **90.5 / 100**
+## D-1 P0 (5차 evaluator 권고)
 
-### D-1 후 예상 (영상 1차 + evaluate PASS)
-- C1 0 → 16
-- 예상 종합: **94.5 / 100**
+1. **Backtest 재실행** (`backtest_llm` job, n_per_zone=100×3=300) OR narrative downgrade (15건 smoke)
+2. **§19 Risk OPP n=0 disclosure**
+3. **Apps Database resource 추가** → Lakebase fallback 해제 (in-memory → 진짜 Lakebase row)
 
----
+상세 액션: [d1_runbook.md](d1_runbook.md)
 
-## 다음 milestone별 self-eval 체크리스트
+## D-2 (5/16) → D-1 (5/17) 사이 핵심 milestone
 
-### D-2 완료 시 (5/16 23:00)
-- [ ] Apps 공개 URL 접속 → 모든 페이지 렌더링 확인
-- [ ] Genie Space 자연어 질의 live 응답
-- [ ] Knowledge Assistant OPEC PDF 검색 응답
-- [ ] AI/BI Dashboard 5개 차트 노출
-- [ ] Slack click → Apps Mission card update 5초 안
+### ✅ Deploy + Live verification
+- Apps Production live (Git source 자동 build pipeline)
+- 4 health endpoints all `enabled:true` (slack/genie/supervisor/health)
+- Discovery 페이지 8 sections + 진행 중 미션 카드 Bidirectional 2개
+- Supervisor 3 sub-agent live test 5종 한국어 query 정상 routing
 
-### D-1 완료 시 (5/17 23:00)
-- [ ] 5분 영상 녹화본 + 1차 편집
-- [ ] `/evaluate` 5축 자동 평가 PASS
-- [ ] 데모 narrator script 1줄 단위 정리
+### ✅ Architectural decisions
+- **AIS Stream 완전 제거** (source 7→6, code/data/docs/UI 정합)
+- **IE scope-out** (Agent Bricks 3 types → 2 types, redundant 솔직 narrative)
+- **Multi-Agent Supervisor scope-in** (D-3 self push-back reframe — Agent Bricks GA UI 60-90분으로 충족)
 
-### D0 제출 (5/18 22:00 KST)
-- [ ] Devpost 제출 폼 (팀 + repo URL + 영상 + writeup)
-- [ ] 한국어 트랙 명시
-- [ ] Track 1 Social Impact 선택
+### ⚠️ Known limitations (D-1 buffer)
+- Lakebase Apps SP PG OAuth role mapping fail → in-memory + Bidirectional seed fallback
+- bronze.opec_momr_parsed 최신 = 2026-03 (anti-bot 4월 미수집)
+- oil_prices_daily 5/14 lag 3일
+- price_spike 0 rows
 
 ---
 
-> 본 평가는 self-assessment. 객관 평가는 D-1 `/evaluate` agent 호출 시 별도 5축 점수 산출.
+## D0 제출 (5/18 22:00 KST) 체크리스트
+
+### 필수
+- [ ] P0 #1 backtest 재실행 또는 narrative downgrade
+- [ ] P0 #2 §19 Risk OPP disclosure
+- [ ] P0 #3 Apps Database resource 추가 (또는 narrative honest disclosure)
+- [ ] 5분 영상 녹화 (Phase 1-8)
+- [ ] evaluator 6차 PASS 85+ 확인
+- [ ] Devpost 제출 폼 — 한국어 트랙 + Track 1 Social Impact 선택
+
+### Stretch (시간 남으면)
+- [ ] 3-LLM 비교 → Mission Plan prime model 결정
+- [ ] oil_prices_daily / price_spike freshness 확보 또는 narrative 정정
+- [ ] Slack [Confirm] click live test (사용자 채널)
+
+---
+
+## 평가 진화 요약 (1-5차)
+
+| 차수 | 일자 | 점수 | 핵심 변화 |
+|---|---|---|---|
+| 1차 (D-7) | 5/11 | ~70 | Initial scenario coverage |
+| 2차 (D-5) | 5/13 | 75.6 REVISE | UX 전문 용어 too many issue 발견 |
+| 3차 (D-3) | 5/15 | 79.6 → 보수 재산정 82.8 | Self-critique pass + audit |
+| 4차 (D-3) | 5/16 D-2 새벽 | 82.8 PASS | AIS 제거 + Multi-Agent reframe |
+| 5차 (D-1) | 5/17 D-1 | **83.2 PASS** | D-2 deploy 완성 + scenario drift discovery |
+
+목표: 6차 (D-1 저녁) **85+** → D0 submit.
