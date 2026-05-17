@@ -21,6 +21,43 @@ from fastapi import APIRouter
 router = APIRouter(prefix="/api/debug", tags=["debug"])
 
 
+@router.post("/lakebase/create-role")
+async def create_sp_role() -> dict[str, Any]:
+    """Apps SP를 위한 PG role 생성 (SDK Python).
+
+    CLI schema mismatch라 SDK 직접 사용.
+    """
+    from databricks.sdk import WorkspaceClient
+    try:
+        from databricks.sdk.service.postgres import (
+            RoleRoleSpec,
+            RoleIdentityType,
+            RoleAuthMethod,
+        )
+    except ImportError as e:
+        return {"ok": False, "error": f"Import: {e}"}
+
+    w = WorkspaceClient()
+    sp_id = "5a0f80bd-7003-48d3-897e-0e878f98d82c"
+    parent = "projects/crude-compass-pg/branches/production"
+
+    try:
+        op = w.postgres.create_role(
+            parent=parent,
+            role=RoleRoleSpec(
+                postgres_role=sp_id,
+                identity_type=RoleIdentityType.SERVICE_PRINCIPAL,
+                auth_method=RoleAuthMethod.LAKEBASE_OAUTH_V1,
+            ),
+            role_id=sp_id,
+        )
+        # Long-running operation — result() 호출하면 wait
+        result = op.result() if hasattr(op, "result") else op
+        return {"ok": True, "result": str(result)[:500]}
+    except Exception as e:
+        return {"ok": False, "error": f"{type(e).__name__}: {str(e)[:500]}"}
+
+
 @router.get("/lakebase")
 async def debug_lakebase() -> dict[str, Any]:
     """Lakebase SDK call 진단 — 어떤 path/name이 작동하는지 fact-based 확인."""
