@@ -16,13 +16,13 @@ from app.schemas.mission import MissionType, MissionUrgency
 
 # scenario → preset dict mapping
 _PRESETS: dict[str, dict[str, Any]] = {
-    # §14 Phase 4 (02:00-02:45) — Pre-emptive HEDGE
+    # §14 Phase 4 (02:00-02:45) — 사전 위험방어
     "hormuz_blockade": {
         "mission_type": MissionType.HEDGE,
-        "goal_text": "Term 60% → 75% (4주)",
+        "goal_text": "사전 위험방어 — 장기계약 비중 60% → 75% (4주)",
         "reasoning": (
             "GDELT 호르무즈 키워드 멘션 +280% + OPEC MOMR 5월 사우디 추가 감산 시그널 "
-            "+ Brent-Dubai spread +$7 (Dubai premium) + Iran 제재 + UK Maritime alerts. AI confidence 65%."
+            "+ Brent-Dubai spread +$7 (Dubai 프리미엄) + 이란 제재 + UK 해상 경보. AI 자신감 65%."
         ),
         "pattern_score": 82.0,
         "urgency": MissionUrgency.URGENT,
@@ -34,12 +34,12 @@ _PRESETS: dict[str, dict[str, Any]] = {
             "Brent_90_평화": -50.0,
         },
     },
-    # §14 Phase 6 (03:30-04:15) — Bidirectional Pivot (휴전/SPR/중국 PMI)
+    # §14 Phase 6 (03:30-04:15) — 양방향 Pivot (휴전/SPR/중국 PMI)
     "ceasefire": {
         "mission_type": MissionType.OPPORTUNITY,
-        "goal_text": "Term 60% → 40% / Spot 40% → 60% (3주)",
+        "goal_text": "방향 전환 — 장기계약 60% → 40% / 즉시구매 40% → 60% (3주)",
         "reasoning": (
-            "Israel-Hamas 휴전 임박 시그널 + SPR 방출 가능성 + 중국 PMI 49.2 "
+            "이스라엘·하마스 휴전 임박 시그널 + 전략비축유(SPR) 방출 가능성 + 중국 PMI 49.2 "
             "+ VLCC 운임 -15%. 약세 reversal."
         ),
         "pattern_score": 78.0,
@@ -55,8 +55,8 @@ _PRESETS: dict[str, dict[str, Any]] = {
     # §5 평시 미세 조정 — Aramco OSP / OPEC+ 감산
     "saudi_cut": {
         "mission_type": MissionType.HEDGE,
-        "goal_text": "Term 60% → 70% (2주)",
-        "reasoning": "Aramco OSP 발표 + OPEC+ 감산 연장. AI confidence 58%.",
+        "goal_text": "평시 미세 조정 — 장기계약 비중 60% → 70% (2주)",
+        "reasoning": "사우디 Aramco OSP 발표 + OPEC+ 감산 연장. AI 자신감 58%.",
         "pattern_score": 70.0,
         "urgency": MissionUrgency.DEFAULT,
         "target_pct": 70,
@@ -70,8 +70,8 @@ _PRESETS: dict[str, dict[str, Any]] = {
     # §5 평시 — EIA 주간 재고 surprise
     "us_inventory_surprise": {
         "mission_type": MissionType.HEDGE,
-        "goal_text": "Term 60% → 65% (1주)",
-        "reasoning": "EIA 재고 -5M bbl surprise. AI confidence 52%.",
+        "goal_text": "재고 surprise 대응 — 장기계약 비중 60% → 65% (1주)",
+        "reasoning": "EIA 미국 상업용 원유 재고 -5M bbl 예상 외 감소. AI 자신감 52%.",
         "pattern_score": 62.0,
         "urgency": MissionUrgency.OPTIONAL,
         "target_pct": 65,

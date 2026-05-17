@@ -23,12 +23,12 @@ const GLOSSARY: Record<string, { label: string; definition: string }> = {
   HEDGE: {
     label: "위험 방어",
     definition:
-      "위험 방어 — 장기계약(Term) 비중을 늘려 가격 spike에 대비. 예: Term 60% → 75%.",
+      "위험 방어 — 장기계약(Term) 비중을 늘려 가격 spike에 대비. (예: 평시 60% → 위기 70% 이상으로 비중 상향)",
   },
   OPPORTUNITY: {
     label: "기회 포착",
     definition:
-      "기회 포착 — 즉시구매(Spot) 비중을 늘려 평시 가격 하락을 활용. 예: Spot 40% → 60%.",
+      "기회 포착 — 즉시구매(Spot) 비중을 늘려 평시 가격 하락을 활용. (예: 평시 40% → 약세 50% 이상으로 비중 상향)",
   },
   TERM: {
     label: "장기계약",
