@@ -91,11 +91,13 @@ def create_app() -> FastAPI:
 
     @app.get("/api/health")
     async def health() -> dict:
+        # build_id: D-2 진단용 — Apps Git source가 새 commit fetch 하는지 검증
         return {
             "status": "ok",
             "version": __version__,
             "service": "crude-compass-backend",
             "frontend_bundled": _FRONTEND_DIST.exists(),
+            "build_id": "60436b6-debug-missions",
         }
 
     # Frontend static serve (production / single-process Apps deploy)
