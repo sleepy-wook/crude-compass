@@ -4,7 +4,8 @@
 >
 > 마감: 2026-05-22 제출 → 5/25-29 심사 → 6/15 결과
 >
-> 본 문서는 logic ground truth. 시각 mockup은 [crude_compass_final.html](crude_compass_final.html), Claude Design export는 [`design/`](../design/), 비평·MVP는 [phase2_critique.md](phase2_critique.md).
+> 본 문서는 logic ground truth. 비평·MVP는 [phase2_critique.md](phase2_critique.md).
+> (초기 mockup `design/` 폴더는 D-0 redesign 시점 삭제 — 시나리오 §13 컨셉만 따라가고 자유 design)
 
 ---
 
