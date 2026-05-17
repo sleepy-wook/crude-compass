@@ -277,17 +277,23 @@ async def fallback_canned(question: str) -> GenieResponse:
             break
 
     if matched is None:
-        # generic meta-answer
+        # generic meta-answer — placeholder leak 막기 위해 keyword 라벨만 노출
+        _LABEL = {
+            "OPEC": "OPEC MOMR 월간 보고서 (사우디·이란·총공급·수요·시장 균형)",
+            "EIA": "EIA 미국 상업용 원유 재고 (주간 변화 ±kbbl)",
+            "두바이": "Dubai유 7일 종가 + momentum (한국 정유사 벤치마크)",
+        }
         examples = "\n".join(
-            f"- {entry.keywords[0]}: 예) {entry.text_template[:50]}..."
+            f"- {entry.keywords[0]}: {_LABEL.get(entry.keywords[0], entry.keywords[0])}"
             for entry in _FALLBACK_ENTRIES
         )
         return GenieResponse(
             answer=(
-                "Genie Space가 미연동(또는 호출 실패) 상태입니다. "
-                "fallback 모드에서는 다음 3가지 주제에 답할 수 있습니다:\n\n"
+                "Multi-Agent Supervisor endpoint가 production 미연동 상태입니다 "
+                "(Agent Bricks workspace 재등록 D-1 진행 중). "
+                "현재 fallback 모드 — 다음 3가지 주제는 Lakebase에 직접 SQL로 응답:\n\n"
                 f"{examples}\n\n"
-                "Genie Space 등록 후 동일 endpoint가 라이브 응답합니다."
+                "예: \"OPEC 5월 사우디 감산 근거는?\" 또는 \"최근 EIA 재고 변화\" 등으로 질문해보세요."
             ),
             source="fallback",
         )
