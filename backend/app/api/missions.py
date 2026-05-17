@@ -75,29 +75,36 @@ def _actor(request: Request) -> str:
 # ────────────────────────────────────────────────────────────────────────
 @router.get("/active")
 async def list_active() -> dict:
+    """D-2 진단 모드: endpoint reachable + Lakebase 단계별 진단 noexcept."""
     import traceback, os
-    store_type = "unknown"
+    result = {
+        "missions": [],
+        "_debug_marker": "list_active entered",
+        "_debug_env": {
+            "USE_LAKEBASE": os.getenv("USE_LAKEBASE", "(missing)"),
+            "LAKEBASE_HOST": (os.getenv("LAKEBASE_HOST") or "")[:30],
+            "LAKEBASE_DATABASE": os.getenv("LAKEBASE_DATABASE", "(missing)"),
+            "LAKEBASE_USER": (os.getenv("LAKEBASE_USER") or "")[:30],
+            "LAKEBASE_ENDPOINT_PATH": (os.getenv("LAKEBASE_ENDPOINT_PATH") or "")[:40],
+        },
+    }
+    # Step 1 — get_store()
     try:
         store = get_store()
-        store_type = type(store).__name__
-        missions = await store.get_active()
-        return {"missions": [m.model_dump(mode="json") for m in missions]}
+        result["_debug_store_type"] = type(store).__name__
     except Exception as e:
-        logger.exception("missions/active failed: %s", e)
-        return {
-            "missions": [],
-            "_debug_error": str(e),
-            "_debug_type": type(e).__name__,
-            "_debug_traceback": traceback.format_exc()[-1500:],
-            "_debug_store_type": store_type,
-            "_debug_env": {
-                "USE_LAKEBASE": os.getenv("USE_LAKEBASE", "(missing)"),
-                "LAKEBASE_HOST": (os.getenv("LAKEBASE_HOST") or "")[:20],
-                "LAKEBASE_DATABASE": os.getenv("LAKEBASE_DATABASE", "(missing)"),
-                "LAKEBASE_USER": (os.getenv("LAKEBASE_USER") or "")[:30],
-                "LAKEBASE_ENDPOINT_PATH": (os.getenv("LAKEBASE_ENDPOINT_PATH") or "")[:30],
-            },
-        }
+        result["_debug_store_err"] = f"{type(e).__name__}: {e}"
+        result["_debug_traceback"] = traceback.format_exc()[-1200:]
+        return result
+    # Step 2 — store.get_active()
+    try:
+        missions = await store.get_active()
+        result["missions"] = [m.model_dump(mode="json") for m in missions]
+        result["_debug_marker"] = "list_active success"
+    except Exception as e:
+        result["_debug_get_active_err"] = f"{type(e).__name__}: {e}"
+        result["_debug_traceback"] = traceback.format_exc()[-1200:]
+    return result
 
 
 @router.get("/all")
