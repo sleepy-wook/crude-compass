@@ -1,0 +1,15 @@
+# Root Python dependencies — Databricks Apps 자동 install.
+# Source: backend/pyproject.toml (single source of truth).
+# 변경 시 backend/pyproject.toml 먼저 update → 본 파일 sync.
+
+aiohttp>=3.13.5
+databricks-sdk>=0.30
+fastapi>=0.136.1
+feedparser>=6.0.12
+httpx>=0.28.1
+psycopg[binary,pool]>=3.1
+pydantic>=2
+python-dotenv>=1.2.2
+slack-bolt>=1.28.0
+uvicorn>=0.46.0
+websockets>=16.0
