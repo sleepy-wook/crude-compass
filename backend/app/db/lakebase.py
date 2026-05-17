@@ -1,18 +1,24 @@
 """Lakebase Autoscaling connection — OAuth token runtime rotation.
 
-핵심 패턴 (Databricks 공식 Lakebase Apps tutorial 정합):
+핵심 패턴:
 - 정적 DSN 저장 X (token이 60분 만료라 의미 없음)
 - psycopg3 + psycopg_pool 사용 (Lakebase 공식 가이드 권장. asyncpg는 SASL 호환 X.)
 - Custom Connection subclass — pool이 reconnect할 때마다 classmethod connect()가
   호출되어 fresh token 자동 발급.
 - max_lifetime=3000s (50min) — token TTL 60min 안전 마진.
 
-SDK API (v0.81+ — Lakebase 공식 tutorial):
-  w.postgres.generate_database_credential(endpoint='projects/<id>/branches/<id>/endpoints/<id>')
-  → DatabaseCredential.token (PG password로 사용)
+SDK API (v0.81+ 진짜 schema — github source 확인):
+  w.database.generate_database_credential(
+      request_id=str(uuid.uuid4()),
+      instance_names=['<instance_name>'],  # 예: 'crude-compass-pg' (Lakebase project name)
+  ) → DatabaseCredential.token
+
+옛 `w.postgres.generate_database_credential(endpoint=path)`는 v0.81+에서 deprecated alias
+— `endpoint=` parameter 자체가 새 API에 없음. silent fail (wrong token 발급).
 """
 from __future__ import annotations
 
+import uuid
 from contextlib import contextmanager
 from typing import Any, Iterator
 
@@ -23,50 +29,35 @@ from psycopg_pool import ConnectionPool
 from app.core.config import get_settings
 
 
-def _resolve_endpoint_path(secret_path: str) -> str:
-    """Lakebase endpoint path resolver.
+def _extract_instance_name(endpoint_path: str) -> str:
+    """endpoint_path에서 instance (Lakebase project) name 추출.
 
-    Secret value가 `endpoints/primary` (display name)일 수 있지만 실제 endpoint id는
-    auto-generated `ep-<random>` 형태. Actual host에서 추출해서 path 재구성.
+    Secret value form:
+      'projects/crude-compass-pg/branches/production/endpoints/primary'
+                ^^^^^^^^^^^^^^^^
+                instance_name (= project name in Lakebase)
 
-    Lookup order (둘 중 먼저 found):
-    1. PGHOST env (Apps Database resource binding 자동 주입 — 만약 app.yaml에서 expose)
-    2. LAKEBASE_HOST env (secret으로 등록된 actual host) — 우리 app.yaml 패턴
-
-    예:
-      secret_path = 'projects/crude-compass-pg/branches/production/endpoints/primary'
-      host       = 'ep-lucky-star-d1rlmmrr.database.us-west-2.cloud.databricks.com'
-      → 'projects/crude-compass-pg/branches/production/endpoints/ep-lucky-star-d1rlmmrr'
+    Path 아닌 경우 (단순 instance name) 그대로 반환.
     """
-    import os as _os
-    host = _os.getenv("PGHOST", "").strip() or _os.getenv("LAKEBASE_HOST", "").strip()
-    if not host or "endpoints/" not in secret_path:
-        return secret_path
-    # host first segment = endpoint_id (예: ep-lucky-star-d1rlmmrr)
-    endpoint_id = host.split(".")[0]
-    if not endpoint_id.startswith("ep-"):
-        return secret_path  # not Lakebase host pattern
-    # path의 endpoints/<x> 를 endpoints/<actual_id> 로 교체
-    parts = secret_path.split("/")
-    # parts = ['projects', '<project>', 'branches', '<branch>', 'endpoints', '<endpoint>']
-    if len(parts) >= 6 and parts[4] == "endpoints":
-        parts[5] = endpoint_id
-        return "/".join(parts)
-    return secret_path
+    s = endpoint_path.strip()
+    if s.startswith("projects/"):
+        parts = s.split("/")
+        if len(parts) >= 2 and parts[1]:
+            return parts[1]  # 'crude-compass-pg'
+    return s
 
 
 def _generate_token(endpoint_path: str) -> str:
-    """SDK로 Lakebase OAuth token 발급 (60분 lifetime).
+    """v0.81+ SDK: w.database.generate_database_credential(instance_names=[...]).
 
-    endpoint_path: Lakebase endpoint full path
-      (예: 'projects/crude-compass-pg/branches/production/endpoints/ep-...')
-    Apps Database resource binding이 자동 주입 (또는 secret으로 수동 등록).
-
-    Secret value가 display name (`endpoints/primary`)이면 PGHOST로 실제 endpoint_id 추론.
+    endpoint_path: settings.lakebase_endpoint_path (path 또는 simple name) → instance name 추출.
     """
-    resolved_path = _resolve_endpoint_path(endpoint_path)
+    instance_name = _extract_instance_name(endpoint_path)
     w = WorkspaceClient()
-    credential = w.postgres.generate_database_credential(endpoint=resolved_path)
+    credential = w.database.generate_database_credential(
+        request_id=str(uuid.uuid4()),
+        instance_names=[instance_name],
+    )
     if not credential.token:
         raise RuntimeError("Lakebase OAuth token empty")
     return credential.token
