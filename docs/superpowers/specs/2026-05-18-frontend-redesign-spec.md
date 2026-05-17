@@ -1,5 +1,13 @@
 # Frontend Redesign Spec — D-0 1등 진입 plan
 
+> ⚠️ **SUPERSEDED** by `2026-05-18-d0-ai-assistant-narrative-redesign.md` (same day evolve)
+> 이 spec은 "정적 5 cards 압축" 접근. 형욱님 추가 push back:
+> - "데이터 dashboard 너무 복잡, 한눈에 안 봄" (5 cards로 안 풀림)
+> - "AI assistant 아닌 data dump로 보임"
+> 새 spec은 "narrative scroll + Multi-Agent live trace wow anchor"로 evolve.
+> 한글화 mapping (§2) 등 retain된 부분은 새 spec에서도 유효.
+> ---
+>
 > 작성: 2026-05-18 D-0
 > 목적: Discovery 12 section overload → 시나리오 §13 4 component "AI assistant first" 정렬
 > 형욱님 push back 반영: ① 한글화 일괄 ② Icon 자제 ③ 세련 + 이쁘게

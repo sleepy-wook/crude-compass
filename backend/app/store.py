@@ -9,6 +9,7 @@ Pluggable backends:
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from datetime import datetime, timezone
 from typing import Protocol, runtime_checkable
@@ -189,6 +190,9 @@ def _build_store() -> MissionStore:
                         _cur.execute("SELECT 1")
                         _cur.fetchone()
                 _logging.getLogger(__name__).info("Lakebase smoke test PASS — using LakebaseMissionStore")
+                # Lakebase seed/cleanup: placeholder data 제거 + 한글 Bidirectional seed insert
+                if os.getenv("DEMO_MODE", "true").lower() == "true":
+                    _seed_demo_in_lakebase()
                 return lb_store
             except Exception as e:
                 _logging.getLogger(__name__).warning(
@@ -204,6 +208,98 @@ def _build_store() -> MissionStore:
     if os.getenv("DEMO_MODE", "true").lower() == "true":
         _seed_demo_in_memory(in_mem)
     return in_mem
+
+
+def _seed_demo_in_lakebase() -> None:
+    """Lakebase missions table에 한글 Bidirectional seed 자동 적용.
+
+    배경 (D-0 design review): Lakebase live화 후 PG에 placeholder data
+    ("Term 60% → 75%" + "Test mission" + 둘 다 HEDGE) 잔존 → Bidirectional
+    차별화 anchor 깨짐. 자동 cleanup + 한글 seed insert.
+
+    조건:
+    1. proposed 상태 mission이 0건이면 → 한글 seed 2개 INSERT
+    2. proposed 상태 mission이 있는데 goal_text에 "Term " (영문 placeholder) 포함
+       또는 reasoning == "Test mission" → 모두 ABORTED 처리 + 한글 seed 2개 INSERT
+
+    실패해도 backend startup은 진행 (warning만 log).
+    """
+    import logging as _logging
+    log = _logging.getLogger(__name__)
+    try:
+        from app.db.lakebase import acquire as _lb_acquire
+        with _lb_acquire() as conn:
+            with conn.cursor() as cur:
+                # 1. 현재 proposed missions 검사
+                cur.execute(
+                    """
+                    SELECT mission_id, goal_text, reasoning
+                    FROM missions
+                    WHERE status = 'proposed'
+                    """
+                )
+                rows = cur.fetchall()
+                placeholder_ids = [
+                    r[0] for r in rows
+                    if ("Term " in (r[1] or "") and "장기계약" not in (r[1] or ""))
+                    or (r[2] or "").strip().lower() == "test mission"
+                ]
+                # 2. Placeholder는 ABORTED 처리 (audit log 유지, list에서 제외)
+                if placeholder_ids:
+                    cur.execute(
+                        "UPDATE missions SET status = 'aborted' WHERE mission_id = ANY(%s)",
+                        (placeholder_ids,),
+                    )
+                    log.info(
+                        "Lakebase seed cleanup: %d placeholder missions → aborted",
+                        len(placeholder_ids),
+                    )
+                # 3. 한글 seed가 이미 있는지 확인
+                cur.execute(
+                    """
+                    SELECT COUNT(*) FROM missions
+                    WHERE status = 'proposed'
+                      AND (goal_text LIKE '사전 위험방어%' OR goal_text LIKE '사전 기회포착%')
+                    """
+                )
+                ko_count = cur.fetchone()[0]
+                if ko_count >= 2:
+                    log.info("Lakebase seed: 한글 Bidirectional missions already present (n=%d), skip", ko_count)
+                    conn.commit()
+                    return
+                # 4. 한글 Bidirectional seed insert
+                now = datetime.now(timezone.utc)
+                hedge_id = uuid4()
+                opp_id = uuid4()
+                cur.execute(
+                    """
+                    INSERT INTO missions (
+                        mission_id, mission_type, status, goal_text, pattern_score,
+                        reasoning, simulation_roi, urgency, target_pct, duration_days,
+                        created_at, pivot_history, version
+                    ) VALUES
+                    (%s, 'HEDGE', 'proposed',
+                     '사전 위험방어 — 장기계약 비중 60% → 75% (4주)', 82.0,
+                     '호르무즈 위기 누적 — 이란 제재 + 러시아·우크라이나 + UK 해상 경보. AI 자신감 78%.',
+                     %s::jsonb, 'urgent', 75, 28, %s, '[]'::jsonb, 1),
+                    (%s, 'OPPORTUNITY', 'proposed',
+                     '사전 기회포착 — 즉시구매 비중 40% → 55% (4주)', 22.0,
+                     '약세 신호 누적 — 중국 PMI 49.2 (수요 둔화) + OECD 재고 증가 +280k/주 + 사우디 OSP $1.20 인하 (아시아향). 평시 미세 조정 기회. AI 자신감 64%.',
+                     %s::jsonb, 'default', 55, 28, %s, '[]'::jsonb, 1)
+                    """,
+                    (
+                        hedge_id,
+                        json.dumps({"Brent_130_봉쇄": 410.0, "Brent_110_긴장": 140.0, "Brent_90_평화": -50.0}),
+                        now,
+                        opp_id,
+                        json.dumps({"Brent_70_약세": 280.0, "Brent_80_안정": 90.0, "Brent_95_반등": -120.0}),
+                        now,
+                    ),
+                )
+                conn.commit()
+                log.info("Lakebase seed inserted: 2 한글 Bidirectional missions (HEDGE + OPP)")
+    except Exception as e:
+        log.warning("Lakebase seed failed (non-blocking): %s", e)
 
 
 def get_store() -> MissionStore:
