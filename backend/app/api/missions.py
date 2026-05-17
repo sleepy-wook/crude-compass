@@ -75,50 +75,9 @@ def _actor(request: Request) -> str:
 # ────────────────────────────────────────────────────────────────────────
 @router.get("/active")
 async def list_active() -> dict:
-    """D-2 진단 모드: endpoint reachable + Lakebase 단계별 진단 noexcept."""
-    import traceback, os
-    # D-2: SP identity 진단
-    sp_identity = {}
-    try:
-        from databricks.sdk import WorkspaceClient
-        w = WorkspaceClient()
-        me = w.current_user.me()
-        sp_identity = {
-            "user_name": me.user_name,
-            "display_name": me.display_name,
-            "id": me.id,
-        }
-    except Exception as e:
-        sp_identity = {"err": f"{type(e).__name__}: {e}"}
-    result = {
-        "missions": [],
-        "_debug_marker": "list_active entered",
-        "_debug_sp_identity": sp_identity,
-        "_debug_env": {
-            "USE_LAKEBASE": os.getenv("USE_LAKEBASE", "(missing)"),
-            "LAKEBASE_HOST": (os.getenv("LAKEBASE_HOST") or "")[:30],
-            "LAKEBASE_DATABASE": os.getenv("LAKEBASE_DATABASE", "(missing)"),
-            "LAKEBASE_USER": (os.getenv("LAKEBASE_USER") or "")[:30],
-            "LAKEBASE_ENDPOINT_PATH": (os.getenv("LAKEBASE_ENDPOINT_PATH") or "")[:40],
-        },
-    }
-    # Step 1 — get_store()
-    try:
-        store = get_store()
-        result["_debug_store_type"] = type(store).__name__
-    except Exception as e:
-        result["_debug_store_err"] = f"{type(e).__name__}: {e}"
-        result["_debug_traceback"] = traceback.format_exc()[-1200:]
-        return result
-    # Step 2 — store.get_active()
-    try:
-        missions = await store.get_active()
-        result["missions"] = [m.model_dump(mode="json") for m in missions]
-        result["_debug_marker"] = "list_active success"
-    except Exception as e:
-        result["_debug_get_active_err"] = f"{type(e).__name__}: {e}"
-        result["_debug_traceback"] = traceback.format_exc()[-1200:]
-    return result
+    store = get_store()
+    missions = await store.get_active()
+    return {"missions": [m.model_dump(mode="json") for m in missions]}
 
 
 @router.get("/all")
