@@ -176,8 +176,30 @@ _store: MissionStore | None = None
 def _build_store() -> MissionStore:
     use_lakebase = os.getenv("USE_LAKEBASE", "false").lower() == "true"
     if use_lakebase:
-        store: MissionStore = LakebaseMissionStore()
-        return store
+        # 시도 — Lakebase pool init은 lazy라 init 자체는 fail 안 함.
+        # 실제 connection fail은 첫 query 시점에 발견됨 (별도 health check 권장).
+        try:
+            lb_store: MissionStore = LakebaseMissionStore()
+            # Smoke test — pool acquire 1회 시도 (10s timeout) → fail 시 fallback
+            import logging as _logging
+            from app.db.lakebase import acquire as _lb_acquire
+            try:
+                with _lb_acquire() as _conn:
+                    with _conn.cursor() as _cur:
+                        _cur.execute("SELECT 1")
+                        _cur.fetchone()
+                _logging.getLogger(__name__).info("Lakebase smoke test PASS — using LakebaseMissionStore")
+                return lb_store
+            except Exception as e:
+                _logging.getLogger(__name__).warning(
+                    "Lakebase smoke test FAIL (%s) — falling back to InMemoryMissionStore + demo seed",
+                    e,
+                )
+        except Exception as e:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "LakebaseMissionStore init failed (%s) — falling back to in-memory", e
+            )
     in_mem = InMemoryMissionStore()
     if os.getenv("DEMO_MODE", "true").lower() == "true":
         _seed_demo_in_memory(in_mem)
