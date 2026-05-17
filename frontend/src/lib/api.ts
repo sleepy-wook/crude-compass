@@ -12,7 +12,12 @@ import type {
   SupervisorQueryResponse,
 } from "./types";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
+// Production (Apps deploy): same-origin (relative path = "") → 브라우저가 현재 host로 fetch.
+// Dev: explicit http://localhost:8000 → vite 5173에서 backend 8000으로 호출.
+// VITE_API_BASE env var로 override 가능.
+const API_BASE =
+  import.meta.env.VITE_API_BASE ??
+  (import.meta.env.PROD ? "" : "http://localhost:8000");
 
 class ApiError extends Error {
   status: number;

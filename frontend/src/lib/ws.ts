@@ -12,7 +12,10 @@ import type { Mission, WSEvent } from "./types";
 export type WSStatus = "disconnected" | "connecting" | "connected" | "error";
 
 function wsUrl(): string {
-  const base = new URL(API_BASE_URL);
+  // Production: API_BASE_URL == "" → window.location.origin 사용 (same-host wss://)
+  // Dev: API_BASE_URL == "http://localhost:8000" → ws://localhost:8000
+  const baseStr = API_BASE_URL || window.location.origin;
+  const base = new URL(baseStr);
   base.protocol = base.protocol === "https:" ? "wss:" : "ws:";
   base.pathname = "/api/ws/missions";
   return base.toString();
