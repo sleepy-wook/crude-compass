@@ -18,7 +18,7 @@ const GLOSSARY: Record<string, { label: string; definition: string }> = {
   PATTERN_SCORE: {
     label: "위기 신호 점수",
     definition:
-      "위기 신호 누적 점수 (0~100). 70 이상 = HEDGE, 30 이하 = OPP. 7년 backtest 75% 적중.",
+      "공개 데이터 6 source (GDELT·EIA·OPEC·FX·Dubai·OilPriceAPI)의 시간 감쇠 누적 점수 (0~100). 70 이상 = 위험방어(HEDGE), 30 이하 = 기회포착(OPP). Backtest 결과는 What-if 페이지에서 라이브.",
   },
   HEDGE: {
     label: "위험 방어",
@@ -182,8 +182,8 @@ export function GlossaryModal({ open, onClose }: GlossaryModalProps) {
           ))}
         </div>
         <footer className="border-t border-line-1 px-6 py-3 text-xs text-ink-3 leading-relaxed">
-          이 시스템은 한국 정유사 원유 조달 의사결정 AI 비서입니다. 공개 데이터 6개 ·
-          Slack ↔ Apps 5초 sync · 7년 backtest 75% 적중. <kbd className="px-1.5 py-0.5 ml-1 bg-line-1 rounded text-[10px] font-mono">ESC</kbd> 또는 배경 클릭으로 닫기.
+          K-Petroleum은 데모용 가상 정유사 · 100% open data · Slack ↔ Apps 5초 sync ·
+          양방향 Mission (위기+기회). <kbd className="px-1.5 py-0.5 ml-1 bg-line-1 rounded text-[10px] font-mono">ESC</kbd> 또는 배경 클릭으로 닫기.
         </footer>
       </div>
     </div>
