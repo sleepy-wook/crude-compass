@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__
-from app.api import debug_lakebase, demo as demo_api, genie as genie_api, missions, pattern, reactive as reactive_api, slack as slack_api, supervisor as supervisor_api
+from app.api import demo as demo_api, genie as genie_api, missions, pattern, reactive as reactive_api, slack as slack_api, supervisor as supervisor_api
 from app.core.config import get_settings
 from app.services.slack_bus_subscriber import run_slack_subscriber
 from app.services.slack_notify import get_notifier
@@ -87,7 +87,6 @@ def create_app() -> FastAPI:
     settings = get_settings()
     if settings.demo_mode:
         app.include_router(demo_api.router)
-        app.include_router(debug_lakebase.router)  # D-0 진단 endpoint (DEMO_MODE gated)
         logger.info("demo router mounted (DEMO_MODE=true)")
 
     @app.get("/api/health")
