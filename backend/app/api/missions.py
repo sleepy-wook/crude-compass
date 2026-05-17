@@ -75,20 +75,28 @@ def _actor(request: Request) -> str:
 # ────────────────────────────────────────────────────────────────────────
 @router.get("/active")
 async def list_active() -> dict:
-    import traceback
-    store = get_store()
+    import traceback, os
+    store_type = "unknown"
     try:
+        store = get_store()
+        store_type = type(store).__name__
         missions = await store.get_active()
         return {"missions": [m.model_dump(mode="json") for m in missions]}
     except Exception as e:
         logger.exception("missions/active failed: %s", e)
-        # D-2 진단용 임시 — Apps 환경에서 traceback 노출. D-1에 revert.
         return {
             "missions": [],
             "_debug_error": str(e),
             "_debug_type": type(e).__name__,
             "_debug_traceback": traceback.format_exc()[-1500:],
-            "_debug_store_type": type(store).__name__,
+            "_debug_store_type": store_type,
+            "_debug_env": {
+                "USE_LAKEBASE": os.getenv("USE_LAKEBASE", "(missing)"),
+                "LAKEBASE_HOST": (os.getenv("LAKEBASE_HOST") or "")[:20],
+                "LAKEBASE_DATABASE": os.getenv("LAKEBASE_DATABASE", "(missing)"),
+                "LAKEBASE_USER": (os.getenv("LAKEBASE_USER") or "")[:30],
+                "LAKEBASE_ENDPOINT_PATH": (os.getenv("LAKEBASE_ENDPOINT_PATH") or "")[:30],
+            },
         }
 
 
