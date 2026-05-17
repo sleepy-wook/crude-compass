@@ -7,9 +7,13 @@
 - Custom Connection subclass `LakebaseConnection` — pool이 reconnect할 때마다
   classmethod connect()가 호출되어 fresh token 자동 발급.
 - max_lifetime=3000s (50min) — token TTL 60min 안전 마진.
+
+SDK API: `w.database.generate_database_credential(request_id, instance_names=[...])`
+(databricks-sdk v0.56+ — v0.30대의 `w.postgres.generate_database_credential(endpoint=...)`는 deprecated)
 """
 from __future__ import annotations
 
+import uuid
 from contextlib import contextmanager
 from typing import Any, Iterator
 
@@ -20,10 +24,17 @@ from psycopg_pool import ConnectionPool
 from app.core.config import get_settings
 
 
-def _generate_token(endpoint_path: str) -> str:
-    """SDK로 Lakebase OAuth token 발급 (60분 lifetime)."""
+def _generate_token(instance_name: str) -> str:
+    """SDK로 Lakebase OAuth token 발급 (60분 lifetime).
+
+    instance_name: Lakebase database instance 이름 (예: 'crude-compass-pg').
+    LAKEBASE_ENDPOINT_PATH env에 instance name 직접 저장 (path 형태 X — v0.56+ API).
+    """
     w = WorkspaceClient()
-    credential = w.postgres.generate_database_credential(endpoint=endpoint_path)
+    credential = w.database.generate_database_credential(
+        request_id=str(uuid.uuid4()),
+        instance_names=[instance_name],
+    )
     if not credential.token:
         raise RuntimeError("Lakebase OAuth token empty")
     return credential.token
