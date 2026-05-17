@@ -29,14 +29,37 @@ def _generate_token(endpoint_path: str) -> str:
     return credential.token
 
 
+def _resolve_user() -> str:
+    """Lakebase PG user를 dynamic 결정.
+
+    Local dev: settings.lakebase_user (.env의 사용자 이메일)
+    Apps: workspace SP의 user_name (current_user.me() 자동 — OAuth token의 user와 일치)
+
+    이유: Lakebase는 OAuth token의 user claim과 conninfo의 user를 일치 검증.
+    Apps 환경에서 backend가 SP로 실행되는데 .env env가 사용자 이메일이면 mismatch → PoolTimeout.
+    """
+    s = get_settings()
+    try:
+        w = WorkspaceClient()
+        me = w.current_user.me()
+        # SP의 경우 user_name이 application_id (client_id UUID). User는 email.
+        if me.user_name:
+            return me.user_name
+    except Exception:
+        pass
+    # Fallback: settings.lakebase_user (local dev path)
+    return s.lakebase_user
+
+
 def _build_conninfo() -> str:
     """psycopg conninfo string — password는 connect 시점에 kwargs로 주입."""
     s = get_settings()
+    user = _resolve_user()
     return (
         f"host={s.lakebase_host} "
         f"port=5432 "
         f"dbname={s.lakebase_database} "
-        f"user={s.lakebase_user} "
+        f"user={user} "
         f"sslmode=require"
     )
 
