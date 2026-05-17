@@ -60,10 +60,13 @@ class SupervisorResponse:
 
 
 def _sync_call_supervisor(endpoint_name: str, question: str) -> SupervisorResponse:
-    """Databricks OpenAI client → Supervisor endpoint (chat completions + return_trace).
+    """Databricks OpenAI client → Supervisor endpoint (Responses API + return_trace).
 
-    OpenAI compatible — `client.chat.completions.create` 패턴.
-    `databricks_options.return_trace=true`로 sub-agent tool_calls trace 받음.
+    Agent Bricks Multi-Agent Supervisor는 **Responses API** 사용 (chat.completions X).
+    Apps logs (D-1 00:22 KST) 확인: "'messages' field is not supported. Please use 'input' field instead."
+
+    - `client.responses.create(model, input=[{role, content}], ...)` 패턴
+    - `databricks_options.return_trace=True`로 sub-agent routing trace 받음 (best-effort)
     """
     from databricks.sdk import WorkspaceClient
 
@@ -74,55 +77,77 @@ def _sync_call_supervisor(endpoint_name: str, question: str) -> SupervisorRespon
         w = WorkspaceClient()
 
     client = w.serving_endpoints.get_open_ai_client()
-    resp = client.chat.completions.create(
+    resp = client.responses.create(
         model=endpoint_name,
-        messages=[{"role": "user", "content": question}],
+        input=[{"role": "user", "content": question}],
         extra_body={"databricks_options": {"return_trace": True}},
     )
 
-    # message content
+    # answer: Responses API는 output_text shortcut 제공
     answer = ""
-    if resp.choices and resp.choices[0].message:
-        answer = resp.choices[0].message.content or ""
+    try:
+        answer = getattr(resp, "output_text", "") or ""
+    except Exception:
+        pass
 
-    # trace 파싱 — databricks_output.trace 또는 choices[0].message.tool_calls 시도
+    # output_text 없으면 output items 순회
+    if not answer:
+        try:
+            output = getattr(resp, "output", None) or []
+            text_parts: list[str] = []
+            for item in output:
+                item_type = getattr(item, "type", None)
+                if item_type == "message":
+                    for content in getattr(item, "content", []) or []:
+                        c_type = getattr(content, "type", None)
+                        if c_type in ("output_text", "text"):
+                            text_parts.append(getattr(content, "text", "") or "")
+            answer = "\n".join(p for p in text_parts if p)
+        except Exception as e:
+            logger.warning("supervisor output parse partial fail: %s", e)
+
+    # trace 파싱 — Responses API output items 또는 databricks_output.trace
     tools_used: list[SubAgentCall] = []
     raw_trace: list[dict[str, Any]] | None = None
 
+    # 1) Responses API output items에서 function_call / tool_use 추출
     try:
-        # 1) Databricks 확장 schema (databricks_output / trace)
-        databricks_output = getattr(resp, "databricks_output", None)
-        if databricks_output:
-            trace = getattr(databricks_output, "trace", None) or databricks_output.get("trace") if isinstance(databricks_output, dict) else None
-            if trace:
-                raw_trace = trace if isinstance(trace, list) else [trace]
-                for step in raw_trace:
-                    if isinstance(step, dict):
-                        name = step.get("tool_name") or step.get("name") or step.get("subagent")
-                        if name:
-                            tools_used.append(SubAgentCall(
-                                name=str(name),
-                                arguments=str(step.get("arguments", ""))[:200] or None,
-                                result_preview=str(step.get("result", ""))[:200] or None,
-                            ))
+        output = getattr(resp, "output", None) or []
+        for item in output:
+            item_type = getattr(item, "type", None)
+            if item_type in ("function_call", "tool_call", "tool_use"):
+                name = getattr(item, "name", None) or getattr(item, "tool_name", None)
+                if name:
+                    tools_used.append(SubAgentCall(
+                        name=str(name),
+                        arguments=str(getattr(item, "arguments", ""))[:200] or None,
+                    ))
     except Exception as e:
-        logger.warning("supervisor trace parse partial fail (databricks_output): %s", e)
+        logger.warning("supervisor responses output parse partial fail: %s", e)
 
-    # 2) Fallback — tool_calls in message (legacy OpenAI schema)
+    # 2) Databricks 확장 schema (databricks_output / trace) — fallback
     if not tools_used:
         try:
-            if resp.choices and resp.choices[0].message:
-                tool_calls = getattr(resp.choices[0].message, "tool_calls", None)
-                if tool_calls:
-                    for tc in tool_calls:
-                        fn = getattr(tc, "function", None)
-                        if fn:
-                            tools_used.append(SubAgentCall(
-                                name=str(getattr(fn, "name", "?")),
-                                arguments=str(getattr(fn, "arguments", ""))[:200] or None,
-                            ))
+            databricks_output = getattr(resp, "databricks_output", None)
+            if databricks_output:
+                trace = None
+                if isinstance(databricks_output, dict):
+                    trace = databricks_output.get("trace")
+                else:
+                    trace = getattr(databricks_output, "trace", None)
+                if trace:
+                    raw_trace = trace if isinstance(trace, list) else [trace]
+                    for step in raw_trace:
+                        if isinstance(step, dict):
+                            name = step.get("tool_name") or step.get("name") or step.get("subagent")
+                            if name:
+                                tools_used.append(SubAgentCall(
+                                    name=str(name),
+                                    arguments=str(step.get("arguments", ""))[:200] or None,
+                                    result_preview=str(step.get("result", ""))[:200] or None,
+                                ))
         except Exception as e:
-            logger.warning("supervisor trace parse partial fail (tool_calls): %s", e)
+            logger.warning("supervisor trace parse partial fail (databricks_output): %s", e)
 
     return SupervisorResponse(
         answer=answer or "(Supervisor 응답 비어있음)",
