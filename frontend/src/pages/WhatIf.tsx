@@ -92,7 +92,30 @@ export function WhatIf() {
         </section>
       )}
 
-      {/* Lakebase 미연동 disclosure — Apps Database resource pending 시 정직 표기 */}
+      {/* Lakebase 라이브 검증 — production resource binding 완료 시 success 카드 */}
+      {summary.data && summary.data.lakebase_available !== false && summary.data.summary && (
+        <section className="mb-6 bg-opportunity-50 rounded-xl border border-opportunity-100 p-5">
+          <div className="flex items-start gap-3">
+            <span className="text-[10px] uppercase tracking-widest text-opportunity-700 mt-1 shrink-0">
+              ● 라이브 검증
+            </span>
+            <div className="flex-1">
+              <h3 className="font-display text-base font-semibold text-ink mb-1.5">
+                Lakebase OLTP 직접 조회 — Apps Database resource OAuth 연동 완료
+              </h3>
+              <p className="text-xs text-ink-2 leading-relaxed">
+                Apps Service Principal이 Lakebase Postgres에 직접 connect (psycopg + OAuth token rotation).
+                {summary.data.summary.n_active}건 backtest 적중률 <strong className="text-opportunity-700">{summary.data.summary.hit_rate_pct?.toFixed(1)}%</strong>,
+                평균 절감 <strong className="text-opportunity-700">{summary.data.summary.avg_save_pct?.toFixed(2)}%</strong>.
+              </p>
+              <p className="text-[11px] text-ink-3 mt-2 font-mono">
+                run_id: {summary.data.summary.run_id} · psycopg3 pool · token TTL 50분 rotation
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+      {/* Lakebase 미연동 disclosure (fallback only) */}
       {summary.data && summary.data.lakebase_available === false && (
         <section className="mb-6 bg-panel rounded-xl border-2 border-dashed border-line-2 p-5">
           <div className="flex items-start gap-3">
@@ -105,12 +128,7 @@ export function WhatIf() {
               </h3>
               <p className="text-xs text-ink-2 leading-relaxed">
                 Lakebase (Postgres OLTP)에 backtest_predictions 적재 완료.
-                Production Apps의 Service Principal OAuth role binding이 진행 중이라
-                <strong className="text-ink"> Apps Database resource 추가</strong>가 끝나면
-                즉시 라이브 데이터로 전환됩니다.
-              </p>
-              <p className="text-[11px] text-ink-3 mt-2 font-mono">
-                자체 평가 5차 (D-1) §"Known limitations" 명시 — 정직 disclosure
+                Production Apps의 Service Principal OAuth role binding이 진행 중.
               </p>
             </div>
           </div>

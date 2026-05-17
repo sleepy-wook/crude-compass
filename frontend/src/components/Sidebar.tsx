@@ -48,9 +48,9 @@ export function Sidebar() {
         </div>
         <ul className="text-[11px] text-sidebar-muted space-y-1 leading-snug">
           <li>• <span className="text-white/90">Apps</span> — 본 페이지 (Vite + FastAPI 단일 컨테이너)</li>
-          <li>• <span className="text-white/90">Lakebase</span> — Mission CRUD + Backtest OLTP <span className="text-sidebar-muted2">(OAuth D-1)</span></li>
-          <li>• <span className="text-white/90">Genie</span> — Crude Oil Market Analysis Space</li>
-          <li>• <span className="text-white/90">Agent Bricks</span> — KA + Mission Plan <span className="text-sidebar-muted2">(Supervisor D-1)</span></li>
+          <li>• <span className="text-white/90">Lakebase</span> — Mission CRUD + Backtest OLTP <span className="text-ok">● 라이브</span></li>
+          <li>• <span className="text-white/90">Genie</span> — Crude Oil Market Analysis Space <span className="text-ok">● 라이브</span></li>
+          <li>• <span className="text-white/90">Agent Bricks</span> — Multi-Agent Supervisor (Genie · KA · FMA) <span className="text-ok">● 라이브</span></li>
         </ul>
       </div>
 

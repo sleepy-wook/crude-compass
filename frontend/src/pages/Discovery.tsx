@@ -316,6 +316,15 @@ export function Discovery() {
             />
           </div>
         )}
+        {backtest.data && backtest.data.summary && (
+          <div className="mt-3 inline-flex items-center gap-2 text-[11px] text-opportunity-700 font-mono">
+            <span>● 라이브 Lakebase</span>
+            <span className="text-ink-3">·</span>
+            <span>run_id {backtest.data.summary.run_id}</span>
+            <span className="text-ink-3">·</span>
+            <span>psycopg3 pool · OAuth token 50분 rotation</span>
+          </div>
+        )}
         {backtest.data && !backtest.data.summary && backtest.data.lakebase_available === false && (
           <div className="bg-panel rounded-xl border-2 border-dashed border-line-2 p-5">
             <div className="flex items-start gap-3">
