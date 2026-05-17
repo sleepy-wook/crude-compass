@@ -58,7 +58,7 @@ env:
     valueFrom: genie_space_id
 
   # Agent Bricks Supervisor Agent endpoint (D-2 형욱 manual 등록 후)
-  # 4 sub-agent (Genie + KA + IE + FMA) 오케스트레이션. 미설정이면 Genie fallback.
+  # 3 sub-agent (Genie + KA + FMA Mission Plan) 오케스트레이션. 미설정이면 Genie fallback.
   - name: SUPERVISOR_ENDPOINT_NAME
     valueFrom: supervisor_endpoint_name
 

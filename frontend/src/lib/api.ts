@@ -187,7 +187,7 @@ export const api = {
       body: JSON.stringify({ question, conversation_id: conversationId ?? null }),
     }),
 
-  // Agent Bricks Supervisor Agent — Multi-Agent orchestration (Genie + KA + IE + FMA)
+  // Agent Bricks Supervisor Agent — Multi-Agent orchestration (Genie + KA + FMA Mission Plan)
   supervisorQuery: (question: string) =>
     request<SupervisorQueryResponse>("/api/supervisor/query", {
       method: "POST",

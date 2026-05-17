@@ -1,6 +1,6 @@
 """Agent Bricks Supervisor Agent endpoint.
 
-POST /api/supervisor/query — 자연어 질의 → Supervisor가 4 sub-agent 자동 라우팅 →
+POST /api/supervisor/query — 자연어 질의 → Supervisor가 3 sub-agent 자동 라우팅 →
 종합 답변 + tools_used trace 반환.
 
 settings.supervisor_enabled False 또는 호출 실패 시 fallback (genie.py 4-tier로 우회).

@@ -73,15 +73,17 @@
    │  └──────────────────────────────┘   └──────────────┬──────────────┘    │
    │                 ↑                                  ↓                    │
    │  ┌────────────────────────────────────────────────────────────────┐   │
-   │  │  Agent Bricks 3 types (D-2 scope-in)                            │   │
+   │  │  Agent Bricks 2 types (D-2 scope-in)                            │   │
    │  │                                                                  │   │
    │  │  ⭐ Supervisor Agent (`crude-compass-supervisor`)                │   │
    │  │     OpenAI chat completions 호환 + return_trace                  │   │
    │  │     │                                                            │   │
-   │  │     ├─ Genie Space (정형 SQL)                                    │   │
+   │  │     ├─ Genie Space (정형 SQL — Pattern Score, OPEC fields, FX)   │   │
    │  │     ├─ Knowledge Assistant (OPEC PDF RAG + citation)             │   │
-   │  │     ├─ Information Extraction (OPEC PDF → 5 fields)              │   │
    │  │     └─ Mission Plan FMA (Claude Haiku 4.5 Bidirectional)         │   │
+   │  │                                                                  │   │
+   │  │  Document Intelligence는 §9.6 ai_parse_document + FMA 직접 호출  │   │
+   │  │  패턴으로 bronze.opec_momr_parsed 적재 (Agent Bricks 외 layer).  │   │
    │  └────────────────────────────────────────────────────────────────┘   │
    │                                       ↓                                │
    │  ┌────────────────────────────────────────────────────────────────┐   │

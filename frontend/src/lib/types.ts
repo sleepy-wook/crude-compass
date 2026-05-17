@@ -110,7 +110,7 @@ export interface BacktestPrediction {
   dubai_30d_usd: number | null;
 }
 
-/** Agent Bricks Supervisor Agent — Multi-Agent orchestration (4 sub-agents) */
+/** Agent Bricks Supervisor Agent — Multi-Agent orchestration (3 sub-agents) */
 
 export interface SubAgentCall {
   name: string;

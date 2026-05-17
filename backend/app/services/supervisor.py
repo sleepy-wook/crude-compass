@@ -1,7 +1,7 @@
 """Agent Bricks Supervisor Agent client.
 
-시나리오 §9.7 Multi-Agent Orchestration — single endpoint에 자연어 query 전달 시
-Supervisor가 4 sub-agent (Genie + Knowledge Assistant + Information Extraction + Mission Plan FMA)에
+시나리오 §9.8 Multi-Agent Orchestration — single endpoint에 자연어 query 전달 시
+Supervisor가 3 sub-agent (Genie + Knowledge Assistant + Mission Plan FMA)에
 자동 delegate. OpenAI chat completions 호환 + `databricks_options.return_trace=true`로
 어떤 sub-agent가 사용됐는지 frontend 노출.
 

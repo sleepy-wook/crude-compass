@@ -61,7 +61,7 @@ class Settings(BaseModel):
         """Genie Space ID 등록되어 있으면 live SDK 호출."""
         return bool(self.genie_space_id)
 
-    # Agent Bricks Supervisor Agent endpoint (D-2 형욱 manual 등록 — 4 sub-agent 오케스트레이션)
+    # Agent Bricks Supervisor Agent endpoint (D-2 형욱 manual 등록 — 3 sub-agent 오케스트레이션)
     # 비어있으면 /api/supervisor/query는 Genie fallback으로 graceful degrade.
     supervisor_endpoint_name: str = Field(
         default_factory=lambda: os.getenv("SUPERVISOR_ENDPOINT_NAME", "")

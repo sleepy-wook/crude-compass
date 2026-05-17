@@ -19,8 +19,6 @@ const SUBAGENT_LABEL: Record<string, { label: string; color: string }> = {
   genie: { label: "Genie SQL", color: "bg-blue-50 text-blue-700 border-blue-200" },
   knowledge: { label: "Knowledge Assistant", color: "bg-purple-50 text-purple-700 border-purple-200" },
   ka: { label: "Knowledge Assistant", color: "bg-purple-50 text-purple-700 border-purple-200" },
-  extraction: { label: "Information Extraction", color: "bg-amber-50 text-amber-700 border-amber-200" },
-  ie: { label: "Information Extraction", color: "bg-amber-50 text-amber-700 border-amber-200" },
   haiku: { label: "Mission Plan (Claude Haiku)", color: "bg-green-50 text-green-700 border-green-200" },
   claude: { label: "Mission Plan (Claude Haiku)", color: "bg-green-50 text-green-700 border-green-200" },
 };
@@ -37,7 +35,7 @@ export function WhatIf() {
   const preds = useBacktestPredictions(300);
   const summary = useBacktestResults();
 
-  // Supervisor Agent widget state — Multi-Agent orchestration (Genie + KA + IE + FMA)
+  // Supervisor Agent widget state — Multi-Agent orchestration (Genie + KA + FMA Mission Plan)
   const [supervisorQuestion, setSupervisorQuestion] = useState("");
   const [supervisorResp, setSupervisorResp] = useState<SupervisorQueryResponse | null>(null);
 
@@ -275,7 +273,7 @@ export function WhatIf() {
             AI 어시스턴트 (Supervisor)
           </h2>
           <span className="text-[11px] text-ink-3">
-            Agent Bricks · 4 sub-agent (Genie · KA · IE · FMA) 자동 라우팅
+            Agent Bricks · 3 sub-agent (Genie · KA · FMA) 자동 라우팅
           </span>
         </div>
         <p className="text-xs text-ink-3 mb-4 leading-relaxed">
