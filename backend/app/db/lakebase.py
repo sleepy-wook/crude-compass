@@ -47,13 +47,45 @@ def _extract_instance_name(endpoint_path: str) -> str:
     return s
 
 
+_RESOLVED_INSTANCE_NAME: str | None = None
+
+
+def _resolve_actual_instance_name(w: WorkspaceClient, hint: str) -> str:
+    """Apps SP context에서 진짜 visible instance name 발견.
+
+    1. hint name 그대로 시도
+    2. list_database_instances() — SP가 binding된 instance 추출
+    3. fallback to hint
+    """
+    global _RESOLVED_INSTANCE_NAME
+    if _RESOLVED_INSTANCE_NAME:
+        return _RESOLVED_INSTANCE_NAME
+
+    import logging as _logging
+    log = _logging.getLogger(__name__)
+    try:
+        instances = list(w.database.list_database_instances())
+        log.info("Lakebase list_database_instances: %d found", len(instances))
+        for inst in instances:
+            log.info("  instance: name=%s uid=%s", getattr(inst, 'name', '?'), getattr(inst, 'uid', '?'))
+            name = getattr(inst, 'name', None)
+            if name:
+                _RESOLVED_INSTANCE_NAME = name
+                return name
+    except Exception as e:
+        log.warning("list_database_instances failed: %s", e)
+    return hint
+
+
 def _generate_token(endpoint_path: str) -> str:
     """v0.81+ SDK: w.database.generate_database_credential(instance_names=[...]).
 
-    endpoint_path: settings.lakebase_endpoint_path (path 또는 simple name) → instance name 추출.
+    endpoint_path: settings.lakebase_endpoint_path → instance name 추출.
+    Fallback chain: hint → list_database_instances() actual name.
     """
-    instance_name = _extract_instance_name(endpoint_path)
+    instance_hint = _extract_instance_name(endpoint_path)
     w = WorkspaceClient()
+    instance_name = _resolve_actual_instance_name(w, instance_hint)
     credential = w.database.generate_database_credential(
         request_id=str(uuid.uuid4()),
         instance_names=[instance_name],
