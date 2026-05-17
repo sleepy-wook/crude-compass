@@ -78,13 +78,32 @@ def _resolve_actual_instance_name(w: WorkspaceClient, hint: str) -> str:
 
 
 def _generate_token(endpoint_path: str) -> str:
-    """v0.81+ SDK: w.database.generate_database_credential(instance_names=[...]).
+    """Apps SP OAuth token을 PG password로 직접 사용 (SDK Database API 우회).
 
-    endpoint_path: settings.lakebase_endpoint_path → instance name 추출.
-    Fallback chain: hint → list_database_instances() actual name.
+    배경 (D-0 logs 분석):
+    - Apps SP는 Database resource binding으로 PG connection 권한 받음 (CAN_CONNECT_AND_CREATE)
+    - 하지만 SDK Database API (list_database_instances, generate_database_credential) 권한 없음
+    - 모든 instance_names 변형 → "Database instance not found"
+    - Lakebase는 PG `databricks_auth` extension으로 Databricks OAuth token 직접 validate
+      → SP의 access token이 곧 PG password (binding이 자동 SP role grant)
+
+    1차 시도: SP OAuth token (w.config.authenticate)
+    2차 시도 (fallback): SDK API generate_database_credential (옛 코드 유지)
     """
-    instance_hint = _extract_instance_name(endpoint_path)
     w = WorkspaceClient()
+    # 1차: SP OAuth token 직접 (Apps SP context, 자동 authentication chain)
+    try:
+        auth_headers = w.config.authenticate()  # dict like {'Authorization': 'Bearer <token>'}
+        if isinstance(auth_headers, dict):
+            auth_value = auth_headers.get("Authorization", "")
+            if auth_value.startswith("Bearer "):
+                token = auth_value[len("Bearer "):]
+                if token:
+                    return token
+    except Exception:
+        pass
+    # 2차 fallback: SDK Database API (권한 있으면 작동)
+    instance_hint = _extract_instance_name(endpoint_path)
     instance_name = _resolve_actual_instance_name(w, instance_hint)
     credential = w.database.generate_database_credential(
         request_id=str(uuid.uuid4()),
