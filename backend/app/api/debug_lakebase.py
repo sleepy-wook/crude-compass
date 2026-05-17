@@ -66,36 +66,84 @@ async def debug_lakebase() -> dict[str, Any]:
     except Exception as e:
         result["find_by_uid_error"] = f"{type(e).__name__}: {str(e)[:300]}"
 
-    # 4. generate_database_credential — 다양한 path 시도
-    attempts: dict[str, Any] = {}
+    # 4. w.postgres.generate_database_credential(endpoint=...) — Lakebase 전용 namespace
+    postgres_attempts: dict[str, Any] = {}
     paths_to_try = [
-        "crude-compass-pg",  # project display name
-        project_uid,  # project UID
-        "primary",  # endpoint display name
-        "ep-lucky-star-d1rlmmrr",  # endpoint UID from PGHOST
-        "databricks_postgres",  # PG database name
-        "db-dxjk-xzuoq7qrwt",  # database UID from resource binding
-        "projects/crude-compass-pg",
-        "projects/crude-compass-pg/branches/production",
         "projects/crude-compass-pg/branches/production/endpoints/primary",
         "projects/crude-compass-pg/branches/production/endpoints/ep-lucky-star-d1rlmmrr",
+        "projects/crude-compass-pg/branches/production",
+        "projects/crude-compass-pg",
+        "crude-compass-pg",
+        "primary",
+        "ep-lucky-star-d1rlmmrr",
     ]
-    for name in paths_to_try:
+    for path in paths_to_try:
         try:
-            cred = w.database.generate_database_credential(
-                request_id=str(uuid.uuid4()),
-                instance_names=[name],
-            )
-            attempts[name] = {
+            cred = w.postgres.generate_database_credential(endpoint=path)
+            postgres_attempts[path] = {
                 "ok": True,
                 "token_prefix": (cred.token or "")[:30],
-                "expiration": str(getattr(cred, "expiration_time", None)),
             }
         except Exception as e:
-            attempts[name] = {
+            postgres_attempts[path] = {
                 "ok": False,
                 "error": f"{type(e).__name__}: {str(e)[:200]}",
             }
-    result["credential_attempts"] = attempts
+    result["postgres_attempts"] = postgres_attempts
+
+    # 5. w.config.authenticate() — SP OAuth token 진짜 prefix
+    try:
+        auth_headers = w.config.authenticate()
+        if isinstance(auth_headers, dict):
+            auth_value = auth_headers.get("Authorization", "")
+            result["sp_auth_token_prefix"] = auth_value[:50] if auth_value else "(empty)"
+        else:
+            result["sp_auth_token_prefix"] = f"(type: {type(auth_headers).__name__})"
+    except Exception as e:
+        result["sp_auth_error"] = f"{type(e).__name__}: {str(e)[:200]}"
+
+    # 6. 직접 psycopg connect 시도 (각 token strategy)
+    import psycopg
+    pg_attempts: dict[str, Any] = {}
+    host = os.environ.get("PGHOST", "")
+    user = os.environ.get("PGUSER", "")
+    database = os.environ.get("PGDATABASE", "databricks_postgres")
+
+    # Strategy A: SP OAuth token 직접
+    try:
+        auth_headers = w.config.authenticate()
+        token_a = auth_headers.get("Authorization", "").replace("Bearer ", "")
+        if token_a:
+            conn = psycopg.connect(
+                host=host, port=5432, dbname=database, user=user,
+                password=token_a, sslmode="require", connect_timeout=10,
+            )
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+                cur.fetchone()
+            conn.close()
+            pg_attempts["sp_oauth_token"] = {"ok": True}
+        else:
+            pg_attempts["sp_oauth_token"] = {"ok": False, "error": "no token"}
+    except Exception as e:
+        pg_attempts["sp_oauth_token"] = {"ok": False, "error": f"{type(e).__name__}: {str(e)[:200]}"}
+
+    # Strategy B: w.postgres token (working path가 있으면)
+    working_postgres_path = next((p for p, v in postgres_attempts.items() if v.get("ok")), None)
+    if working_postgres_path:
+        try:
+            cred = w.postgres.generate_database_credential(endpoint=working_postgres_path)
+            conn = psycopg.connect(
+                host=host, port=5432, dbname=database, user=user,
+                password=cred.token, sslmode="require", connect_timeout=10,
+            )
+            with conn.cursor() as cur:
+                cur.execute("SELECT current_user")
+                row = cur.fetchone()
+            conn.close()
+            pg_attempts["postgres_sdk_token"] = {"ok": True, "current_user": str(row[0]) if row else None}
+        except Exception as e:
+            pg_attempts["postgres_sdk_token"] = {"ok": False, "error": f"{type(e).__name__}: {str(e)[:200]}"}
+    result["pg_connect_attempts"] = pg_attempts
 
     return result
