@@ -210,12 +210,46 @@ async def prices_wide(days: int = 90) -> dict:
 
 
 # ────────────────────────────────────────────────────────────────────────
-# /api/market/intraday-summary — bronze.oil_prices 5분 데이터 요약 (D-3 추가)
-# OilPriceAPI 5분 단위 raw 데이터로 ticker별 현재/30분/24h 변동.
+# /api/market/intraday-summary — OilPriceAPI 5분 데이터 요약 (D-3 추가)
+# 1차: OilPriceAPI HTTP 직접 호출 (paid tier, bronze cron 의존성 제거)
+# 2차 fallback: bronze.oil_prices (cron 적재된 경우)
 # ────────────────────────────────────────────────────────────────────────
 @router.get("/market/intraday-summary")
 async def intraday_summary() -> dict:
-    """Dubai/Brent/WTI ticker별 latest + 30분 전 + 24h 전 가격 + 마지막 spike."""
+    """Dubai/Brent/WTI ticker별 latest + 30분 전 + 24h 전 가격 + 마지막 spike.
+
+    1차: OilPriceAPI 직접 호출 (실시간, paid tier).
+    2차 fallback: bronze.oil_prices (cron 적재된 경우).
+    """
+    # 1차 — OilPriceAPI 직접 호출 (paid tier)
+    def _fetch_oilprice():
+        from app.services.oilprice_client import fetch_intraday_summary
+        items = fetch_intraday_summary()
+        return {
+            "tickers": [
+                {
+                    "ticker": t.ticker,
+                    "price_usd": t.price_usd,
+                    "fetched_at": t.fetched_at,
+                    "delta_30min_pct": t.delta_30min_pct,
+                    "delta_24h_pct": t.delta_24h_pct,
+                    "biggest_spike_pct": t.biggest_spike_pct,
+                    "biggest_spike_at": t.biggest_spike_at,
+                    "sample_count": t.sample_count,
+                }
+                for t in items
+            ]
+        }
+
+    try:
+        oilprice_result = _cached("intraday_oilprice", 60, _fetch_oilprice)
+        if oilprice_result.get("tickers"):
+            return oilprice_result
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("intraday-summary oilprice failed: %s", e)
+
+    # 2차 fallback — bronze.oil_prices (cron 적재 path)
     def _fetch():
         sql = """
             SELECT ticker, price_usd, delta_pct_5min, fetched_at
