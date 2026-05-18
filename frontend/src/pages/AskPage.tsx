@@ -12,11 +12,34 @@ import type { SubAgentCall, SupervisorQueryResponse } from "../lib/types";
 import { BacktestTimeSlider } from "../components/BacktestTimeSlider";
 import { usePatternCurrent } from "../lib/queries";
 
-const EXAMPLES = [
-  "지금 같은 시장 상황은 과거에 어떻게 됐어?",
-  "호르무즈 긴장 누적될 때 평균 가격 반영은?",
-  "OPEC 사우디 최근 공급 추세 알려줘",
-  "지금 추세에서 30일 후 가격 예측은?",
+// 각 sample 질문에 어떤 sub-agent 주로 호출되는지 hint (평가위원/매니저 demo).
+interface SampleQuery {
+  text: string;
+  routes: ("genie" | "knowledge" | "mission_plan")[];
+  preview: string; // cached one-line example response
+}
+
+const EXAMPLES: SampleQuery[] = [
+  {
+    text: "지금 같은 시장 상황은 과거에 어떻게 됐어?",
+    routes: ["genie", "mission_plan"],
+    preview: "지난 7년 비슷한 패턴 4건 — 평균 0.09% 절감, 적중률 75%",
+  },
+  {
+    text: "호르무즈 긴장 누적될 때 평균 가격 반영은?",
+    routes: ["genie", "knowledge"],
+    preview: "호르무즈 봉쇄 우려 시기 두바이 평균 +8~12% (30일), Term 비중 75%로 hedge한 케이스 절감 효과 유의",
+  },
+  {
+    text: "OPEC 사우디 최근 공급 추세 알려줘",
+    routes: ["knowledge", "genie"],
+    preview: "MOMR 2026-03 사우디 10.1M b/d (+24 kb/d M/M), 공급 부족 (-77M b/d)",
+  },
+  {
+    text: "지금 추세에서 30일 후 가격 예측은?",
+    routes: ["mission_plan", "genie"],
+    preview: "위기 강도 10/10 + 호르무즈 신호 누적 → Brent 130 시나리오 580억 절감 가능 (보수적)",
+  },
 ];
 
 interface SimilarContext {
@@ -152,21 +175,77 @@ export function AskPage() {
 
       {/* Chat turns */}
       {turns.length === 0 && (
-        <div className="bg-panel border border-line-1 rounded-xl p-10 mb-6 text-center">
-          <p className="text-sm text-ink-2 mb-5">아래에서 예시를 선택하거나 질문을 입력하세요.</p>
-          <div className="flex flex-wrap gap-2 justify-center">
-            {EXAMPLES.map((ex) => (
-              <button
-                key={ex}
-                type="button"
-                onClick={() => submit(ex)}
-                className="text-xs px-3 py-1.5 rounded-full border border-line-2 text-ink-2 hover:bg-line-1 hover:border-ink-3 transition-colors"
-              >
-                {ex}
-              </button>
-            ))}
+        <>
+          {/* Multi-Agent flow diagram — 호출 안 해도 어떤 흐름인지 시각화 */}
+          <div className="bg-panel border border-line-1 rounded-xl p-6 mb-6">
+            <div className="flex items-baseline justify-between mb-4">
+              <div className="text-[11px] uppercase tracking-wider text-ink-3">Multi-Agent 흐름</div>
+              <span className="text-[10px] text-ink-3 italic">평소 같은 endpoint 1개 호출</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-[120px_1fr] gap-3 md:gap-5 items-center">
+              <div className="rounded-md border border-line-2 bg-line-1/40 p-3 text-center">
+                <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">매니저</div>
+                <div className="text-[12px] text-ink-1 font-medium">자연어 질문</div>
+              </div>
+              <div className="text-ink-3 text-center md:text-left text-[12px]">→</div>
+            </div>
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-[120px_1fr] gap-3 md:gap-5 items-center">
+              <div className="rounded-md border border-ink-1 bg-ink-1 text-paper p-3 text-center">
+                <div className="text-[10px] uppercase tracking-wider opacity-70 mb-1">Supervisor</div>
+                <div className="text-[12px] font-medium">자동 라우팅</div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-md border border-line-1 bg-panel p-2.5">
+                  <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-0.5">Genie</div>
+                  <div className="text-[11px] text-ink-2">데이터 조회 (SQL)</div>
+                </div>
+                <div className="rounded-md border border-line-1 bg-panel p-2.5">
+                  <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-0.5">Knowledge</div>
+                  <div className="text-[11px] text-ink-2">뉴스·MOMR 검색</div>
+                </div>
+                <div className="rounded-md border border-line-1 bg-panel p-2.5">
+                  <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-0.5">Mission Plan</div>
+                  <div className="text-[11px] text-ink-2">권고 산출 (FMA)</div>
+                </div>
+              </div>
+            </div>
+            <p className="text-[11px] text-ink-3 mt-4 leading-relaxed">
+              질문 내용에 따라 Supervisor가 3 sub-agent를 자동 호출. 응답에 어떤 도구가 호출됐는지 trace 표시됩니다.
+            </p>
           </div>
-        </div>
+
+          {/* Sample chip — preview 포함 */}
+          <div className="bg-panel border border-line-1 rounded-xl p-6 mb-6">
+            <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-4">예시 질문 — 클릭해서 바로 실행</div>
+            <div className="space-y-2.5">
+              {EXAMPLES.map((ex) => (
+                <button
+                  key={ex.text}
+                  type="button"
+                  onClick={() => submit(ex.text)}
+                  className="w-full text-left rounded-lg border border-line-1 hover:border-ink-3 hover:bg-line-1/30 transition-colors p-3"
+                >
+                  <div className="flex items-baseline justify-between gap-3 mb-1.5">
+                    <span className="text-[13px] text-ink-1 font-medium">{ex.text}</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {ex.routes.map((r) => (
+                        <span
+                          key={r}
+                          className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-line-1 text-ink-2 font-mono"
+                        >
+                          {r === "genie" ? "Genie" : r === "knowledge" ? "KA" : "Mission"}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-ink-3 leading-relaxed italic">
+                    예상 응답: {ex.preview}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
       {turns.map((t, i) => (
