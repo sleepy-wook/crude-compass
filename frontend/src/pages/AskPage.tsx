@@ -143,7 +143,7 @@ export function AskPage() {
       <header className="mb-10">
         <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-2">AI에게 묻기</div>
         <h1 className="font-display text-[28px] md:text-[32px] font-semibold tracking-tight text-ink-1 mb-2 leading-tight">
-          Multi-Agent에게 자연어로 질문
+          Multi-Agent에 자연어로 질문
         </h1>
         <p className="text-sm text-ink-2 leading-relaxed max-w-2xl">
           Supervisor가 데이터 조회·뉴스 분석·권고 산출 도구를 자동 호출해 답합니다.

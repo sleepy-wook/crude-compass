@@ -15,6 +15,7 @@ import { useMissionsActive, usePatternCurrent } from "../lib/queries";
 import { useMissionsWebSocket } from "../lib/ws";
 import { Bidirectional3Zone } from "../components/Bidirectional3Zone";
 import { SimilarPastWidget } from "../components/SimilarPastWidget";
+import { MissionSplitBar } from "../components/MissionSplitBar";
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
 import type { Mission } from "../lib/types";
 
@@ -120,9 +121,9 @@ function MissionSummaryCard({
   }
 
   const isProposed = mission.status === "proposed";
-  const baseline = mission.mission_type === "HEDGE" ? 60 : 40;
-  const target = mission.target_pct ?? baseline;
-  const action = mission.mission_type === "HEDGE" ? "장기 비중" : "즉시 비중";
+  // baseline은 시나리오 §4 K-Petroleum default (Term 60 / Spot 40)으로 강제.
+  // LLM goal_text가 50/40 같은 다른 baseline 명시해도 frontend에서 무시 (numbering inconsistency 방지).
+  const target = mission.target_pct ?? (mission.mission_type === "HEDGE" ? 75 : 70);
 
   return (
     <div className="bg-panel border border-line-1 rounded-2xl p-8 flex flex-col">
@@ -135,15 +136,17 @@ function MissionSummaryCard({
           </span>
         )}
         <span className="ml-auto text-[10px] text-ink-3">
-          {isProposed ? "AI 검토 권한" : "진행 중"}
+          {isProposed ? "AI 권고 · 검토 대기" : "진행 중"}
         </span>
       </div>
 
-      <div className="text-[13px] text-ink-3 mb-2">
-        오늘 {action} <span className="text-ink-3/70">· 평시 {baseline}%</span>
-      </div>
-      <div className="font-display text-[36px] font-semibold tracking-tight leading-[1.1] text-ink-1 mb-4">
-        {baseline}% <span className="text-ink-3 mx-2">→</span> {target}%
+      {/* Term/Spot 분할 시각화 — 해커톤 1등 demo killer fix */}
+      <div className="mb-5">
+        <MissionSplitBar
+          missionType={mission.mission_type}
+          targetPct={target}
+          size="compact"
+        />
       </div>
 
       <p className="text-[13px] text-ink-2 leading-relaxed mb-6 line-clamp-3">

@@ -14,6 +14,7 @@ import {
   useMissionPivot,
   useMissionReject,
 } from "../lib/queries";
+import { MissionSplitBar } from "../components/MissionSplitBar";
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
 import {
   formatDate,
@@ -162,9 +163,11 @@ function MissionDetail({ missionId }: { missionId: string }) {
   if (!m) return <div className="p-10 text-sm text-ink-3">임무를 찾을 수 없습니다.</div>;
 
   const canAct = ["proposed", "active", "on_track", "at_risk"].includes(m.status);
-  const baseline = m.mission_type === "HEDGE" ? 60 : 40;
-  const target = m.target_pct ?? baseline;
-  const action = m.mission_type === "HEDGE" ? "장기계약 비중" : "즉시구매 비중";
+  // baseline은 시나리오 §4 K-Petroleum default (Term 60 / Spot 40)으로 강제.
+  const target = m.target_pct ?? (m.mission_type === "HEDGE" ? 75 : 70);
+  const action = m.mission_type === "HEDGE" ? "Term 비중 (장기 계약)" : "Spot 비중 (즉시 매입)";
+  // 위기 강도 10점 만점 (TopBar와 통일)
+  const intensityScore = m.pattern_score != null ? Math.round(m.pattern_score / 10) : null;
   const roiEntries = Object.entries(m.simulation_roi || {}).map(
     ([rawKey, value], idx) => [normalizeScenarioLabel(rawKey, idx), value] as [string, number]
   );
@@ -184,13 +187,25 @@ function MissionDetail({ missionId }: { missionId: string }) {
       </div>
 
       <h1 className="font-display text-2xl md:text-3xl font-semibold tracking-tight text-ink-1 mb-2 leading-tight">
-        {action} {baseline}% <span className="text-ink-3 mx-1">→</span> {target}%
+        {action} 권고
       </h1>
       <p className="text-sm text-ink-2 leading-relaxed mb-8">{m.reasoning}</p>
 
+      {/* Term/Spot 분할 시각화 — 평시 baseline vs AI 권고 한눈에 */}
+      <div className="mb-8 pb-8 border-b border-line-1">
+        <MissionSplitBar
+          missionType={m.mission_type}
+          targetPct={target}
+          size="full"
+        />
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-3 gap-6 pb-8 mb-8 border-b border-line-1">
-        <DetailStat label="위기 점수" value={formatScore(m.pattern_score)} />
+        <DetailStat
+          label="위기 강도"
+          value={intensityScore != null ? `${intensityScore}/10` : "—"}
+        />
         <DetailStat label={termSpotLabel(m.mission_type)} value={`${target}%`} />
         <DetailStat label="기간" value={`${m.duration_days}일`} />
       </div>
@@ -198,7 +213,10 @@ function MissionDetail({ missionId }: { missionId: string }) {
       {/* ROI scenarios */}
       {roiEntries.length > 0 && (
         <div className="mb-8 pb-8 border-b border-line-1">
-          <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-3">예상 시나리오</div>
+          <div className="flex items-baseline justify-between mb-3">
+            <div className="text-[11px] uppercase tracking-wider text-ink-3">예상 시나리오</div>
+            <span className="text-[10px] text-ink-3 italic">시뮬레이션 · 시연용 예시</span>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {roiEntries.map(([scenario, roi]) => (
               <div key={scenario} className="bg-panel border border-line-1 rounded-lg p-4">

@@ -119,10 +119,10 @@ export function missionTypeLabel(t: string): string {
   return t;
 }
 
-/** Mission type → 계약 형태 한글 (Term/Spot 영문 잔재 제거) */
+/** Mission type → 계약 형태. Term/Spot 영문 (업계 표준 용어, 사용자 D-15 결정). */
 export function termSpotLabel(t: string): string {
-  if (t === "HEDGE") return "장기계약";
-  if (t === "OPPORTUNITY") return "즉시구매";
+  if (t === "HEDGE") return "Term 비중";
+  if (t === "OPPORTUNITY") return "Spot 비중";
   return t;
 }
 

@@ -51,6 +51,30 @@ function prettifyCategory(raw: string): string {
   return raw.replace(/_/g, " ");
 }
 
+// GDELT raw title을 매니저-friendly로 변환.
+// 입력 예: "GDELT signal · venezuela_sanctions · tone=-0.02"
+// 출력 예: "베네수엘라 제재 — 약한 부정 톤"
+function prettifyNewsTitle(raw: string): string {
+  const m = raw.match(/GDELT\s+signal\s*[·•|-]\s*([a-zA-Z_]+)\s*[·•|-]\s*tone\s*=\s*(-?\d+\.?\d*)/i);
+  if (!m) return raw;
+  const [, rawCat, toneStr] = m;
+  const cat = prettifyCategory(rawCat);
+  const tone = parseFloat(toneStr);
+  const toneLabel =
+    tone <= -3
+      ? "강한 부정 톤"
+      : tone <= -1
+        ? "부정 톤"
+        : tone <= -0.3
+          ? "약한 부정 톤"
+          : tone < 0.3
+            ? "중립 톤"
+            : tone < 1
+              ? "약한 긍정 톤"
+              : "긍정 톤";
+  return `${cat} — ${toneLabel}`;
+}
+
 export function NewsTopList({ limit = 12 }: { limit?: number }) {
   const { data, isLoading, isError } = useNewsTop(limit);
   const items = data?.items ?? [];
@@ -177,10 +201,10 @@ function NewsItemContent({
         </span>
       </div>
       <div className="text-sm text-ink leading-snug line-clamp-2 mb-1">
-        {title}
+        {prettifyNewsTitle(title)}
       </div>
       <div className="flex items-center gap-2 text-[11px] text-ink-3 font-mono">
-        <span>{source ?? "GDELT"}</span>
+        <span>{source ? prettifyCategory(source) : "GDELT"}</span>
         {tier && <span>· {tier}급 매체</span>}
         <span className="ml-auto">{relativeTime(eventDate + "T00:00:00Z")}</span>
       </div>

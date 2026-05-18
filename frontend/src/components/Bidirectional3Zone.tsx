@@ -91,7 +91,7 @@ export function Bidirectional3Zone({ cur, topMission }: Props) {
             range="70 — 100"
             active={currentZone === "HEDGE"}
             urgent={isUrgent && score! >= 90}
-            urgentLabel="Urgent Hedge (90+)"
+            urgentLabel="긴급 위험방어 (90+)"
             tone="crisis"
           />
           <ZoneRow
@@ -105,7 +105,7 @@ export function Bidirectional3Zone({ cur, topMission }: Props) {
             range="0 — 30"
             active={currentZone === "OPPORTUNITY"}
             urgent={isUrgent && score! <= 10}
-            urgentLabel="Urgent Opportunity (10-)"
+            urgentLabel="긴급 기회포착 (10-)"
             tone="opportunity"
           />
         </div>
