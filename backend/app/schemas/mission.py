@@ -67,6 +67,13 @@ class Mission(BaseModel):
     # Lakebase column 미존재여도 default None이라 backward-compatible.
     source: Literal["demo_inject", "agent", "seed"] | None = None
 
+    # Sub-A — Actionable Recommendations (옵션, backward compat)
+    cycle: str | None = None
+    supplier_mix: list["SupplierAllocation"] = Field(default_factory=list)
+
+    # Sub-B — Honest Simulation (옵션, backward compat)
+    simulation_scenarios: list["SimulationScenario"] = Field(default_factory=list)
+
 
 class MissionPlanOutput(BaseModel):
     """Mission Plan Agent (Agent Bricks) 출력 schema.
@@ -92,6 +99,9 @@ class MissionPlanOutput(BaseModel):
 
     # Supplier mix 권고 — 시연 example (실제는 매니저 OSP allocation 기반)
     supplier_mix: list["SupplierAllocation"] = Field(default_factory=list)
+
+    # Honest Simulation — Best/Likely/Worst 3 scenarios (backend deterministic 계산)
+    simulation_scenarios: list["SimulationScenario"] = Field(default_factory=list)
 
 
 class SignalContext(BaseModel):
@@ -185,6 +195,26 @@ class SupplierAllocation(BaseModel):
     supplier_name: str       # "ARAMCO Arab Light"
     delta_bpd: int           # +25,000 (b/d 단위 추가/감소)
     rationale: str           # "Saudi OSP +$0.50 예상 + 호르무즈 우회 위험"
+
+
+class SimulationAssumptions(BaseModel):
+    """시뮬레이션 가정 — 매니저가 보고 검증 가능 (Honest Simulation)."""
+
+    scenario_label: str               # "휴전 + 약세" / "현재 추세" / "봉쇄 재발"
+    brent_usd: float                  # Brent 가격 가정 ($/bbl)
+    usd_krw: float                    # 환율 가정 (원/달러)
+    vlcc_freight_multiplier: float    # 운임 배수 (1.0 평균, 1.4 = +40%)
+
+
+class SimulationScenario(BaseModel):
+    """시나리오별 outcome — Best/Likely/Worst 3 카드 UI에서 사용."""
+
+    name: Literal["worst", "likely", "best"]
+    label: str                        # "휴전 + 약세" 같은 narrative
+    assumptions: SimulationAssumptions
+    saving_pct: float                 # ± % (capacity baseline 대비)
+    saving_krw_oku: int               # 절감액 (억원, round to int)
+    confidence_note: str | None = None
 
 
 class MissionPlanInput(BaseModel):

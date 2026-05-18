@@ -14,6 +14,7 @@ import {
 } from "../lib/queries";
 import { formatConfidence, formatRoundedScore } from "../lib/utils";
 import type { Mission, PatternScoreCurrent } from "../lib/types";
+import { SimulationScenarios } from "./SimulationScenarios";
 
 type Mode = "HEDGE" | "OPPORTUNITY" | "STABLE";
 
@@ -311,6 +312,9 @@ function MissionCard({
   const supplierMix = mission.supplier_mix ?? [];
   const totalDeltaBpd = supplierMix.reduce((s, x) => s + x.delta_bpd, 0);
 
+  // Sub-B — Honest Simulation scenarios (있으면 우선, 없으면 legacy roiEntries)
+  const simScenarios = mission.simulation_scenarios ?? [];
+
   return (
     <div className="bg-panel border border-line-1 rounded-2xl p-8 md:p-10">
       {/* Decision cycle label (있을 때만) */}
@@ -390,33 +394,37 @@ function MissionCard({
         </div>
       )}
 
-      {/* Simulation ROI strip — 시연용 예시 시나리오 (정직성 disclaimer) */}
-      {roiEntries.length > 0 && (
-        <div className="mb-8 pb-8 border-b border-line-1">
-          <div className="flex items-baseline justify-between mb-3">
-            <div className="text-[11px] uppercase tracking-wider text-ink-3">
-              예상 시나리오
-            </div>
-            <span className="text-[10px] text-ink-3 italic">
-              시뮬레이션 · 시연용 예시
-            </span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {roiEntries.map(([scenario, roi]) => (
-              <div key={scenario}>
-                <div className="text-xs text-ink-3 mb-1">{scenario}</div>
-                <div
-                  className={`font-display text-xl font-semibold ${
-                    roi > 0 ? "text-opportunity-700" : roi < 0 ? "text-crisis-700" : "text-ink-1"
-                  }`}
-                >
-                  {roi > 0 ? "+" : ""}
-                  {roi}억원
-                </div>
+      {/* Simulation — Sub-B Honest 우선, 없으면 legacy ROI strip backward compat */}
+      {simScenarios.length > 0 ? (
+        <SimulationScenarios scenarios={simScenarios} />
+      ) : (
+        roiEntries.length > 0 && (
+          <div className="mb-8 pb-8 border-b border-line-1">
+            <div className="flex items-baseline justify-between mb-3">
+              <div className="text-[11px] uppercase tracking-wider text-ink-3">
+                예상 시나리오
               </div>
-            ))}
+              <span className="text-[10px] text-ink-3 italic">
+                시뮬레이션 · 시연용 예시
+              </span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {roiEntries.map(([scenario, roi]) => (
+                <div key={scenario}>
+                  <div className="text-xs text-ink-3 mb-1">{scenario}</div>
+                  <div
+                    className={`font-display text-xl font-semibold ${
+                      roi > 0 ? "text-opportunity-700" : roi < 0 ? "text-crisis-700" : "text-ink-1"
+                    }`}
+                  >
+                    {roi > 0 ? "+" : ""}
+                    {roi}억원
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )
       )}
 
       {/* Actions */}

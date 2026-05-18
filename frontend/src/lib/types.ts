@@ -31,6 +31,22 @@ export interface SupplierAllocation {
   rationale: string;
 }
 
+export interface SimulationAssumptions {
+  scenario_label: string;
+  brent_usd: number;
+  usd_krw: number;
+  vlcc_freight_multiplier: number;
+}
+
+export interface SimulationScenario {
+  name: "worst" | "likely" | "best";
+  label: string;
+  assumptions: SimulationAssumptions;
+  saving_pct: number;
+  saving_krw_oku: number;
+  confidence_note?: string | null;
+}
+
 export interface Mission {
   mission_id: string;
   mission_type: MissionType;
@@ -52,6 +68,8 @@ export interface Mission {
   // Sub-A — actionable recommendations (옵션, backward compat)
   cycle?: string | null;
   supplier_mix?: SupplierAllocation[];
+  // Sub-B — honest simulation (옵션, backward compat)
+  simulation_scenarios?: SimulationScenario[];
 }
 
 export interface PatternScoreCurrent {

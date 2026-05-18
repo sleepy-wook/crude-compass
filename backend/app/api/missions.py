@@ -581,6 +581,22 @@ async def recommend_now(body: RecommendNowRequest = RecommendNowRequest()) -> di
         )
         result.action_type = "modify"
 
+    # Sub-B Honest Simulation — Best/Likely/Worst 3 scenarios deterministic 계산
+    from app.services.simulation import compute_3_scenarios as _compute_3_scen
+    if result.target_pct is not None:
+        try:
+            sim_scenarios = _compute_3_scen(
+                mission_type=result.mission_type.value if hasattr(result.mission_type, "value") else str(result.mission_type),
+                target_pct=result.target_pct,
+                duration_days=result.duration_days,
+                market_context=market_context,
+            )
+        except Exception as e:
+            logger.warning("simulation compute failed: %s", e)
+            sim_scenarios = []
+    else:
+        sim_scenarios = []
+
     if result.action_type == "new_mission":
         bus = get_bus()
         mission = Mission(
@@ -597,6 +613,10 @@ async def recommend_now(body: RecommendNowRequest = RecommendNowRequest()) -> di
             created_at=_now(),
             version=1,
             source="agent",  # provenance: LLM-generated (vs demo_inject)
+            # Sub-A actionable + Sub-B honest sim
+            cycle=result.cycle,
+            supplier_mix=result.supplier_mix,
+            simulation_scenarios=sim_scenarios,
         )
         await store.create(mission)
         await bus.publish({"type": "mission.proposed", "mission": mission.model_dump(mode="json")})
