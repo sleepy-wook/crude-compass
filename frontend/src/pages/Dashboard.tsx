@@ -15,11 +15,9 @@ import {
 } from "../lib/queries";
 import { useMissionsWebSocket } from "../lib/ws";
 import { MissionHero, type TriggerKind } from "../components/MissionHero";
-import { MultiAgentTrace } from "../components/MultiAgentTrace";
 import { Bidirectional3Zone } from "../components/Bidirectional3Zone";
 import { SimilarPastWidget } from "../components/SimilarPastWidget";
 import { TimeHorizonBreakdown } from "../components/TimeHorizonBreakdown";
-import { OpenDataBadge } from "../components/OpenDataBadge";
 import { PatternScoreLine } from "../components/PatternScoreLine";
 import { OpecCitation } from "../components/OpecCitation";
 import { PriceLineChart } from "../components/PriceLineChart";
@@ -72,79 +70,54 @@ export function Dashboard() {
       </header>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {/* HERO ★ — Market Memory (오늘 시그널 → 지난 7년 비슷한 패턴 outcome) */}
+      {/* HERO ★ — Market Memory (오늘 시그널 → 지난 7년 비슷한 패턴)    */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <SimilarPastWidget cur={cur} />
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {/* SIGNAL OVERVIEW — 좌(Bidirectional 3-zone) + 우(Mission)     */}
+      {/* SIGNAL ANALYSIS — 양방향 강도 + 시간 지평 분류                  */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <SectionHeader title="시그널 강도 + 결정 기록" subtitle="양방향 신호 + 매니저 행동 ledger" />
+      <SectionHeader title="오늘의 시그널 분석" subtitle="양방향 강도 + 시간 지평별 source 기여도" />
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6 mb-10">
         <Bidirectional3Zone cur={cur} topMission={topMission} />
-        <MissionHero
-          cur={cur}
-          topMission={topMission}
-          topSignals={topSignals}
-          triggerKind={triggerKind}
-          isLoading={pattern.isLoading}
-        />
-      </div>
-
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {/* WHY — 시간 지평별 근거 (시나리오 §6.5)                       */}
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <SectionHeader title="이번 권고의 근거" subtitle="시간 지평별 신호 분류" />
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 mb-10">
         <TimeHorizonBreakdown />
-        <div className="space-y-4">
-          <PatternScoreLine days={30} variant="mini" />
-        </div>
       </div>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {/* OPEN DATA TRACK 1 — Bloomberg 대신 무료 6 source              */}
+      {/* MARKET DATA — 가격·환율·OPEC·News 종합                       */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <SectionHeader title="Track 1 · Open Data" subtitle="유료 인텔리전스를 무료로" />
-      <OpenDataBadge />
-
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {/* SIGNAL DETAILS — 4개 source visualize                       */}
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <SectionHeader title="시그널 상세" subtitle="4개 source 실시간 종합" />
+      <SectionHeader title="시장 데이터" subtitle="가격 · 환율 · 공급 · 뉴스" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <PriceLineChart days={90} />
+        <FxLineChart days={90} />
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
         <OpecCitation />
         <NewsTopList limit={5} />
       </div>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {/* MARKET TRENDS                                                */}
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <SectionHeader title="시장 추세" subtitle="가격 · 환율 90일" />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
-        <PriceLineChart days={90} />
-        <FxLineChart days={90} />
-      </div>
-
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {/* 6년 평시 가치 — 시나리오 §14 Phase 7                          */}
+      {/* LONG-TERM TIMELINE — 6년 시계열 (평시 가치 narrative)         */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <SectionHeader
-        title="6년 위기 점수 추이"
+        title="6년 시계열"
         subtitle="1년 1-2 위기 + 분기 1-2 기회 + 매주 미세 조정"
       />
       <PatternScoreLine days={2200} variant="long" />
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {/* AI 추론 trace (★ wow)                                        */}
+      {/* DECISION — 매니저 결정 ledger entry (Mission demoted)         */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <SectionHeader
-        title="AI 추론 과정"
-        subtitle="Multi-Agent — Supervisor + 데이터 조회 + 뉴스 분석 + 권고 산출"
+        title="내 결정 기록"
+        subtitle="매니저가 직접 기록 — AI가 결정하지 않습니다"
       />
-      <MultiAgentTrace
-        onTriggerStart={() => setTriggerKind("manual_query")}
-        onTriggerEnd={() => setTriggerKind("manual_recommend")}
+      <MissionHero
+        cur={cur}
+        topMission={topMission}
+        topSignals={topSignals}
+        triggerKind={triggerKind}
+        isLoading={pattern.isLoading}
       />
 
       <div className="h-20" />
