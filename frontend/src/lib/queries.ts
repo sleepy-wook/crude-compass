@@ -127,6 +127,15 @@ export function useIntradaySummary() {
   });
 }
 
+export function useIntradayPrices(hours: number) {
+  return useQuery({
+    queryKey: ["market", "intraday-prices", hours] as const,
+    queryFn: () => api.intradayPrices(hours),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+}
+
 export function useNewsTop(limit: number) {
   return useQuery({
     queryKey: queryKeys.newsTop(limit),

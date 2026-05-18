@@ -11,6 +11,7 @@ import { PriceLineChart } from "../components/PriceLineChart";
 import { NewsTopList } from "../components/NewsTopList";
 import { FxLineChart } from "../components/FxLineChart";
 import { IntradayTicker } from "../components/IntradayTicker";
+import { IntradayChart } from "../components/IntradayChart";
 import { usePatternCurrent } from "../lib/queries";
 
 export function MarketDataPage() {
@@ -63,6 +64,9 @@ export function MarketDataPage() {
 
       {/* Intraday 5분 ticker — OilPriceAPI bronze 데이터 활용 */}
       <IntradayTicker />
+
+      {/* Intraday 5분 시계열 chart — 24h overlay */}
+      <IntradayChart hours={24} />
 
       {/* Price + FX */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

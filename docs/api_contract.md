@@ -323,6 +323,25 @@ OilPriceAPI 5분 데이터 ticker별 요약 (`bronze.oil_prices`). Cache TTL 60s
 }
 ```
 
+### 4.4a-2 `GET /api/market/intraday-prices?hours=24`
+bronze.oil_prices 5분 단위 raw 가격 시계열 (chart 시각화용). Cache TTL 60s.
+hours 최대 168 (1주).
+
+**Response 200**:
+```json
+{
+  "hours": 24,
+  "series": [
+    {
+      "ticker": "dubai",
+      "points": [
+        {"price_usd": 105.50, "fetched_at": "2026-05-19T08:35:00+00:00"}
+      ]
+    }
+  ]
+}
+```
+
 ### 4.4b `GET /api/market/news-top?limit=20`
 최근 7일 importance ≥ 60 + direction bullish/bearish 뉴스 (`gold.news_top_signals` view).
 시나리오 §6.3 #3 anchor — Discovery 페이지 "오늘의 발견" 뉴스 리스트.

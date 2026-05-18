@@ -143,6 +143,15 @@ export const api = {
       }[];
     }>("/api/market/intraday-summary"),
 
+  intradayPrices: (hours = 24) =>
+    request<{
+      hours: number;
+      series: {
+        ticker: string;
+        points: { price_usd: number; fetched_at: string }[];
+      }[];
+    }>(`/api/market/intraday-prices?hours=${hours}`),
+
   newsTop: (limit = 20) =>
     request<{
       items: {

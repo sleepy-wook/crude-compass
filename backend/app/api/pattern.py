@@ -332,6 +332,74 @@ async def intraday_summary() -> dict:
 
 
 # ────────────────────────────────────────────────────────────────────────
+# /api/market/intraday-prices — bronze.oil_prices 5분 raw 시계열 (D-3 추가)
+# IntradayChart 시각화용. 최근 N시간 (default 24h) ticker별 가격 series.
+# ────────────────────────────────────────────────────────────────────────
+@router.get("/market/intraday-prices")
+async def intraday_prices(hours: int = 24) -> dict:
+    """Dubai/Brent/WTI 5분 단위 raw 가격 series (chart 용). 60s cache."""
+    h = max(1, min(hours, 168))  # cap 1주
+    TICKER_DB_TO_FE = {
+        "DUBAI_CRUDE_USD": "dubai",
+        "BRENT_CRUDE_USD": "brent",
+        "WTI_USD": "wti",
+    }
+
+    def _fetch():
+        sql = f"""
+            SELECT ticker, price_usd, fetched_at
+            FROM crude_compass.bronze.oil_prices
+            WHERE fetched_at >= CURRENT_TIMESTAMP() - INTERVAL {h} HOURS
+              AND ticker IN ('DUBAI_CRUDE_USD', 'BRENT_CRUDE_USD', 'WTI_USD')
+              AND price_usd IS NOT NULL
+            ORDER BY fetched_at ASC
+        """
+        rows = _q(sql, timeout="20s")
+        from collections import defaultdict
+        from datetime import datetime, timezone
+
+        def _to_iso(v) -> str | None:
+            if v is None:
+                return None
+            if isinstance(v, datetime):
+                return (v if v.tzinfo else v.replace(tzinfo=timezone.utc)).isoformat()
+            if isinstance(v, str):
+                try:
+                    s = v.replace("Z", "+00:00")
+                    dt = datetime.fromisoformat(s)
+                    return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).isoformat()
+                except Exception:
+                    return v
+            return str(v)
+
+        by_ticker: dict[str, list[dict]] = defaultdict(list)
+        for r in rows:
+            db_ticker = str(r[0])
+            fe_ticker = TICKER_DB_TO_FE.get(db_ticker, db_ticker.lower())
+            ts = _to_iso(r[2])
+            if ts is None:
+                continue
+            by_ticker[fe_ticker].append(
+                {"price_usd": float(r[1]), "fetched_at": ts}
+            )
+
+        return {
+            "hours": h,
+            "series": [
+                {"ticker": tk, "points": pts}
+                for tk, pts in by_ticker.items()
+            ],
+        }
+
+    try:
+        return _cached(f"intraday_prices_{h}", 60, _fetch)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)}
+        )
+
+
+# ────────────────────────────────────────────────────────────────────────
 # /api/market/news-top — gold.news_top_signals view (D-3 추가)
 # 시나리오 §6.3 #3 anchor — 최근 7일 importance Top 5/day/direction
 # ────────────────────────────────────────────────────────────────────────
