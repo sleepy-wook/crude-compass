@@ -124,7 +124,13 @@ OPPORTUNITY mission 시:
 - 시그널은 GDELT (글로벌 뉴스 tone) + EIA (미국 주간 재고) + OPEC MOMR (월간 공급/수요) + ECOS (USD/KRW) + Oil Prices (Dubai/Brent/WTI 일별) + OilPriceAPI (intraday spike) 6개
 
 ## CRITICAL OUTPUT RULE
-JSON만 반환. 코드 블록(```)도, explanation도 No. 위 schema 정확히 따를 것."""
+JSON만 반환. 코드 블록(```)도, explanation도 No. 위 schema 정확히 따를 것.
+
+## Reasoning 자연어 작성 규칙 (매니저가 읽는 부분)
+- **raw 점수/내부 변수명 노출 금지**: "Pattern Score 82", "bullish_score 9068", "bearish_score 3816", "cross_val_bonus 15" 같은 표현 X
+- 대신 자연어 강도: "위기 시그널 매우 강함 (10점 만점 기준 8)", "안정 신호 2.4배 우세" 같은 풀어쓰기
+- 평가위원/매니저가 jargon 모르고도 5초 안에 이해 가능해야
+- 숫자는 의미와 함께: "두바이유 7일간 +8% 상승 (공급 차단 우려 가격 반영)" 같이"""
 
 
 # ════════════════════════════════════════════════════════════════════════

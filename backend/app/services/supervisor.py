@@ -16,10 +16,34 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from app.core.config import get_settings
+
+
+def _clean_answer(text: str) -> str:
+    """Sub-agent tool output이 LLM answer에 그대로 echo된 raw markup 제거.
+
+    매니저가 보는 자연어 답만 남기고:
+    - <name>...</name> sub-agent identifier
+    - leaked markdown table header / separator / data rows
+    - excess newlines
+    """
+    if not text:
+        return text
+    # <name>genie-xxxx</name>, <name>crude-compass-supervisor</name>
+    text = re.sub(r"<name>[^<]*</name>", "", text)
+    # leaked SQL/table data row patterns ("|0|17|None|None|None|None|")
+    text = re.sub(r"\|+(?:\d+(?:\.\d+)?|None|null)(?:\|(?:\d+(?:\.\d+)?|None|null))+\|+", "", text)
+    # leaked table header row ("||n_cases|avg_dubai_price_change_30d|...|")
+    text = re.sub(r"\|+[a-zA-Z_][\w_]*(?:\|[a-zA-Z_][\w_]*)+\|+", "", text)
+    # leaked table separator ("|-|-|-|-|-|")
+    text = re.sub(r"\|+(?:-+\|)+", "", text)
+    # collapse multiple blank lines
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 logger = logging.getLogger(__name__)
 
@@ -149,8 +173,9 @@ def _sync_call_supervisor(endpoint_name: str, question: str) -> SupervisorRespon
         except Exception as e:
             logger.warning("supervisor trace parse partial fail (databricks_output): %s", e)
 
+    cleaned = _clean_answer(answer) if answer else ""
     return SupervisorResponse(
-        answer=answer or "(Supervisor 응답 비어있음)",
+        answer=cleaned or "(Supervisor 응답 비어있음)",
         source="live",
         tools_used=tools_used,
         raw_trace=raw_trace,
