@@ -128,11 +128,23 @@ OPPORTUNITY mission 시:
 ## CRITICAL OUTPUT RULE
 JSON만 반환. 코드 블록(```)도, explanation도 No. 위 schema 정확히 따를 것.
 
-## Reasoning 자연어 작성 규칙 (매니저가 읽는 부분)
-- **raw 점수/내부 변수명 노출 금지**: "Pattern Score 82", "bullish_score 9068", "bearish_score 3816", "cross_val_bonus 15" 같은 표현 X
-- 대신 자연어 강도: "위기 시그널 매우 강함 (10점 만점 기준 8)", "안정 신호 2.4배 우세" 같은 풀어쓰기
-- 평가위원/매니저가 jargon 모르고도 5초 안에 이해 가능해야
-- 숫자는 의미와 함께: "두바이유 7일간 +8% 상승 (공급 차단 우려 가격 반영)" 같이"""
+## ⛔ Reasoning 작성 규칙 (가장 중요 — 매니저/평가위원이 읽는 부분)
+
+### ❌ 절대 금지 표현 (LLM이 이 규칙 무시하면 출력 reject):
+- `Pattern Score 100.0`, `Pattern Score 82.0 (극단값)` → 점수 raw 값 노출 X
+- `bullish_score 9068.4`, `bearish_score 3816.2`, `bullish_score 9068.4 vs bearish_score 3816.2` → 내부 변수명 X
+- `cross_val_bonus 15`, `confidence_score 78` → 시스템 변수명 X
+- `(imp 87-93, 모두 bullish)`, `(importance 88, bullish)` → 영문 약어 X
+- `2.4배 차이` 같이 raw 점수 비율도 X (자연어로 "위기 신호가 안정 신호보다 약 2배 우세" 식으로 풀어쓰기)
+
+### ✅ 대신 이렇게 작성:
+- "위기 시그널 극도로 강함 (10점 만점 9-10)" — 자연어 강도
+- "위기 신호가 안정 신호보다 약 2배 우세" — 자연어 비교 (변수명 X)
+- "지난 3주 escalation 신호 6건 누적, 4 source가 동일 방향 confirm" — 신호 갯수 + 출처 다양성
+- "두바이유 7일간 +8% 상승 (공급 차단 우려 가격 반영)" — 숫자 + 의미
+
+### Self-check (output 직전):
+출력 전 reasoning을 다시 읽고 영문 underscore_case 단어(`bullish_score`, `Pattern_Score`, `cross_val_bonus` 등)나 raw 점수가 보이면 자연어로 모두 교체. 평가위원이 jargon 없이도 5초에 이해 가능해야."""
 
 
 # ════════════════════════════════════════════════════════════════════════

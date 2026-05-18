@@ -63,6 +63,41 @@ async def refresh_curation() -> dict:
         )
 
 
+@router.post("/missions/clear-active")
+async def clear_active_missions() -> dict:
+    """기존 active/proposed mission을 hard delete (decisions/pivot_history cascade).
+
+    Demo 시나리오 reset 용도. mission_plan prompt가 갱신됐을 때
+    이전에 persisted된 jargon-laden mission을 정리하고 새로 생성 가능.
+    """
+    from app.db.lakebase import acquire
+
+    try:
+        with acquire() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    DELETE FROM missions
+                    WHERE status IN ('proposed','active','on_track','at_risk')
+                    RETURNING mission_id
+                    """
+                )
+                deleted = cur.fetchall()
+                conn.commit()
+        return {
+            "ok": True,
+            "deleted_count": len(deleted),
+            "deleted_ids": [str(row[0]) for row in deleted],
+            "message": f"{len(deleted)}건의 mission을 삭제했습니다. (CASCADE: decisions, pivot_history 자동 정리)",
+        }
+    except Exception as e:
+        logger.error("clear-active-missions failed: %s", e)
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "DB_OP_FAILED", "message": str(e)},
+        )
+
+
 @router.get("/curation-status")
 async def curation_status() -> dict:
     """gold.daily_risk_score latest date 반환. Frontend가 stale 여부 판단용."""
