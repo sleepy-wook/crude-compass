@@ -333,7 +333,7 @@ def call_mission_plan_agent(input_data: MissionPlanInput) -> MissionPlanOutput |
                 ChatMessage(role=ChatMessageRole.SYSTEM, content=SYSTEM_PROMPT + "\n\n" + FEW_SHOT_EXAMPLES),
                 ChatMessage(role=ChatMessageRole.USER, content=user_msg),
             ],
-            max_tokens=2000,
+            max_tokens=10000,
             temperature=0.0,
         )
         raw_content = resp.choices[0].message.content if resp.choices else ""
