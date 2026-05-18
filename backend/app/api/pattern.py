@@ -250,22 +250,31 @@ async def intraday_summary() -> dict:
         logging.getLogger(__name__).warning("intraday-summary oilprice failed: %s", e)
 
     # 2차 fallback — bronze.oil_prices (cron 적재 path)
+    # 실제 ticker 값: BRENT_CRUDE_USD / WTI_USD / DUBAI_CRUDE_USD (D-3 SDK 확인)
+    TICKER_DB_TO_FE = {
+        "DUBAI_CRUDE_USD": "dubai",
+        "BRENT_CRUDE_USD": "brent",
+        "WTI_USD": "wti",
+    }
+
     def _fetch():
         sql = """
             SELECT ticker, price_usd, delta_pct_5min, fetched_at
             FROM crude_compass.bronze.oil_prices
-            WHERE fetched_at >= CURRENT_TIMESTAMP() - INTERVAL 24 HOURS
-              AND ticker IN ('dubai', 'brent', 'wti')
+            WHERE fetched_at >= CURRENT_TIMESTAMP() - INTERVAL 48 HOURS
+              AND ticker IN ('DUBAI_CRUDE_USD', 'BRENT_CRUDE_USD', 'WTI_USD')
             ORDER BY ticker, fetched_at DESC
         """
         rows = _q(sql, timeout="15s")
-        # group by ticker
+        # group by ticker (DB raw → frontend label로 normalize)
         from collections import defaultdict
         from datetime import datetime, timezone, timedelta
 
         by_ticker: dict[str, list[dict]] = defaultdict(list)
         for r in rows:
-            by_ticker[str(r[0])].append(
+            db_ticker = str(r[0])
+            fe_ticker = TICKER_DB_TO_FE.get(db_ticker, db_ticker.lower())
+            by_ticker[fe_ticker].append(
                 {
                     "price_usd": float(r[1]) if r[1] is not None else None,
                     "delta_pct_5min": float(r[2]) if r[2] is not None else None,
