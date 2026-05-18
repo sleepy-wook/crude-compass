@@ -100,6 +100,23 @@ class SignalContext(BaseModel):
     title: str
 
 
+class MarketContext(BaseModel):
+    """LLM이 가격/환율/뉴스를 종합 판단하도록 inject되는 시장 상태."""
+
+    # Oil prices (USD/bbl, latest close)
+    dubai_usd: float | None = None
+    brent_usd: float | None = None
+    wti_usd: float | None = None
+    brent_dubai_spread_usd: float | None = None
+    # Price trend (7d % change, Dubai 기준)
+    dubai_7d_change_pct: float | None = None
+    # FX (USD/KRW)
+    usd_krw_rate: float | None = None
+    usd_krw_7d_change_pct: float | None = None
+    # Headline news (top 3 직전 7일)
+    headline_titles: list[str] = Field(default_factory=list)
+
+
 class MissionPlanInput(BaseModel):
     """Mission Plan Agent input."""
 
@@ -112,5 +129,8 @@ class MissionPlanInput(BaseModel):
     # 최근 90일 top 시그널 (importance desc, max 20)
     top_signals: list[SignalContext] = Field(default_factory=list)
 
-    # 진행 중 mission (Pivot 검토용)
+    # 진행 중 mission (Pivot 검토용). 1 mission 정책 — list 아닌 single
     active_mission: Mission | None = None
+
+    # 시장 컨텍스트 — LLM이 가격·환율·뉴스 종합 판단용
+    market_context: MarketContext | None = None

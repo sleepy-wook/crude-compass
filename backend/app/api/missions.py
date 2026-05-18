@@ -367,6 +367,87 @@ def _fetch_top_signals_from_silver(limit: int = 20) -> list[SignalContext]:
     return out
 
 
+def _fetch_market_context():
+    """가격·환율·헤드라인 fetch → MarketContext.
+
+    LLM이 신호 점수만 보지 않고 가격 timing까지 종합 판단하도록.
+    실패 시 None — recommend_now가 None 그대로 넘기면 prompt에 "(no market context)" 표시.
+    """
+    from app.api.pattern import _q
+    from app.schemas.mission import MarketContext
+    try:
+        # Oil prices — Dubai latest + 7d ago for change %
+        price_rows = _q(
+            """
+            WITH latest AS (
+              SELECT trade_date, wti_usd, brent_usd, dubai_usd, brent_dubai_spread_usd
+              FROM crude_compass.gold.oil_prices_wide
+              ORDER BY trade_date DESC LIMIT 1
+            ),
+            d7 AS (
+              SELECT dubai_usd AS dubai_7d_ago
+              FROM crude_compass.gold.oil_prices_wide
+              WHERE trade_date <= (SELECT trade_date FROM latest) - INTERVAL 7 DAYS
+              ORDER BY trade_date DESC LIMIT 1
+            )
+            SELECT latest.wti_usd, latest.brent_usd, latest.dubai_usd,
+                   latest.brent_dubai_spread_usd, d7.dubai_7d_ago
+            FROM latest CROSS JOIN d7
+            """,
+            timeout="15s",
+        )
+        wti = brent = dubai = spread = dubai_7d = None
+        if price_rows:
+            r = price_rows[0]
+            wti = float(r[0]) if r[0] is not None else None
+            brent = float(r[1]) if r[1] is not None else None
+            dubai = float(r[2]) if r[2] is not None else None
+            spread = float(r[3]) if r[3] is not None else None
+            dubai_7d = float(r[4]) if r[4] is not None else None
+        dubai_change = None
+        if dubai is not None and dubai_7d not in (None, 0):
+            dubai_change = round((dubai - dubai_7d) / dubai_7d * 100, 2)
+
+        # FX — USD/KRW latest + 7d delta
+        fx_rows = _q(
+            """
+            SELECT rate, delta_7d
+            FROM crude_compass.gold.fx_with_delta
+            WHERE pair = 'USD/KRW' ORDER BY date DESC LIMIT 1
+            """,
+            timeout="10s",
+        )
+        usd_krw = krw_change = None
+        if fx_rows:
+            r = fx_rows[0]
+            usd_krw = float(r[0]) if r[0] is not None else None
+            krw_change = float(r[1]) if r[1] is not None else None
+
+        # Recent headlines (top 3, importance desc, last 7d)
+        news_rows = _q(
+            """
+            SELECT title FROM crude_compass.gold.news_top_signals
+            WHERE event_date >= CURRENT_DATE() - INTERVAL 7 DAYS
+            ORDER BY importance DESC LIMIT 3
+            """,
+            timeout="10s",
+        )
+        headlines = [str(r[0]) for r in news_rows if r and r[0]]
+
+        return MarketContext(
+            dubai_usd=dubai,
+            brent_usd=brent,
+            wti_usd=wti,
+            brent_dubai_spread_usd=spread,
+            dubai_7d_change_pct=dubai_change,
+            usd_krw_rate=usd_krw,
+            usd_krw_7d_change_pct=krw_change,
+            headline_titles=headlines,
+        )
+    except Exception:
+        return None
+
+
 def _fetch_latest_pattern_score() -> dict | None:
     """gold.daily_risk_score 최신 1행 — pattern_score/bullish/bearish/signal_count_90d/cross_val."""
     from app.api.pattern import _q
@@ -464,7 +545,12 @@ async def recommend_now(body: RecommendNowRequest = RecommendNowRequest()) -> di
 
     store = get_store()
     actives = await store.get_active()
+    # 1 mission per 시점 정책 — 가장 최근 active만 LLM에 전달.
+    # LLM은 active 존재 시 new_mission 대신 pivot/modify/continue 권장 (prompt constraint).
     active_mission = actives[0] if actives else None
+
+    # 시장 컨텍스트 — 가격·환율·헤드라인 fetch (Warehouse 1회 호출, 실패 시 None)
+    market_context = await asyncio.to_thread(_fetch_market_context)
 
     payload = MissionPlanInput(
         pattern_score=pattern_score,
@@ -474,12 +560,20 @@ async def recommend_now(body: RecommendNowRequest = RecommendNowRequest()) -> di
         signal_count_90d=signal_count_90d,
         top_signals=top_signals,
         active_mission=active_mission,
+        market_context=market_context,
     )
 
     # 기존 recommend logic 재사용
     result = call_mission_plan_agent(payload)
     if result is None:
         raise HTTPException(status_code=500, detail={"code": "LLM_CALL_FAILED"})
+
+    # Mission uniqueness 강제 — LLM이 active 있는데 new_mission 권장했으면 modify로 강등
+    if active_mission is not None and result.action_type == "new_mission":
+        logger.warning(
+            "LLM ignored active_mission constraint — downgrading new_mission to modify"
+        )
+        result.action_type = "modify"
 
     if result.action_type == "new_mission":
         bus = get_bus()

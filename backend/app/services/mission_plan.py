@@ -173,6 +173,34 @@ def _format_active_mission(mission) -> str:
     )
 
 
+def _format_market_context(ctx) -> str:
+    """가격·환율·헤드라인 — LLM이 시장 상태 종합 판단용."""
+    if ctx is None:
+        return "(no market context provided)"
+    lines = []
+    if ctx.dubai_usd is not None:
+        lines.append(
+            f"- Dubai: ${ctx.dubai_usd:.2f}/bbl"
+            + (f" (7d {ctx.dubai_7d_change_pct:+.2f}%)" if ctx.dubai_7d_change_pct is not None else "")
+        )
+    if ctx.brent_usd is not None:
+        lines.append(f"- Brent: ${ctx.brent_usd:.2f}/bbl")
+    if ctx.wti_usd is not None:
+        lines.append(f"- WTI: ${ctx.wti_usd:.2f}/bbl")
+    if ctx.brent_dubai_spread_usd is not None:
+        lines.append(f"- Brent-Dubai spread: ${ctx.brent_dubai_spread_usd:.2f}")
+    if ctx.usd_krw_rate is not None:
+        lines.append(
+            f"- USD/KRW: {ctx.usd_krw_rate:.2f}"
+            + (f" (7d {ctx.usd_krw_7d_change_pct:+.2f}%)" if ctx.usd_krw_7d_change_pct is not None else "")
+        )
+    if ctx.headline_titles:
+        lines.append("- Recent headlines:")
+        for t in ctx.headline_titles[:3]:
+            lines.append(f"  · {t[:120]}")
+    return "\n".join(lines) if lines else "(empty)"
+
+
 def _strip_markdown(text: str) -> str:
     """LLM이 markdown ```json``` 으로 wrap하면 strip."""
     text = text.strip()
@@ -197,6 +225,15 @@ def call_mission_plan_agent(input_data: MissionPlanInput) -> MissionPlanOutput |
     except Exception:
         w = WorkspaceClient()  # fallback to default env
 
+    active_present = input_data.active_mission is not None
+    constraint_note = (
+        "\n\n**Constraint**: 진행 중 active mission이 존재합니다. "
+        "다중 active는 비중 합 모순(장기+즉시=100%)을 만듭니다. "
+        "new_mission 대신 pivot/modify(target_pct)/continue/pause 중 선택하세요."
+        if active_present
+        else ""
+    )
+
     user_msg = f"""## Current state
 
 **Pattern Score**: {input_data.pattern_score:.1f}
@@ -205,13 +242,18 @@ def call_mission_plan_agent(input_data: MissionPlanInput) -> MissionPlanOutput |
 - cross_val_bonus: {input_data.cross_val_bonus:.1f}
 - signal_count_90d: {input_data.signal_count_90d}
 
+## Market Context (가격·환율·헤드라인)
+{_format_market_context(input_data.market_context)}
+
 ## Top signals (last 90d, sorted by importance desc)
 {_format_signals(input_data.top_signals)}
 
 ## Active Mission
-{_format_active_mission(input_data.active_mission)}
+{_format_active_mission(input_data.active_mission)}{constraint_note}
 
-→ Recommend action (new_mission / pivot / pause / abort / continue) per Lifecycle rules. Return JSON only."""
+→ Recommend action (new_mission / pivot / pause / abort / continue) per Lifecycle rules.
+   Consider price level, spread, FX, headlines together — not just signal score.
+   Return JSON only."""
 
     try:
         resp = w.serving_endpoints.query(
