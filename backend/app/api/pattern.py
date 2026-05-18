@@ -1,13 +1,41 @@
-"""Pattern Score + Backtest read endpoints (Databricks SQL via SDK)."""
+"""Pattern Score + Backtest read endpoints (Databricks SQL via SDK).
+
+Performance: in-memory TTL cache로 Warehouse cold start latency 흡수.
+Pattern/signals: 60s · Market data: 300s · OPEC: 3600s.
+"""
 from __future__ import annotations
 
+import time
 from datetime import date
 from functools import lru_cache
+from threading import Lock
+from typing import Any, Callable
 
 from fastapi import APIRouter, HTTPException
 from databricks.sdk import WorkspaceClient
 
 router = APIRouter(prefix="/api", tags=["pattern"])
+
+# ──────────────────────────────────────────────────────────────────────
+# Simple in-memory TTL cache (asyncio-safe enough for our use case).
+# Key = endpoint identifier. Value = (data, expires_at_unix).
+# ──────────────────────────────────────────────────────────────────────
+_cache: dict[str, tuple[Any, float]] = {}
+_cache_lock = Lock()
+
+
+def _cached(key: str, ttl_sec: float, fetch_fn: Callable[[], Any]) -> Any:
+    """Return cached value if fresh, else fetch + store. Thread-safe."""
+    now = time.time()
+    with _cache_lock:
+        entry = _cache.get(key)
+        if entry and entry[1] > now:
+            return entry[0]
+    # cache miss — fetch
+    value = fetch_fn()
+    with _cache_lock:
+        _cache[key] = (value, now + ttl_sec)
+    return value
 
 
 @lru_cache(maxsize=1)
@@ -52,9 +80,8 @@ def _q(sql: str, timeout: str = "30s") -> list[list]:
 # ────────────────────────────────────────────────────────────────────────
 @router.get("/pattern-score/current")
 async def current_pattern_score() -> dict:
-    """gold.daily_risk_score 최신 + 30일 history."""
-    try:
-        # 최신
+    """gold.daily_risk_score 최신 + 30일 history. TTL 60s cache."""
+    def _fetch():
         latest = _q("""
             SELECT date, pattern_score, mission_type, bullish_score, bearish_score,
                    cross_val_bonus, confidence_score, signal_count_90d
@@ -74,28 +101,28 @@ async def current_pattern_score() -> dict:
             "confidence_score": float(r[6]) if r[6] else None,
             "signal_count_90d": int(r[7]) if r[7] else None,
         }
-
-        # 30-day history
         history_rows = _q("""
             SELECT date, pattern_score FROM crude_compass.gold.daily_risk_score
             WHERE date >= CURRENT_DATE() - INTERVAL 30 DAYS
             ORDER BY date
         """)
         history = [{"date": str(row[0]), "pattern_score": float(row[1])} for row in history_rows]
-
         return {"current": current, "history": history}
+    try:
+        return _cached("pattern_current", 60, _fetch)
     except Exception as e:
         raise HTTPException(status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)})
 
 
 @router.get("/pattern-score/history")
 async def pattern_history(days: int = 90) -> dict:
-    """Pattern Score history N일. 6년 평시 가치 그래프 (시나리오 §14 Phase 7)는 days=2200."""
-    try:
+    """Pattern Score history N일. TTL 300s cache."""
+    d = min(days, 2200)
+    def _fetch():
         rows = _q(f"""
             SELECT date, pattern_score, mission_type, bullish_score, bearish_score
             FROM crude_compass.gold.daily_risk_score
-            WHERE date >= CURRENT_DATE() - INTERVAL {min(days, 2200)} DAYS
+            WHERE date >= CURRENT_DATE() - INTERVAL {d} DAYS
             ORDER BY date
         """)
         return {
@@ -108,6 +135,8 @@ async def pattern_history(days: int = 90) -> dict:
                 } for r in rows
             ]
         }
+    try:
+        return _cached(f"pattern_history_{d}", 300, _fetch)
     except Exception as e:
         raise HTTPException(status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)})
 
@@ -118,13 +147,14 @@ async def pattern_history(days: int = 90) -> dict:
 # ────────────────────────────────────────────────────────────────────────
 @router.get("/market/fx-history")
 async def fx_history(days: int = 90) -> dict:
-    """USD/KRW 일별 + 1d/7d delta + 30일 변동성."""
-    try:
+    """USD/KRW 일별 + 1d/7d delta + 30일 변동성. TTL 300s cache."""
+    d = min(days, 2200)
+    def _fetch():
         rows = _q(f"""
             SELECT date, rate, delta_1d, delta_7d, vol_30d
             FROM crude_compass.gold.fx_with_delta
             WHERE pair = 'USD/KRW'
-              AND date >= CURRENT_DATE() - INTERVAL {min(days, 2200)} DAYS
+              AND date >= CURRENT_DATE() - INTERVAL {d} DAYS
             ORDER BY date
         """)
         return {
@@ -140,6 +170,8 @@ async def fx_history(days: int = 90) -> dict:
                 for r in rows
             ],
         }
+    try:
+        return _cached(f"fx_{d}", 300, _fetch)
     except Exception as e:
         raise HTTPException(status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)})
 
@@ -150,12 +182,13 @@ async def fx_history(days: int = 90) -> dict:
 # ────────────────────────────────────────────────────────────────────────
 @router.get("/market/prices-wide")
 async def prices_wide(days: int = 90) -> dict:
-    """Daily oil prices wide format (WTI/Brent/Dubai pivot + spread)."""
-    try:
+    """Daily oil prices wide format (WTI/Brent/Dubai pivot + spread). TTL 300s cache."""
+    d = min(days, 2200)
+    def _fetch():
         rows = _q(f"""
             SELECT trade_date, wti_usd, brent_usd, dubai_usd, brent_dubai_spread_usd
             FROM crude_compass.gold.oil_prices_wide
-            WHERE trade_date >= CURRENT_DATE() - INTERVAL {min(days, 2200)} DAYS
+            WHERE trade_date >= CURRENT_DATE() - INTERVAL {d} DAYS
             ORDER BY trade_date
         """)
         return {
@@ -170,6 +203,8 @@ async def prices_wide(days: int = 90) -> dict:
                 for r in rows
             ]
         }
+    try:
+        return _cached(f"prices_{d}", 300, _fetch)
     except Exception as e:
         raise HTTPException(status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)})
 
@@ -180,14 +215,15 @@ async def prices_wide(days: int = 90) -> dict:
 # ────────────────────────────────────────────────────────────────────────
 @router.get("/market/news-top")
 async def news_top(limit: int = 20) -> dict:
-    """최근 7일 importance ≥ 60 뉴스 (bullish/bearish only)."""
-    try:
+    """최근 7일 importance ≥ 60 뉴스. TTL 300s cache."""
+    lim = min(limit, 100)
+    def _fetch():
         rows = _q(f"""
             SELECT event_date, source, tier, title, category, direction,
                    importance, raw_tone, mention_count, url
             FROM crude_compass.gold.news_top_signals
             ORDER BY event_date DESC, importance DESC
-            LIMIT {min(limit, 100)}
+            LIMIT {lim}
         """)
         return {
             "items": [
@@ -203,6 +239,8 @@ async def news_top(limit: int = 20) -> dict:
                 for r in rows
             ]
         }
+    try:
+        return _cached(f"news_{lim}", 300, _fetch)
     except Exception as e:
         raise HTTPException(status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)})
 
@@ -214,11 +252,8 @@ async def news_top(limit: int = 20) -> dict:
 # ────────────────────────────────────────────────────────────────────────
 @router.get("/market/opec-latest")
 async def opec_latest() -> dict:
-    """Latest OPEC MOMR snapshot (gold.opec_demand_gap view).
-
-    시나리오 §14 Phase 4 narrator anchor: "OPEC MOMR 5월 사우디 추가 감산 시그널"
-    """
-    try:
+    """Latest OPEC MOMR snapshot. TTL 3600s (월 1회 update). """
+    def _fetch():
         rows = _q("""
             SELECT report_month, saudi_production_kbbl_d, iran_production_kbbl_d,
                    opec_total_kbbl_d, forecast_demand_kbbl_d,
@@ -243,12 +278,13 @@ async def opec_latest() -> dict:
 
         latest = to_obj(rows[0])
         prev = to_obj(rows[1]) if len(rows) > 1 else None
-        # Saudi delta (latest - prev) — 사우디 감산/증산 시그널
         if prev and latest["saudi_kbbl_d"] is not None and prev["saudi_kbbl_d"] is not None:
             latest["saudi_delta_vs_prev"] = round(
                 latest["saudi_kbbl_d"] - prev["saudi_kbbl_d"], 2
             )
         return {"latest": latest, "prev": prev, "source": "ai_parse_document() · OPEC MOMR PDF"}
+    try:
+        return _cached("opec_latest", 3600, _fetch)
     except Exception as e:
         raise HTTPException(status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)})
 
@@ -259,11 +295,8 @@ async def opec_latest() -> dict:
 # ────────────────────────────────────────────────────────────────────────
 @router.get("/signals/contribution")
 async def signal_contribution() -> dict:
-    """최근 30일 signal_type × direction 기여도 (총합 % 환산).
-
-    Discovery 페이지 horizontal bar chart 데이터.
-    """
-    try:
+    """최근 30일 signal × direction 기여도. TTL 60s cache."""
+    def _fetch():
         rows = _q("""
             SELECT signal_type, direction, n_signals, total_contribution,
                    avg_raw_intensity, avg_credibility
@@ -281,11 +314,12 @@ async def signal_contribution() -> dict:
             }
             for r in rows
         ]
-        # % share 계산 (절댓값 기준)
         total_abs = sum(abs(x["total_contribution"]) for x in items) or 1.0
         for x in items:
             x["share_pct"] = round(abs(x["total_contribution"]) / total_abs * 100, 1)
         return {"items": items, "window_days": 30}
+    try:
+        return _cached("signal_contribution", 60, _fetch)
     except Exception as e:
         raise HTTPException(status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)})
 

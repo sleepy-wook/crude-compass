@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 
 import { Layout } from "./components/Layout";
-import { Discovery } from "./pages/Discovery";
+import { Dashboard } from "./pages/Dashboard";
+import { MissionsPage } from "./pages/MissionsPage";
+import { AskPage } from "./pages/AskPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,11 +21,12 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Layout />}>
-            <Route index element={<Discovery />} />
-            {/* Legacy routes — single page로 통합, 모두 / 로 redirect */}
-            <Route path="missions" element={<Navigate to="/" replace />} />
-            <Route path="missions/:id" element={<Navigate to="/" replace />} />
-            <Route path="what-if" element={<Navigate to="/" replace />} />
+            <Route index element={<Dashboard />} />
+            <Route path="missions" element={<MissionsPage />} />
+            <Route path="missions/:id" element={<MissionsPage />} />
+            <Route path="ask" element={<AskPage />} />
+            {/* Legacy redirects */}
+            <Route path="what-if" element={<Navigate to="/ask" replace />} />
           </Route>
         </Routes>
       </BrowserRouter>
