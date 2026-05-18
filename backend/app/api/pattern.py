@@ -399,6 +399,81 @@ async def backtest_results() -> dict:
         }
 
 
+@router.post("/market-memory/similar")
+async def market_memory_similar(payload: dict) -> dict:
+    """오늘 시그널과 닮은 과거 backtest 시점 retrieve + summary.
+
+    spec: docs/superpowers/specs/2026-05-18-market-memory-decision-platform.md §3 ★ Wow 1
+    매니저가 결정 시점에 "지난 7년 비슷한 패턴 N건 outcome 분포" 확인 가능.
+
+    Lakebase OAuth 미연동 시: 200 OK + empty + lakebase_available=False.
+    """
+    import asyncio
+    from app.db import lakebase
+    from app.db.repositories import backtest as bt_repo
+
+    pattern_score = float(payload.get("pattern_score") or 0)
+    mission_type = payload.get("mission_type")  # "HEDGE" / "OPPORTUNITY" / None
+    limit = int(payload.get("limit") or 7)
+    score_range = float(payload.get("score_range") or 10.0)
+
+    def _sync():
+        with lakebase.acquire() as conn:
+            return bt_repo.find_similar_patterns(
+                conn,
+                pattern_score=pattern_score,
+                mission_type=mission_type,
+                limit=limit,
+                score_range=score_range,
+            )
+
+    try:
+        result = await asyncio.to_thread(_sync)
+        # JSONB / numeric → native types
+        summary = result.get("summary") or {}
+        normalized_summary = {
+            k: (float(v) if v is not None and hasattr(v, "__float__") else v)
+            for k, v in summary.items()
+        }
+        normalized_matches = []
+        for m in result.get("top_matches") or []:
+            normalized_matches.append(
+                {
+                    "as_of_date": str(m["as_of_date"]),
+                    "pattern_score": float(m["pattern_score"]) if m.get("pattern_score") is not None else None,
+                    "confidence_score": float(m["confidence_score"]) if m.get("confidence_score") is not None else None,
+                    "mission_type": m.get("mission_type"),
+                    "target_pct": int(m["target_pct"]) if m.get("target_pct") is not None else None,
+                    "saving_7d_pct": float(m["saving_7d_pct"]) if m.get("saving_7d_pct") is not None else None,
+                    "saving_30d_pct": float(m["saving_30d_pct"]) if m.get("saving_30d_pct") is not None else None,
+                    "saving_90d_pct": float(m["saving_90d_pct"]) if m.get("saving_90d_pct") is not None else None,
+                    "dubai_at_signal_usd": float(m["dubai_at_signal_usd"]) if m.get("dubai_at_signal_usd") is not None else None,
+                    "dubai_30d_usd": float(m["dubai_30d_usd"]) if m.get("dubai_30d_usd") is not None else None,
+                    "distance": float(m["distance"]) if m.get("distance") is not None else None,
+                }
+            )
+        return {
+            "input": {
+                "pattern_score": pattern_score,
+                "mission_type": mission_type,
+                "score_range": score_range,
+            },
+            "summary": normalized_summary,
+            "top_matches": normalized_matches,
+            "lakebase_available": True,
+        }
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("market-memory/similar Lakebase unavailable: %s", e)
+        return {
+            "input": {"pattern_score": pattern_score, "mission_type": mission_type},
+            "summary": {},
+            "top_matches": [],
+            "lakebase_available": False,
+            "reason": "lakebase_oauth_pending",
+        }
+
+
 @router.get("/backtest/predictions")
 async def backtest_predictions(limit: int = 50) -> dict:
     """Lakebase backtest_predictions — latest run sample (WhatIf slider용).

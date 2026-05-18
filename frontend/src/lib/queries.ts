@@ -57,6 +57,26 @@ export function useBacktestResults() {
   });
 }
 
+export function useMarketMemorySimilar(
+  pattern_score: number | null | undefined,
+  mission_type: string | null | undefined,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: ["market-memory", "similar", pattern_score, mission_type],
+    queryFn: () =>
+      api.marketMemorySimilar({
+        pattern_score: pattern_score ?? 50,
+        mission_type: mission_type ?? null,
+        limit: 7,
+        score_range: 10.0,
+      }),
+    staleTime: 300_000,
+    enabled: (options?.enabled ?? true) && pattern_score !== null && pattern_score !== undefined,
+  });
+}
+
+
 export function useBacktestPredictions(limit = 50, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.backtestPredictions(limit),

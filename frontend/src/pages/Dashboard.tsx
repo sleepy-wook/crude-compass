@@ -17,6 +17,7 @@ import { useMissionsWebSocket } from "../lib/ws";
 import { MissionHero, type TriggerKind } from "../components/MissionHero";
 import { MultiAgentTrace } from "../components/MultiAgentTrace";
 import { Bidirectional3Zone } from "../components/Bidirectional3Zone";
+import { SimilarPastWidget } from "../components/SimilarPastWidget";
 import { TimeHorizonBreakdown } from "../components/TimeHorizonBreakdown";
 import { OpenDataBadge } from "../components/OpenDataBadge";
 import { PatternScoreLine } from "../components/PatternScoreLine";
@@ -71,8 +72,14 @@ export function Dashboard() {
       </header>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {/* HERO — 좌(Bidirectional 3-zone) + 우(Mission decision card) */}
+      {/* HERO ★ — Market Memory (오늘 시그널 → 지난 7년 비슷한 패턴 outcome) */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <SimilarPastWidget cur={cur} />
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {/* SIGNAL OVERVIEW — 좌(Bidirectional 3-zone) + 우(Mission)     */}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <SectionHeader title="시그널 강도 + 결정 기록" subtitle="양방향 신호 + 매니저 행동 ledger" />
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6 mb-10">
         <Bidirectional3Zone cur={cur} topMission={topMission} />
         <MissionHero

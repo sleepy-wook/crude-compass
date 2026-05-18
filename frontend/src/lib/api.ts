@@ -220,6 +220,45 @@ export const api = {
     ),
   curationStatus: () =>
     request<{ latest_date: string | null }>("/api/admin/curation-status"),
+
+  // Market Memory — Similar Pattern Retrieve (D-4 ★ Wow 1)
+  marketMemorySimilar: (body: {
+    pattern_score: number;
+    mission_type?: string | null;
+    limit?: number;
+    score_range?: number;
+  }) =>
+    request<{
+      input: { pattern_score: number; mission_type?: string | null; score_range?: number };
+      summary: {
+        n?: number;
+        avg_saving_30d_pct?: number;
+        avg_saving_7d_pct?: number;
+        avg_saving_90d_pct?: number;
+        best_saving_30d_pct?: number;
+        worst_saving_30d_pct?: number;
+        avg_dubai_change_30d_pct?: number;
+        hit_rate_pct?: number;
+      };
+      top_matches: Array<{
+        as_of_date: string;
+        pattern_score: number | null;
+        confidence_score: number | null;
+        mission_type: string | null;
+        target_pct: number | null;
+        saving_7d_pct: number | null;
+        saving_30d_pct: number | null;
+        saving_90d_pct: number | null;
+        dubai_at_signal_usd: number | null;
+        dubai_30d_usd: number | null;
+        distance: number | null;
+      }>;
+      lakebase_available: boolean;
+      reason?: string;
+    }>("/api/market-memory/similar", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };
 
 export { ApiError };
