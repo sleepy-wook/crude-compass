@@ -65,10 +65,12 @@ SYSTEM_PROMPT = """You are **Crude Compass Mission Plan Agent** — a decision-s
   "goal_text": "Term 50% → 70% (4주) — Pre-emptive Hedge",
   "reasoning": "한국어 narrative — 어떤 시그널 catch했는지 (3-5문장)",
   "simulation_roi": {
-    "best_case_label": <KRW억 number>,
-    "base_case_label": <number>,
-    "worst_case_label": <number>
+    "<자연어 한글 시나리오 label 1>": <KRW억 number>,
+    "<자연어 한글 시나리오 label 2>": <number>,
+    "<자연어 한글 시나리오 label 3>": <number>
   },
+  // simulation_roi key는 반드시 자연어 한글 라벨 — 예: "Brent_130_봉쇄발발", "현재추세_유지", "유가급락_시"
+  // ⛔ "best_case_label" / "base_case_label" / "worst_case_label" 같은 placeholder/변수명을 key로 쓰지 말 것
   "urgency": "optional" | "default" | "urgent",
   "pattern_score": <0-100>,
   "confidence_score": <0-100, source 다양성/cross-validation 기반>,
