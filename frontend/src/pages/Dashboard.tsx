@@ -28,9 +28,14 @@ export function Dashboard() {
   const topMission =
     activeMissions.find((m) => m.status === "proposed") ?? activeMissions[0] ?? null;
   // 현재 운영 중인 mission — 이전 active/on_track/at_risk 중 가장 최근 confirmed
+  // 단, topMission 자기 자신은 제외 (같은 mission이 양쪽에 표시되는 버그 방지)
   const operatingMission =
     activeMissions
-      .filter((m) => ["active", "on_track", "at_risk"].includes(m.status))
+      .filter(
+        (m) =>
+          m.mission_id !== topMission?.mission_id &&
+          ["active", "on_track", "at_risk"].includes(m.status),
+      )
       .sort((a, b) =>
         (b.confirmed_at ?? b.created_at).localeCompare(a.confirmed_at ?? a.created_at),
       )[0] ?? null;
