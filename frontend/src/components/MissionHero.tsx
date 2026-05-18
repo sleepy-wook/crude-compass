@@ -86,6 +86,28 @@ function modeChipColor(mode: Mode): string {
   return "bg-line-1 text-ink-3";
 }
 
+/** "2026-05-15" + 오늘 시각 → "3일 전 갱신" 같은 자연어 표기. */
+function formatGenerationDate(dateStr: string | undefined): string {
+  if (!dateStr) return "최근 갱신";
+  try {
+    // YYYY-MM-DD를 KST 06:30 기준으로 parsing (daily_curation job time)
+    const then = new Date(`${dateStr}T06:30:00+09:00`).getTime();
+    const now = Date.now();
+    const diffMs = now - then;
+    if (diffMs < 0) return "갱신 예정";
+    const diffMin = Math.floor(diffMs / 60_000);
+    const diffHours = Math.floor(diffMs / 3_600_000);
+    const diffDays = Math.floor(diffMs / 86_400_000);
+    if (diffMin < 60) return "방금 갱신";
+    if (diffHours < 24) return `${diffHours}시간 전 갱신`;
+    if (diffDays === 1) return "어제 갱신";
+    if (diffDays < 7) return `${diffDays}일 전 갱신`;
+    return `${dateStr.slice(5).replace("-", "/")} 갱신`;
+  } catch {
+    return "최근 갱신";
+  }
+}
+
 function triggerBadge(kind: TriggerKind, cur: PatternScoreCurrent | null | undefined) {
   switch (kind) {
     case "price_spike":
@@ -95,14 +117,12 @@ function triggerBadge(kind: TriggerKind, cur: PatternScoreCurrent | null | undef
     case "manual_recommend":
       return { tone: "active" as const, label: "분석 완료", pulse: false };
     case "daily_cron":
-    default: {
-      const date = cur?.date ? cur.date.slice(5, 10).replace("-", "/") : null;
+    default:
       return {
         tone: "neutral" as const,
-        label: date ? `${date} 06:30 갱신` : "최신",
+        label: formatGenerationDate(cur?.date),
         pulse: false,
       };
-    }
   }
 }
 

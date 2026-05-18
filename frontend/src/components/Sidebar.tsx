@@ -1,7 +1,7 @@
 /**
- * RightSidebar — Linear/Notion 풍 slim context column.
+ * Sidebar — 좌측 context column.
  *
- * 1 page 구조로 단순화하면서 채점 가시성(4 tool)과 K-Petroleum 브랜딩은 유지.
+ * Single page mission-centric 구조에서 좌측에 K-Petroleum 브랜드 + 채점 가시성 + 데이터 출처.
  */
 import { useState } from "react";
 import { GlossaryModal } from "./Glossary";
@@ -9,14 +9,14 @@ import { cn } from "../lib/utils";
 import { useMissionsActive } from "../lib/queries";
 import { useMissionsWebSocket } from "../lib/ws";
 
-export function RightSidebar() {
+export function Sidebar() {
   const { status } = useMissionsWebSocket();
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const missions = useMissionsActive();
   const activeCount = missions.data?.missions?.length ?? 0;
 
   return (
-    <aside className="w-72 bg-sidebar-bg text-white flex flex-col h-screen sticky top-0 border-l border-sidebar-bg2">
+    <aside className="w-72 bg-sidebar-bg text-white flex flex-col h-screen sticky top-0 border-r border-sidebar-bg2 shrink-0">
       {/* Brand */}
       <div className="px-6 py-7 border-b border-sidebar-bg2">
         <div className="text-[10px] uppercase tracking-[0.2em] text-sidebar-muted2 mb-1.5">

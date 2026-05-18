@@ -69,7 +69,23 @@ export function Discovery() {
   }
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-4xl mx-auto">
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {/* SERVICE INTRO — "이게 뭔지" 5초 인지                          */}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <header className="mb-10 pt-2">
+        <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-2">
+          K-Petroleum · Crude Compass
+        </div>
+        <h1 className="font-display text-[36px] md:text-[44px] font-semibold tracking-tight text-ink-1 mb-3 leading-[1.1]">
+          오늘의 결정
+        </h1>
+        <p className="text-base text-ink-2 leading-relaxed max-w-2xl">
+          한국 정유사를 위한 원유 조달 AI 어시스턴트입니다. 매일 시장 신호를 종합해
+          최적 매입 비중을 권고하고, 매니저가 채택하면 실시간으로 실행 결과를 추적합니다.
+        </p>
+      </header>
+
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {/* HERO — Mission card (오늘 권고)                              */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}

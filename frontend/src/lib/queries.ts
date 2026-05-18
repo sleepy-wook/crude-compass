@@ -57,11 +57,12 @@ export function useBacktestResults() {
   });
 }
 
-export function useBacktestPredictions(limit = 50) {
+export function useBacktestPredictions(limit = 50, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.backtestPredictions(limit),
     queryFn: () => api.backtestPredictions(limit),
     staleTime: 3600_000,
+    enabled: options?.enabled ?? true,
   });
 }
 
