@@ -68,17 +68,8 @@ export function Discovery() {
         isLoading={pattern.isLoading}
       />
 
-      <div className="max-w-5xl mx-auto pt-8">
-        {/* Narrative anchor */}
-        <p className="text-sm text-ink-3 max-w-2xl leading-relaxed mb-12">
-          호르무즈 같은 대형 위기 한 번을 위한 게 아닙니다.
-          평시 매주 발생하는 시그널을 종합하는 일상 도구입니다.
-        </p>
-
-        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        {/* §2. 왜 이 결정인가 — 근거                                    */}
-        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <SuperSectionHeader n={2} title="왜 이 결정인가" subtitle="시그널 기여도 · 30일 추세 · 최근 이벤트" />
+      <div className="max-w-5xl mx-auto pt-12">
+        <SuperSectionHeader title="결정 근거" />
 
         <SignalContribution />
 
@@ -92,11 +83,7 @@ export function Discovery() {
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {/* §3. AI가 어떻게 추론했나 — ★ Multi-Agent live trace          */}
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <SuperSectionHeader
-          n={3}
-          title="AI가 어떻게 추론했나"
-          subtitle="Multi-Agent Supervisor + Genie + Knowledge Assistant + Mission Plan FMA"
-        />
+        <SuperSectionHeader title="AI 추론 과정" />
 
         <MultiAgentTrace
           onTriggerStart={() => setTriggerKind("manual_query")}
@@ -109,7 +96,7 @@ export function Discovery() {
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {/* §4. 무엇을 할까 — 액션                                       */}
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <SuperSectionHeader n={4} title="무엇을 할까" subtitle="진행 임무 · Lakebase outcome 추적" />
+        <SuperSectionHeader title="실행 계획" />
 
         <section className="mb-10">
           <div className="flex items-baseline justify-between mb-3">
@@ -121,7 +108,7 @@ export function Discovery() {
           {missions.isLoading && <div className="text-ink-3 text-sm">로딩 중...</div>}
           {activeMissions.length === 0 && !missions.isLoading && (
             <div className="bg-panel rounded-lg border border-line-1 p-6 text-ink-3 text-sm">
-              진행 중 임무 없음 — §3에서 "지금 다시 분석" 클릭하면 새 임무 제안.
+              진행 중 임무 없음. 위에서 다시 분석하면 새 임무가 제안됩니다.
             </div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -157,7 +144,7 @@ export function Discovery() {
         {/* Backtest Summary — Lakebase 라이브 outcome 추적 */}
         <section className="mb-10">
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="font-display text-lg font-semibold">결정 outcome 추적</h3>
+            <h3 className="font-display text-lg font-semibold">과거 권고 성과</h3>
             <Link to="/what-if" className="text-xs text-ink-3 hover:text-ink underline">
               과거 시점 복원 →
             </Link>
@@ -191,12 +178,9 @@ export function Discovery() {
             </div>
           )}
           {backtest.data?.summary && (
-            <div className="mt-3 inline-flex items-center gap-2 text-[11px] text-opportunity-700 font-mono">
-              <span>● 라이브 Lakebase</span>
-              <span className="text-ink-3">·</span>
-              <span>run_id {backtest.data.summary.run_id}</span>
-              <span className="text-ink-3">·</span>
-              <span>psycopg3 pool · OAuth 토큰 50분 rotation</span>
+            <div className="mt-3 inline-flex items-center gap-2 text-[11px] text-ink-3">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-opportunity-500" />
+              <span>실시간 데이터 연결됨</span>
             </div>
           )}
           {backtest.data && !backtest.data.summary && backtest.data.lakebase_available === false && (
@@ -207,10 +191,10 @@ export function Discovery() {
                 </span>
                 <div className="flex-1">
                   <h4 className="font-display text-base font-semibold text-ink mb-1.5">
-                    백테스트 데이터 — Lakebase OAuth 연동 진행 중
+                    백테스트 데이터 연결 준비 중
                   </h4>
                   <p className="text-xs text-ink-2 leading-relaxed">
-                    Apps Database resource binding 완료 시 즉시 라이브.
+                    데이터베이스 연동이 완료되면 실시간으로 표시됩니다.
                     <Link to="/what-if" className="ml-1 text-ink underline">상세 →</Link>
                   </p>
                 </div>
@@ -222,24 +206,20 @@ export function Discovery() {
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {/* §5. 다른 가능성은 — 대안                                     */}
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <SuperSectionHeader
-          n={5}
-          title="다른 가능성은"
-          subtitle="가격·환율 추세 + What-If 시나리오 + 자연어 질의"
-        />
+        <SuperSectionHeader title="대안 시나리오" />
 
         <PriceLineChart days={90} />
         <FxLineChart days={90} />
 
-        <section className="mb-16 bg-panel border border-line-1 rounded-xl p-6">
+        <section className="mb-16 bg-panel border border-line-1 rounded-xl p-7">
           <div className="flex items-baseline justify-between mb-2">
-            <h3 className="font-display text-lg font-semibold">What-If 시나리오 시뮬레이션</h3>
-            <Link to="/what-if" className="text-xs text-ink-3 hover:text-ink underline">
+            <h3 className="font-display text-lg font-semibold text-ink-1">시뮬레이션 도구</h3>
+            <Link to="/what-if" className="text-xs text-ink-3 hover:text-ink-1 transition-colors">
               열기 →
             </Link>
           </div>
           <p className="text-sm text-ink-2 leading-relaxed">
-            과거 7년 시점으로 돌아가 AI 추천 vs 실제 결과 비교, 자연어 질의로 Multi-Agent에게 시나리오를 직접 물어볼 수 있습니다.
+            과거 시점으로 돌아가 AI 권고와 실제 결과를 비교하거나, 직접 질문하여 시나리오를 검토할 수 있습니다.
           </p>
         </section>
       </div>
@@ -247,22 +227,12 @@ export function Discovery() {
   );
 }
 
-function SuperSectionHeader({
-  n,
-  title,
-  subtitle,
-}: {
-  n: number;
-  title: string;
-  subtitle?: string;
-}) {
+function SuperSectionHeader({ title }: { title: string }) {
   return (
-    <div className="mt-20 pt-8 border-t border-line-2 mb-6">
-      <div className="text-[11px] font-mono text-ink-3 mb-1">§{n}</div>
-      <h2 className="font-display text-2xl md:text-3xl font-semibold tracking-tight text-ink-1">
+    <div className="mt-24 mb-8">
+      <h2 className="font-display text-2xl md:text-[28px] font-semibold tracking-tight text-ink-1">
         {title}
       </h2>
-      {subtitle && <p className="text-sm text-ink-3 mt-1.5">{subtitle}</p>}
     </div>
   );
 }

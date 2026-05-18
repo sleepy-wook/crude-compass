@@ -73,18 +73,13 @@ export function FxLineChart({ days = 90 }: { days?: number }) {
     : "text-ink-3";
 
   return (
-    <section className="mb-6">
-      <div className="flex items-baseline justify-between mb-2">
-        <h2 className="font-display text-base font-semibold tracking-tight">
-          USD/KRW — {days}일
-        </h2>
-        <span className="text-[11px] text-ink-3 font-mono">
-          gold.fx_with_delta · ECOS 한국은행
-        </span>
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-3">
+        <h3 className="font-display text-lg font-semibold tracking-tight text-ink-1">
+          원·달러 환율
+        </h3>
+        <span className="text-[11px] text-ink-3">최근 {days}일</span>
       </div>
-      <p className="text-xs text-ink-3 mb-3">
-        한국 정유사 랜딩 코스트 직접 영향. 원화 약세 = 원유 수입 비용 증가 (시나리오 §13).
-      </p>
 
       <div className="rounded-xl border border-line-1 bg-panel">
         <svg

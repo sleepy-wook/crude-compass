@@ -24,14 +24,12 @@ export function OpecCitation() {
   const latest = data?.latest;
 
   return (
-    <section className="mb-6">
+    <section className="mb-8">
       <div className="flex items-baseline justify-between mb-3">
-        <h2 className="font-display text-base font-semibold tracking-tight">
-          OPEC MOMR — Document Intelligence 결과
-        </h2>
-        <span className="text-[11px] text-ink-3 font-mono">
-          ai_parse_document() · monthly PDF
-        </span>
+        <h3 className="font-display text-lg font-semibold tracking-tight text-ink-1">
+          OPEC 월간 보고서
+        </h3>
+        <span className="text-[11px] text-ink-3">PDF 자동 파싱</span>
       </div>
 
       {isLoading && (
@@ -78,16 +76,13 @@ export function OpecCitation() {
               const lag = (now.getFullYear() - y) * 12 + (now.getMonth() + 1 - mm);
               if (lag >= 2) {
                 return (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] border bg-line-1 text-ink-3 border-line-2 font-mono">
-                    최신 보고서 {lag}개월 lag · 4월 미수집 (anti-bot)
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] bg-line-1 text-ink-3">
+                    {lag}개월 전 보고서
                   </span>
                 );
               }
               return null;
             })()}
-            <span className="text-[10px] text-ink-3 font-mono">
-              {data?.source ?? "PDF parsed"}
-            </span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

@@ -83,19 +83,13 @@ export function PriceLineChart({ days = 90 }: { days?: number }) {
   const first = points[0];
 
   return (
-    <section className="mb-6">
-      <div className="flex items-baseline justify-between mb-2">
-        <h2 className="font-display text-base font-semibold tracking-tight">
-          Dubai · Brent · WTI — {days}일
-        </h2>
-        <span className="text-[11px] text-ink-3 font-mono">
-          gold.oil_prices_wide · KNOC OPINET
-        </span>
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-3">
+        <h3 className="font-display text-lg font-semibold tracking-tight text-ink-1">
+          유종별 가격
+        </h3>
+        <span className="text-[11px] text-ink-3">최근 {days}일 · 두바이 기준</span>
       </div>
-      <p className="text-xs text-ink-3 mb-3">
-        한국 정유사 baseline = <span className="font-semibold text-ink">Dubai</span> (중동산 70%+ 수입).
-        Brent/WTI는 비교 기준선.
-      </p>
 
       <div className="rounded-xl border border-line-1 bg-panel">
         <svg

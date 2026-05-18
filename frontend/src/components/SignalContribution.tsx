@@ -29,19 +29,13 @@ export function SignalContribution() {
   const top = items.slice(0, 6);
 
   return (
-    <section className="mb-8">
-      <div className="flex items-baseline justify-between mb-3">
-        <h2 className="font-display text-xl font-semibold tracking-tight">
-          시그널 기여도 — 최근 30일
-        </h2>
-        <span className="text-[11px] text-ink-3 font-mono">
-          gold.signal_contribution_30d
-        </span>
+    <section className="mb-10">
+      <div className="flex items-baseline justify-between mb-5">
+        <h3 className="font-display text-lg font-semibold tracking-tight text-ink-1">
+          신호 기여도
+        </h3>
+        <span className="text-[11px] text-ink-3">최근 30일</span>
       </div>
-      <p className="text-xs text-ink-3 mb-4">
-        위기 신호 점수를 끌어올린 소스 × 방향 기여도. 시간 감쇠 적용된{" "}
-        <code className="text-[11px]">weighted_contribution</code> 절댓값 share.
-      </p>
 
       {isLoading && (
         <div className="space-y-2.5">
@@ -105,9 +99,9 @@ export function SignalContribution() {
                     {item.share_pct.toFixed(1)}%
                   </span>
                 </div>
-                {/* Sidecar — n signals */}
+                {/* Sidecar — signal count */}
                 <div className="w-16 text-right text-[11px] font-mono text-ink-3 shrink-0">
-                  n={item.n_signals}
+                  {item.n_signals}건
                 </div>
               </div>
             );

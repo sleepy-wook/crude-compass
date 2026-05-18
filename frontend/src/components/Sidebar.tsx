@@ -1,25 +1,18 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { GlossaryModal } from "./Glossary";
 import { cn } from "../lib/utils";
 import { useMissionsWebSocket } from "../lib/ws";
 
 const navItems = [
-  { to: "/", label: "Discovery", desc: "오늘의 발견" },
-  { to: "/missions", label: "Mission", desc: "진행 중 미션" },
-  { to: "/what-if", label: "What-if", desc: "과거 시점 복원" },
+  { to: "/", label: "오늘의 결정", desc: "AI 권고와 근거" },
+  { to: "/missions", label: "임무", desc: "진행 중 임무" },
+  { to: "/what-if", label: "시뮬레이션", desc: "과거 검증과 자연어 질의" },
 ];
 
 export function Sidebar() {
-  const { status, lastEventAt } = useMissionsWebSocket();
+  const { status } = useMissionsWebSocket();
   const [glossaryOpen, setGlossaryOpen] = useState(false);
-  // Date.now()는 impure → useState + setInterval로 re-render trigger
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 5000);
-    return () => clearInterval(t);
-  }, []);
-  const elapsed = lastEventAt ? Math.floor((now - lastEventAt) / 1000) : null;
 
   return (
     <aside className="w-72 bg-sidebar-bg text-white flex flex-col h-screen sticky top-0">
@@ -41,16 +34,16 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* 4 tool 매핑 — Track 1 평가 가시성 (Apps URL만으론 부족) */}
+      {/* Databricks 4 tool 가시성 */}
       <div className="px-6 py-4 border-b border-sidebar-bg2">
-        <div className="text-[10px] uppercase tracking-widest text-sidebar-muted2 mb-2">
-          Databricks 4 tool
+        <div className="text-[10px] uppercase tracking-widest text-sidebar-muted2 mb-2.5">
+          기술 스택
         </div>
-        <ul className="text-[11px] text-sidebar-muted space-y-1 leading-snug">
-          <li>• <span className="text-white/90">Apps</span> — 본 페이지 (Vite + FastAPI 단일 컨테이너)</li>
-          <li>• <span className="text-white/90">Lakebase</span> — Mission CRUD + Backtest OLTP <span className="text-ok">● 라이브</span></li>
-          <li>• <span className="text-white/90">Genie</span> — Crude Oil Market Analysis Space <span className="text-ok">● 라이브</span></li>
-          <li>• <span className="text-white/90">Agent Bricks</span> — Multi-Agent Supervisor (Genie · KA · FMA) <span className="text-ok">● 라이브</span></li>
+        <ul className="text-[11px] text-sidebar-muted space-y-1.5 leading-snug">
+          <li className="flex items-center justify-between"><span className="text-white/90">Databricks Apps</span></li>
+          <li className="flex items-center justify-between"><span className="text-white/90">Lakebase</span><span className="inline-block w-1.5 h-1.5 rounded-full bg-ok" /></li>
+          <li className="flex items-center justify-between"><span className="text-white/90">Genie</span><span className="inline-block w-1.5 h-1.5 rounded-full bg-ok" /></li>
+          <li className="flex items-center justify-between"><span className="text-white/90">Agent Bricks</span><span className="inline-block w-1.5 h-1.5 rounded-full bg-ok" /></li>
         </ul>
       </div>
 
@@ -86,25 +79,19 @@ export function Sidebar() {
       </button>
 
       <div className="p-5 border-t border-sidebar-bg2">
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-xs">
           <span
             className={cn(
-              "w-2.5 h-2.5 rounded-full",
+              "w-2 h-2 rounded-full",
               status === "connected" && "bg-ok",
               status === "connecting" && "bg-warn",
-              status === "disconnected" && "bg-sidebar-muted2",
-              status === "error" && "bg-crisis-500"
+              (status === "disconnected" || status === "error") && "bg-sidebar-muted2",
             )}
           />
           <span className="text-sidebar-muted">
-            {status === "connected" ? "Live sync" : status}
+            {status === "connected" ? "실시간 연결됨" : "재연결 중"}
           </span>
         </div>
-        {elapsed !== null && elapsed < 60 && (
-          <div className="text-xs text-sidebar-muted2 mt-1.5 font-mono">
-            last event {elapsed}s ago
-          </div>
-        )}
       </div>
 
       <GlossaryModal open={glossaryOpen} onClose={() => setGlossaryOpen(false)} />

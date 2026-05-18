@@ -41,18 +41,13 @@ export function NewsTopList({ limit = 12 }: { limit?: number }) {
   const items = data?.items ?? [];
 
   return (
-    <section className="mb-8">
-      <div className="flex items-baseline justify-between mb-3">
-        <h2 className="font-display text-xl font-semibold tracking-tight">
-          최근 7일 핵심 뉴스
-        </h2>
-        <span className="text-[11px] text-ink-3 font-mono">
-          gold.news_top_signals · importance ≥ 60
-        </span>
+    <section className="mb-10">
+      <div className="flex items-baseline justify-between mb-5">
+        <h3 className="font-display text-lg font-semibold tracking-tight text-ink-1">
+          주요 보도
+        </h3>
+        <span className="text-[11px] text-ink-3">최근 7일</span>
       </div>
-      <p className="text-xs text-ink-3 mb-3">
-        GDELT 글로벌 뉴스 + 룰베이스 importance scoring. direction은 bullish (위기↑) / bearish (약세↓)로 분류.
-      </p>
 
       {isLoading && (
         <div className="space-y-2">

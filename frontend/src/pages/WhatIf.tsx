@@ -15,12 +15,12 @@ const SUPERVISOR_EXAMPLES = [
 ];
 
 const SUBAGENT_LABEL: Record<string, { label: string; color: string }> = {
-  // Sub-agent name 패턴 매칭 (Supervisor가 반환하는 tool name)
-  genie: { label: "Genie SQL", color: "bg-blue-50 text-blue-700 border-blue-200" },
-  knowledge: { label: "Knowledge Assistant", color: "bg-purple-50 text-purple-700 border-purple-200" },
-  ka: { label: "Knowledge Assistant", color: "bg-purple-50 text-purple-700 border-purple-200" },
-  haiku: { label: "임무 권고 (Claude Haiku)", color: "bg-green-50 text-green-700 border-green-200" },
-  claude: { label: "임무 권고 (Claude Haiku)", color: "bg-green-50 text-green-700 border-green-200" },
+  // 사용자에게 보일 친화적 라벨
+  genie: { label: "데이터 조회", color: "bg-line-1 text-ink-2 border-line-2" },
+  knowledge: { label: "뉴스 분석", color: "bg-line-1 text-ink-2 border-line-2" },
+  ka: { label: "뉴스 분석", color: "bg-line-1 text-ink-2 border-line-2" },
+  haiku: { label: "권고 산출", color: "bg-line-1 text-ink-2 border-line-2" },
+  claude: { label: "권고 산출", color: "bg-line-1 text-ink-2 border-line-2" },
 };
 
 function labelSubAgent(name: string): { label: string; color: string } {
@@ -96,43 +96,43 @@ export function WhatIf() {
         </section>
       )}
 
-      {/* Lakebase 라이브 검증 — production resource binding 완료 시 success 카드 */}
+      {/* 실시간 검증 success card */}
       {summary.data && summary.data.lakebase_available !== false && summary.data.summary && (
-        <section className="mb-6 bg-opportunity-50 rounded-xl border border-opportunity-100 p-5">
+        <section className="mb-8 bg-opportunity-50/60 rounded-xl border border-opportunity-100 p-6">
           <div className="flex items-start gap-3">
-            <span className="text-[10px] uppercase tracking-widest text-opportunity-700 mt-1 shrink-0">
-              ● 라이브 검증
-            </span>
+            <span className="inline-block w-2 h-2 rounded-full bg-opportunity-500 mt-2 shrink-0" />
             <div className="flex-1">
-              <h3 className="font-display text-base font-semibold text-ink mb-1.5">
-                Lakebase OLTP 직접 조회 — Apps Database resource OAuth 연동 완료
+              <h3 className="font-display text-base font-semibold text-ink-1 mb-1.5">
+                실시간 데이터 연결됨
               </h3>
-              <p className="text-xs text-ink-2 leading-relaxed">
-                Apps Service Principal이 Lakebase Postgres에 직접 connect (psycopg + OAuth token rotation).
-                {summary.data.summary.n_active}건 backtest 적중률 <strong className="text-opportunity-700">{summary.data.summary.hit_rate_pct?.toFixed(1)}%</strong>,
-                평균 절감 <strong className="text-opportunity-700">{summary.data.summary.avg_save_pct?.toFixed(2)}%</strong>.
-              </p>
-              <p className="text-[11px] text-ink-3 mt-2 font-mono">
-                run_id: {summary.data.summary.run_id} · psycopg3 pool · token TTL 50분 rotation
+              <p className="text-sm text-ink-2 leading-relaxed">
+                과거 {summary.data.summary.n_active}건의 권고를 검증한 결과, 적중률{" "}
+                <strong className="text-opportunity-700">
+                  {summary.data.summary.hit_rate_pct?.toFixed(1)}%
+                </strong>
+                , 평균 절감{" "}
+                <strong className="text-opportunity-700">
+                  {summary.data.summary.avg_save_pct?.toFixed(2)}%
+                </strong>
+                을 기록했습니다.
               </p>
             </div>
           </div>
         </section>
       )}
-      {/* Lakebase 미연동 disclosure (fallback only) */}
+      {/* 데모 모드 disclosure */}
       {summary.data && summary.data.lakebase_available === false && (
-        <section className="mb-6 bg-panel rounded-xl border-2 border-dashed border-line-2 p-5">
+        <section className="mb-8 bg-panel rounded-xl border-2 border-dashed border-line-2 p-6">
           <div className="flex items-start gap-3">
             <span className="text-[10px] uppercase tracking-widest text-ink-3 mt-1 shrink-0">
               데모 모드
             </span>
             <div className="flex-1">
-              <h3 className="font-display text-base font-semibold text-ink mb-1.5">
-                Backtest 데이터 — Lakebase OAuth 연동 진행 중
+              <h3 className="font-display text-base font-semibold text-ink-1 mb-1.5">
+                실시간 데이터 연결 준비 중
               </h3>
-              <p className="text-xs text-ink-2 leading-relaxed">
-                Lakebase (Postgres OLTP)에 backtest_predictions 적재 완료.
-                Production Apps의 Service Principal OAuth role binding이 진행 중.
+              <p className="text-sm text-ink-2 leading-relaxed">
+                데이터베이스 연동이 완료되면 실시간으로 검증 결과가 표시됩니다.
               </p>
             </div>
           </div>
@@ -313,20 +313,12 @@ export function WhatIf() {
         </div>
       </section>
 
-      {/* Agent Bricks Supervisor — Multi-Agent orchestration (시나리오 §9.7 anchor) */}
-      <section className="mt-6 bg-panel rounded-xl border border-line-1 p-6">
-        <div className="flex items-baseline justify-between mb-3">
-          <h2 className="font-display text-lg font-semibold text-ink">
-            AI 어시스턴트 (Supervisor)
-          </h2>
-          <span className="text-[11px] text-ink-3">
-            Agent Bricks · 3 sub-agent (Genie · KA · FMA) 자동 라우팅
-          </span>
+      {/* AI 어시스턴트 — 자연어 질의 */}
+      <section className="mt-8 bg-panel rounded-xl border border-line-1 p-7">
+        <div className="flex items-baseline justify-between mb-4">
+          <h2 className="font-display text-lg font-semibold text-ink-1">AI 어시스턴트</h2>
+          <span className="text-[11px] text-ink-3">자연어로 질문</span>
         </div>
-        <p className="text-xs text-ink-3 mb-4 leading-relaxed">
-          자연어 질의 1개 → Supervisor가 적절한 sub-agent에 자동 delegate.
-          응답 하단에 <code className="px-1 py-0.5 bg-line-1 rounded text-[10px]">사용된 sub-agent</code> 표시 (transparency).
-        </p>
 
         {/* Example chips */}
         <div className="flex flex-wrap gap-2 mb-3">
@@ -376,45 +368,36 @@ export function WhatIf() {
         {/* Response area */}
         {supervisorMut.isError && (
           <div className="text-xs text-crisis-700 mb-3">
-            에러: {(supervisorMut.error as Error)?.message || "Supervisor 호출 실패"}
+            요청 처리 중 오류가 발생했습니다.
           </div>
         )}
         {supervisorResp && (
-          <div className="border-t border-line-1 pt-4 mt-2">
-            {/* Source badge */}
+          <div className="border-t border-line-1 pt-5 mt-3">
+            {/* Source indicator */}
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               <span
-                className={
-                  supervisorResp.source === "live"
-                    ? "text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-opportunity-50 text-opportunity-700 border border-opportunity-100"
-                    : "text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-line-1 text-ink-2 border border-line-2"
-                }
-                title={
-                  supervisorResp.source === "live"
-                    ? "Agent Bricks Supervisor 라이브 호출"
-                    : "Supervisor endpoint 미등록 — Genie fallback 모드"
-                }
+                className={`inline-flex items-center gap-1.5 text-[11px] ${
+                  supervisorResp.source === "live" ? "text-opportunity-700" : "text-ink-3"
+                }`}
               >
-                {supervisorResp.source === "live" ? "● Live Supervisor" : `● Fallback`}
+                <span
+                  className={`inline-block w-1.5 h-1.5 rounded-full ${
+                    supervisorResp.source === "live" ? "bg-opportunity-500" : "bg-ink-3/50"
+                  }`}
+                />
+                {supervisorResp.source === "live" ? "실시간 응답" : "캐시된 응답"}
               </span>
-              {supervisorResp.source === "fallback" && supervisorResp.fallback_genie_source && (
-                <span className="text-[10px] font-mono text-ink-3">
-                  via {supervisorResp.fallback_genie_source}
-                </span>
-              )}
             </div>
 
             {/* Answer */}
-            <p className="text-sm text-ink leading-relaxed whitespace-pre-wrap mb-3">
+            <p className="text-[14px] text-ink-1 leading-relaxed whitespace-pre-wrap mb-3">
               {supervisorResp.answer}
             </p>
 
-            {/* Tools used (Supervisor sub-agent routing trace) */}
+            {/* 참고 도구 */}
             {supervisorResp.tools_used && supervisorResp.tools_used.length > 0 && (
               <div className="border-t border-line-1 pt-3 mt-3">
-                <div className="text-[10px] uppercase tracking-widest text-ink-3 mb-2">
-                  사용된 sub-agent ({supervisorResp.tools_used.length})
-                </div>
+                <div className="text-[11px] text-ink-3 mb-2">참고 도구</div>
                 <div className="flex flex-wrap gap-1.5">
                   {supervisorResp.tools_used.map((t, i) => {
                     const { label, color } = labelSubAgent(t.name);
@@ -422,7 +405,6 @@ export function WhatIf() {
                       <span
                         key={`${t.name}-${i}`}
                         className={`text-[11px] px-2 py-0.5 rounded-full border ${color}`}
-                        title={t.arguments || t.name}
                       >
                         {label}
                       </span>
