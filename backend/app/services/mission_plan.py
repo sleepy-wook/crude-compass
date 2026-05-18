@@ -325,6 +325,7 @@ def call_mission_plan_agent(input_data: MissionPlanInput) -> MissionPlanOutput |
    Use supplier_universe to recommend supplier_mix (시연 example — 매니저 실제 OSP allocation 기반).
    Return JSON only."""
 
+    raw_content: str = ""
     try:
         resp = w.serving_endpoints.query(
             name=LLM_ENDPOINT,
@@ -332,11 +333,14 @@ def call_mission_plan_agent(input_data: MissionPlanInput) -> MissionPlanOutput |
                 ChatMessage(role=ChatMessageRole.SYSTEM, content=SYSTEM_PROMPT + "\n\n" + FEW_SHOT_EXAMPLES),
                 ChatMessage(role=ChatMessageRole.USER, content=user_msg),
             ],
-            max_tokens=800,
+            max_tokens=2000,
             temperature=0.0,
         )
-        content = resp.choices[0].message.content if resp.choices else "{}"
-        content = _strip_markdown(content)
+        raw_content = resp.choices[0].message.content if resp.choices else ""
+        content = _strip_markdown(raw_content) if raw_content else ""
+        if not content.strip():
+            # LLM returned empty — diagnostic fallback
+            raise ValueError(f"empty LLM response (raw len={len(raw_content)})")
         data = json.loads(content)
         return MissionPlanOutput.model_validate(data)
     except Exception as e:
@@ -344,11 +348,11 @@ def call_mission_plan_agent(input_data: MissionPlanInput) -> MissionPlanOutput |
         import traceback
         logger = logging.getLogger(__name__)
         logger.error("Mission Plan Agent failed: %s: %s", type(e).__name__, e)
+        logger.error("raw LLM response (first 300 chars): %r", raw_content[:300])
         logger.error("traceback: %s", traceback.format_exc())
-        # D-4 hotfix: expose error class + first 200 chars to caller for diagnosis.
-        # (production-safe: no secrets, only error type and short message)
+        # D-4 hotfix: expose error + raw response sample for diagnosis.
         global _LAST_ERROR
-        _LAST_ERROR = f"{type(e).__name__}: {str(e)[:200]}"
+        _LAST_ERROR = f"{type(e).__name__}: {str(e)[:150]} | raw[:200]={raw_content[:200]!r}"
         return None
 
 
