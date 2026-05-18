@@ -163,14 +163,11 @@ export function AskPage() {
   return (
     <div className="max-w-4xl mx-auto px-8 py-10">
       {/* Page intro */}
-      <header className="mb-10">
-        <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-2">AI에게 묻기</div>
-        <h1 className="font-display text-[28px] md:text-[32px] font-semibold tracking-tight text-ink-1 mb-2 leading-tight">
+      <header className="mb-8">
+        <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">AI에게 묻기</div>
+        <h1 className="font-display text-[28px] md:text-[32px] font-semibold tracking-tight text-ink-1 leading-tight">
           Multi-Agent에 자연어로 질문
         </h1>
-        <p className="text-sm text-ink-2 leading-relaxed max-w-2xl">
-          Supervisor가 데이터 조회·뉴스 분석·권고 산출 도구를 자동 호출해 답합니다.
-        </p>
       </header>
 
       {/* Chat turns */}
@@ -270,9 +267,7 @@ function EmptyStateGuide({
       <div className="bg-panel border border-line-1 rounded-xl p-6 mb-6">
         <div className="flex items-baseline justify-between mb-4">
           <div className="text-[11px] uppercase tracking-wider text-ink-3">Multi-Agent 흐름</div>
-          <span className="text-[10px] text-ink-3 italic">
-            예시 질문에 hover하면 어떤 sub-agent 호출되는지 강조
-          </span>
+          <span className="text-[10px] text-ink-3">예시 hover로 routing 확인</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-[110px_24px_1fr] gap-3 md:gap-4 items-stretch">
           {/* 매니저 노드 */}
@@ -332,17 +327,11 @@ function EmptyStateGuide({
             </div>
           </div>
         </div>
-        <p className="text-[11px] text-ink-3 mt-4 leading-relaxed">
-          단일 endpoint 1개 호출 — Supervisor가 자동 분석해 3 sub-agent 중 필요한 것만 delegate.
-          응답에 어떤 도구가 호출됐는지 trace 표시.
-        </p>
       </div>
 
       {/* Sample chip — hover로 다이어그램 강조, click으로 즉시 실행 */}
       <div className="bg-panel border border-line-1 rounded-xl p-6 mb-6">
-        <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-4">
-          예시 질문 — hover로 routing 확인, 클릭으로 즉시 실행
-        </div>
+        <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-4">예시 질문</div>
         <div className="space-y-2.5">
           {examples.map((ex) => (
             <button

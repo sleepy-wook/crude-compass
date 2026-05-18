@@ -63,10 +63,7 @@ export function MissionsPage() {
         {/* Page header */}
         <div className="px-6 py-5 border-b border-line-1">
           <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">내 결정</div>
-          <h1 className="font-display text-xl font-semibold text-ink-1 mb-1">매니저 결정 기록</h1>
-          <p className="text-[11px] text-ink-3 mb-3 leading-snug">
-            AI가 결정하지 않습니다. 매니저가 기록 — 시장 메모리로 누적됩니다.
-          </p>
+          <h1 className="font-display text-xl font-semibold text-ink-1 mb-3">매니저 결정 기록</h1>
           {/* Filter tabs */}
           <div className="flex gap-1 text-[12px]">
             {(["all", "proposed", "active"] as Filter[]).map((f) => (
@@ -332,9 +329,6 @@ function MissionDetail({ missionId }: { missionId: string }) {
               </div>
             )}
           </div>
-          <p className="text-[11px] text-ink-3 mt-3 leading-relaxed italic">
-            AI는 매일 권고가 바뀌어도 이전 권고와의 차이를 명시합니다. 매니저가 변동 자체를 검증할 수 있도록.
-          </p>
         </div>
       )}
 
@@ -696,9 +690,7 @@ function DecisionChainPanel({ mission }: { mission: Mission }) {
     <div className="mb-8 pb-8 border-b border-line-1">
       <div className="flex items-baseline justify-between mb-3">
         <div className="text-[11px] uppercase tracking-wider text-ink-3">의사결정 chain</div>
-        <span className="text-[10px] text-ink-3 italic">
-          AI 권고는 input — 실행은 매니저/데스크/위원회 chain 후
-        </span>
+        <span className="text-[10px] text-ink-3">매니저 → 데스크 → 위원회 → 실행</span>
       </div>
       <ol className="space-y-2">
         {steps.map((step, i) => (

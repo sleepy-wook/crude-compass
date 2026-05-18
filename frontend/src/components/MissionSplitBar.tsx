@@ -151,18 +151,7 @@ export function MissionSplitBar({
       <div className="flex items-center gap-3 text-[12px] text-ink-2">
         <DeltaPill label="Term" delta={s.termDelta} />
         <DeltaPill label="Spot" delta={s.spotDelta} />
-        {size === "full" && (
-          <span className="text-[11px] text-ink-3 italic ml-auto">
-            현재 운영 → AI 권고 변화
-          </span>
-        )}
       </div>
-      {size === "full" && (
-        <div className="mt-3 pt-3 border-t border-line-1 text-[11px] text-ink-3 leading-relaxed">
-          <span className="text-ink-2 font-medium">Term</span> 장기 계약 (OSP linked, 월간 갱신) ·{" "}
-          <span className="text-ink-2 font-medium">Spot</span> 즉시 매입 (현물, 가격 추적)
-        </div>
-      )}
     </div>
   );
 }

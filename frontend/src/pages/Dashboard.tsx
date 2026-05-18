@@ -57,20 +57,17 @@ export function Dashboard() {
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {/* PAGE HEADER — enterprise SaaS 풍 짧은 카피                     */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <header className="mb-10">
-        <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-2">오늘의 결정</div>
-        <h1 className="font-display text-[28px] md:text-[32px] font-semibold tracking-tight text-ink-1 mb-3 leading-tight">
-          원유 조달 의사결정 코파일럿
-        </h1>
-        <p className="text-sm text-ink-2 leading-relaxed max-w-2xl">
-          공개 데이터 기반 일일 시그널 · 7년 시장 메모리 · 매니저 결정 기록.
-        </p>
-
-        {/* OSP cycle chip — 매니저 결정 cycle 어디인지 한 줄 */}
+      <header className="mb-8 flex items-baseline justify-between flex-wrap gap-3">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">오늘의 결정</div>
+          <h1 className="font-display text-[28px] md:text-[32px] font-semibold tracking-tight text-ink-1 leading-tight">
+            원유 조달 의사결정 코파일럿
+          </h1>
+        </div>
         <OspCycleChip />
 
         {spikeFlash && (
-          <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-crisis-50 text-crisis-700 text-[12px] font-medium">
+          <div className="w-full inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-crisis-50 text-crisis-700 text-[12px] font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-crisis-500 animate-pulse" />
             실시간 위기 신호 감지 — 30초 내 자동 갱신
           </div>
@@ -218,14 +215,14 @@ function OspCycleChip() {
   let tone: "crisis" | "ink" = "ink";
 
   if (day <= 5) {
-    phase = "이번 달 OSP 발표 직후 — Term 계약 가격 적용 시점";
-    daysToNext = lastDay - day + 5; // 다음 달 5일까지
+    phase = "OSP 발표 직후";
+    daysToNext = lastDay - day + 5;
   } else if (day >= 25) {
-    phase = "다음 달 OSP 임박 — Term 갱신 검토 cycle";
+    phase = "Term 갱신 임박";
     daysToNext = lastDay - day + 5;
     tone = "crisis";
   } else {
-    phase = "월중 — Spot 비중 미세 조정 cycle";
+    phase = "월중 Spot 조정";
     daysToNext = lastDay - day + 5;
   }
 
@@ -236,11 +233,10 @@ function OspCycleChip() {
 
   return (
     <div
-      className={`mt-4 inline-flex items-baseline gap-2 px-3 py-1.5 rounded-md border text-[12px] ${toneCls}`}
+      className={`inline-flex items-baseline gap-2 px-3 py-1.5 rounded-md border text-[12px] ${toneCls}`}
     >
-      <span className="text-[10px] uppercase tracking-wider opacity-75">OSP cycle</span>
       <span className="font-medium">{phase}</span>
-      <span className="opacity-75 tabular-nums">· 다음 Aramco OSP D-{daysToNext}</span>
+      <span className="opacity-75 tabular-nums">· OSP D-{daysToNext}</span>
     </div>
   );
 }

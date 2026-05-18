@@ -45,14 +45,14 @@ export function IntradayChart({ hours = 24 }: Props) {
   const { data, isLoading, isError } = useIntradayPrices(hours);
   const series = data?.series ?? [];
 
-  const { yMin, yMax, allPoints, latestPerTicker } = useMemo(() => {
+  const { yMin, yMax, hasAny, latestPerTicker } = useMemo(() => {
     let min = Infinity;
     let max = -Infinity;
-    let allCount = 0;
+    let any = false;
     const latest: Record<string, { price: number; ts: string } | undefined> = {};
     for (const s of series) {
       if (!s.points.length) continue;
-      allCount += s.points.length;
+      any = true;
       for (const p of s.points) {
         if (p.price_usd < min) min = p.price_usd;
         if (p.price_usd > max) max = p.price_usd;
@@ -61,14 +61,13 @@ export function IntradayChart({ hours = 24 }: Props) {
       latest[s.ticker] = { price: last.price_usd, ts: last.fetched_at };
     }
     if (!Number.isFinite(min) || !Number.isFinite(max)) {
-      return { yMin: 0, yMax: 1, allPoints: 0, latestPerTicker: latest };
+      return { yMin: 0, yMax: 1, hasAny: false, latestPerTicker: latest };
     }
-    // padding 5%
     const pad = (max - min) * 0.08 || 1;
     return {
       yMin: min - pad,
       yMax: max + pad,
-      allPoints: allCount,
+      hasAny: any,
       latestPerTicker: latest,
     };
   }, [series]);
@@ -88,7 +87,7 @@ export function IntradayChart({ hours = 24 }: Props) {
   }, [series]);
 
   // 데이터 없으면 컴포넌트 hide
-  if (!isLoading && (isError || allPoints === 0)) {
+  if (!isLoading && (isError || !hasAny)) {
     return null;
   }
 
@@ -233,9 +232,6 @@ export function IntradayChart({ hours = 24 }: Props) {
           )}
         </svg>
       </div>
-      <p className="text-[10px] text-ink-3 mt-2 italic">
-        OilPriceAPI 5분 cron 적재 · bronze.oil_prices · 총 {allPoints.toLocaleString()}개 sample
-      </p>
     </section>
   );
 }
