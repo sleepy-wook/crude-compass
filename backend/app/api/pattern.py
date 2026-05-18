@@ -237,15 +237,33 @@ async def intraday_summary() -> dict:
         from collections import defaultdict
         from datetime import datetime, timezone, timedelta
 
+        def _parse_ts(v) -> datetime | None:
+            """Databricks statement_execution은 timestamp를 ISO str로 반환 → datetime parse."""
+            if v is None:
+                return None
+            if isinstance(v, datetime):
+                return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+            if isinstance(v, str):
+                try:
+                    s = v.replace("Z", "+00:00")
+                    dt = datetime.fromisoformat(s)
+                    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+                except Exception:
+                    return None
+            return None
+
         by_ticker: dict[str, list[dict]] = defaultdict(list)
         for r in rows:
             db_ticker = str(r[0])
             fe_ticker = TICKER_DB_TO_FE.get(db_ticker, db_ticker.lower())
+            ts = _parse_ts(r[3])
+            if ts is None:
+                continue
             by_ticker[fe_ticker].append(
                 {
                     "price_usd": float(r[1]) if r[1] is not None else None,
                     "delta_pct_5min": float(r[2]) if r[2] is not None else None,
-                    "fetched_at": r[3],
+                    "fetched_at": ts,
                 }
             )
 
@@ -278,7 +296,7 @@ async def intraday_summary() -> dict:
                 {
                     "ticker": ticker,
                     "price_usd": latest["price_usd"],
-                    "fetched_at": str(latest["fetched_at"]),
+                    "fetched_at": latest["fetched_at"].isoformat(),
                     "delta_30min_pct": (
                         (latest["price_usd"] - sample_30m["price_usd"])
                         / sample_30m["price_usd"]
@@ -297,7 +315,7 @@ async def intraday_summary() -> dict:
                         biggest_spike["delta_pct_5min"] if biggest_spike else None
                     ),
                     "biggest_spike_at": (
-                        str(biggest_spike["fetched_at"]) if biggest_spike else None
+                        biggest_spike["fetched_at"].isoformat() if biggest_spike else None
                     ),
                     "sample_count": len(samples),
                 }
