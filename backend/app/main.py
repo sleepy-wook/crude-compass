@@ -27,6 +27,13 @@ _FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Startup — Lakebase D-4 schema migration (idempotent, silent skip on failure)
+    try:
+        from app.db.lakebase import migrate_d4
+        await asyncio.to_thread(migrate_d4)
+    except Exception as e:
+        logger.warning("Lakebase migrate_d4 wrapper error: %s", e)
+
     # Startup — Slack subscriber task (dry-run 모드여도 log 검증용으로 띄움)
     settings = get_settings()
     notifier = get_notifier()

@@ -25,6 +25,9 @@ from app.schemas.mission import (
     MissionType,
     MissionUrgency,
     PivotEntry,
+    SimulationAssumptions,
+    SimulationScenario,
+    SupplierAllocation,
 )
 
 
@@ -50,6 +53,38 @@ def _row_to_mission(row: dict[str, Any]) -> Mission:
         for p in pivot_raw
     ]
 
+    # Sub-A — supplier_mix JSONB (옵션, column 없으면 [])
+    supplier_mix_raw = row.get("supplier_mix") or []
+    supplier_mix = [
+        SupplierAllocation(
+            supplier_name=s["supplier_name"],
+            delta_bpd=int(s["delta_bpd"]),
+            rationale=s["rationale"],
+        )
+        for s in supplier_mix_raw
+    ]
+
+    # Sub-B — simulation_scenarios JSONB (옵션, column 없으면 [])
+    scenarios_raw = row.get("simulation_scenarios") or []
+    simulation_scenarios = []
+    for sc in scenarios_raw:
+        a = sc.get("assumptions") or {}
+        simulation_scenarios.append(
+            SimulationScenario(
+                name=sc["name"],
+                label=sc["label"],
+                assumptions=SimulationAssumptions(
+                    scenario_label=a.get("scenario_label", ""),
+                    brent_usd=float(a.get("brent_usd", 0)),
+                    usd_krw=float(a.get("usd_krw", 0)),
+                    vlcc_freight_multiplier=float(a.get("vlcc_freight_multiplier", 1.0)),
+                ),
+                saving_pct=float(sc.get("saving_pct", 0)),
+                saving_krw_oku=int(sc.get("saving_krw_oku", 0)),
+                confidence_note=sc.get("confidence_note"),
+            )
+        )
+
     return Mission(
         mission_id=row["mission_id"],
         mission_type=MissionType(row["mission_type"]),
@@ -68,6 +103,10 @@ def _row_to_mission(row: dict[str, Any]) -> Mission:
         completed_at=row.get("completed_at"),
         pivot_history=pivot_history,
         version=row["version"],
+        # Sub-A + Sub-B fields
+        cycle=row.get("cycle"),
+        supplier_mix=supplier_mix,
+        simulation_scenarios=simulation_scenarios,
     )
 
 
@@ -82,13 +121,15 @@ def insert(conn: psycopg.Connection, mission: Mission) -> Mission:
             INSERT INTO missions (
                 mission_id, mission_type, status, goal_text, pattern_score, reasoning,
                 simulation_roi, urgency, target_pct, duration_days,
-                created_at, pivot_history, version
+                created_at, pivot_history, version,
+                cycle, supplier_mix, simulation_scenarios
             )
             VALUES (
                 %(mission_id)s, %(mission_type)s, %(status)s, %(goal_text)s,
                 %(pattern_score)s, %(reasoning)s,
                 %(simulation_roi)s::jsonb, %(urgency)s, %(target_pct)s, %(duration_days)s,
-                %(created_at)s, %(pivot_history)s::jsonb, %(version)s
+                %(created_at)s, %(pivot_history)s::jsonb, %(version)s,
+                %(cycle)s, %(supplier_mix)s::jsonb, %(simulation_scenarios)s::jsonb
             )
             RETURNING *
             """,
@@ -106,6 +147,10 @@ def insert(conn: psycopg.Connection, mission: Mission) -> Mission:
                 "created_at": mission.created_at,
                 "pivot_history": json.dumps([p.model_dump(mode="json") for p in mission.pivot_history]),
                 "version": mission.version,
+                # Sub-A + Sub-B
+                "cycle": mission.cycle,
+                "supplier_mix": json.dumps([s.model_dump(mode="json") for s in mission.supplier_mix]),
+                "simulation_scenarios": json.dumps([s.model_dump(mode="json") for s in mission.simulation_scenarios]),
             },
         )
         row = cur.fetchone()

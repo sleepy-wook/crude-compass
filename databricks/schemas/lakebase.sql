@@ -38,6 +38,12 @@ CREATE TABLE IF NOT EXISTS missions (
     version           INT          NOT NULL DEFAULT 1,
     last_event_id     BIGINT,
 
+    -- Sub-A (D-4) actionable recommendations: cycle label + supplier mix
+    cycle                 TEXT,
+    supplier_mix          JSONB    NOT NULL DEFAULT '[]'::jsonb,
+    -- Sub-B (D-4) honest simulation: Best/Likely/Worst 3 scenarios with assumptions
+    simulation_scenarios  JSONB    NOT NULL DEFAULT '[]'::jsonb,
+
     CONSTRAINT chk_mission_type CHECK (mission_type IN ('HEDGE', 'OPPORTUNITY')),
     CONSTRAINT chk_status CHECK (status IN (
         'proposed', 'active', 'on_track', 'at_risk',
@@ -46,6 +52,12 @@ CREATE TABLE IF NOT EXISTS missions (
     CONSTRAINT chk_urgency CHECK (urgency IN ('optional', 'default', 'urgent')),
     CONSTRAINT chk_confirmed_via CHECK (confirmed_via IS NULL OR confirmed_via IN ('slack', 'apps'))
 );
+
+-- Migration (D-4) — idempotent ALTER for existing production tables.
+-- Apps lifespan startup이 이걸 자동 실행 (db/lakebase.py migrate_missions_d4).
+ALTER TABLE missions ADD COLUMN IF NOT EXISTS cycle TEXT;
+ALTER TABLE missions ADD COLUMN IF NOT EXISTS supplier_mix JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE missions ADD COLUMN IF NOT EXISTS simulation_scenarios JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 CREATE INDEX IF NOT EXISTS idx_missions_status_created
     ON missions (status, created_at DESC);

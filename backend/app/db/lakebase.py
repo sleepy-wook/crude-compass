@@ -198,3 +198,31 @@ def acquire() -> Iterator[psycopg.Connection]:
     pool = get_pool()
     with pool.connection() as conn:
         yield conn
+
+
+def migrate_d4() -> bool:
+    """D-4 schema migration — Sub-A/B 새 컬럼 추가.
+
+    Idempotent (IF NOT EXISTS). Lakebase 미연동 환경에서는 silent skip.
+    backend startup 시 한 번 호출.
+
+    Returns: True if applied (or already applied), False if Lakebase 미연동.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        with acquire() as conn:
+            with conn.cursor() as cur:
+                cur.execute("ALTER TABLE missions ADD COLUMN IF NOT EXISTS cycle TEXT")
+                cur.execute(
+                    "ALTER TABLE missions ADD COLUMN IF NOT EXISTS supplier_mix JSONB NOT NULL DEFAULT '[]'::jsonb"
+                )
+                cur.execute(
+                    "ALTER TABLE missions ADD COLUMN IF NOT EXISTS simulation_scenarios JSONB NOT NULL DEFAULT '[]'::jsonb"
+                )
+            conn.commit()
+        logger.info("Lakebase migrate_d4 applied (cycle + supplier_mix + simulation_scenarios)")
+        return True
+    except Exception as e:
+        logger.warning("Lakebase migrate_d4 skipped: %s", e)
+        return False
