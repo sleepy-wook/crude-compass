@@ -67,8 +67,9 @@ export function MissionSplitBar({
   const spotHigher = s.spotDelta > 0;
 
   // primary action color: Term ↑ → crisis (위기방어), Spot ↑ → opportunity
-  const termAccent = termHigher ? "bg-crisis-600" : "bg-ink-3/30";
-  const spotAccent = spotHigher ? "bg-opportunity-600" : "bg-ink-3/30";
+  // (tokens는 500/700 단계만 정의 — 600 사용 시 transparent fallback)
+  const termAccent = termHigher ? "bg-crisis-500" : "bg-ink-3/30";
+  const spotAccent = spotHigher ? "bg-opportunity-500" : "bg-ink-3/30";
 
   return (
     <div className="w-full">

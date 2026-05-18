@@ -18,7 +18,6 @@ import { MissionSplitBar } from "../components/MissionSplitBar";
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
 import {
   formatDate,
-  formatScore,
   missionTypeLabel,
   normalizeScenarioLabel,
   relativeTime,
@@ -116,9 +115,15 @@ export function MissionsPage() {
                 <StatusPill status={m.status} />
                 <span className="ml-auto text-[10px] text-ink-3">{relativeTime(m.created_at)}</span>
               </div>
-              <div className="font-medium text-sm text-ink-1 line-clamp-1 mb-1">{m.goal_text}</div>
+              <div className="font-medium text-sm text-ink-1 line-clamp-1 mb-1">
+                {m.mission_type === "HEDGE" ? "Term 비중" : "Spot 비중"} 60%{" "}
+                <span className="text-ink-3 mx-0.5">→</span>{" "}
+                {m.target_pct ?? (m.mission_type === "HEDGE" ? 75 : 70)}%
+              </div>
               <div className="flex gap-3 text-[11px] text-ink-3">
-                <span>위기 {formatScore(m.pattern_score)}</span>
+                <span>
+                  위기 {m.pattern_score != null ? Math.round(m.pattern_score / 10) : "—"}/10
+                </span>
                 {m.target_pct !== null && (
                   <span>
                     {termSpotLabel(m.mission_type)} {m.target_pct}%
@@ -247,7 +252,8 @@ function MissionDetail({ missionId }: { missionId: string }) {
             {m.pivot_history.map((p, i) => (
               <div key={i} className="text-sm">
                 <div className="text-xs text-ink-3 mb-0.5">
-                  {formatDate(p.occurred_at)} · 위기점수 {formatScore(p.pattern_score_at)}
+                  {formatDate(p.occurred_at)} · 위기 강도{" "}
+                  {p.pattern_score_at != null ? Math.round(p.pattern_score_at / 10) : "—"}/10
                 </div>
                 <div className="text-ink-1">
                   {missionTypeLabel(p.from_type)} → {missionTypeLabel(p.to_type)}
