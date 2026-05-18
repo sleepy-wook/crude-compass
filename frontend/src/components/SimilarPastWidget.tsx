@@ -197,7 +197,7 @@ export function SimilarPastWidget({ cur }: Props) {
 
           {/* Honesty note */}
           <p className="text-[11px] text-ink-3 leading-relaxed pt-3 border-t border-line-1">
-            모든 수치는 7년 backtest_predictions 실데이터 기반 (n={data.summary.n}).
+            모든 수치는 7년 백테스트 실데이터 기반 (n={data.summary.n}건 시뮬레이션).
             매니저는 이 분포를 참고해 최종 결정 — AI가 결정하지 않습니다.
           </p>
         </div>

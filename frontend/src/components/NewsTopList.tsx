@@ -34,7 +34,22 @@ const CATEGORY_LABEL: Record<string, string> = {
   recession: "경기 침체",
   energy: "에너지",
   trade: "교역",
+  // GDELT aggregate / region-specific tags
+  russia_ukraine: "러시아·우크라이나",
+  iran_sanctions: "이란 제재",
+  middle_east: "중동",
+  hormuz: "호르무즈",
+  saudi: "사우디",
+  opec: "OPEC",
+  GDELT_aggregate: "GDELT 종합",
+  gdelt_aggregate: "GDELT 종합",
 };
+
+// Unknown category → underscore를 공백으로 + 첫 글자 대문자 (raw key 노출 방어)
+function prettifyCategory(raw: string): string {
+  if (raw in CATEGORY_LABEL) return CATEGORY_LABEL[raw];
+  return raw.replace(/_/g, " ");
+}
 
 export function NewsTopList({ limit = 12 }: { limit?: number }) {
   const { data, isLoading, isError } = useNewsTop(limit);
@@ -76,7 +91,7 @@ export function NewsTopList({ limit = 12 }: { limit?: number }) {
         <ul className="space-y-2">
           {items.map((n, idx) => {
             const dir = DIRECTION_LABEL[n.direction] ?? DIRECTION_LABEL.neutral;
-            const cat = n.category ? CATEGORY_LABEL[n.category] ?? n.category : null;
+            const cat = n.category ? prettifyCategory(n.category) : null;
             return (
               <li
                 key={`${n.event_date}-${idx}`}
@@ -158,7 +173,7 @@ function NewsItemContent({
           </span>
         )}
         <span className="shrink-0 text-[10px] text-ink-3 font-mono">
-          importance {importance ?? "—"} · n={mentionCount ?? "—"}
+          중요도 {importance ?? "—"} · 보도 {mentionCount ?? "—"}회
         </span>
       </div>
       <div className="text-sm text-ink leading-snug line-clamp-2 mb-1">
@@ -166,7 +181,7 @@ function NewsItemContent({
       </div>
       <div className="flex items-center gap-2 text-[11px] text-ink-3 font-mono">
         <span>{source ?? "GDELT"}</span>
-        {tier && <span>· tier {tier}</span>}
+        {tier && <span>· {tier}급 매체</span>}
         <span className="ml-auto">{relativeTime(eventDate + "T00:00:00Z")}</span>
       </div>
     </>

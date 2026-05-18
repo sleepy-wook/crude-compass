@@ -12,7 +12,7 @@ import {
   useMissionPivot,
   useMissionReject,
 } from "../lib/queries";
-import { formatConfidence } from "../lib/utils";
+import { formatConfidence, normalizeScenarioLabel } from "../lib/utils";
 import type { Mission, PatternScoreCurrent } from "../lib/types";
 import { SimulationScenarios } from "./SimulationScenarios";
 
@@ -44,28 +44,7 @@ const SIGNAL_NAME: Record<string, string> = {
   price_spike: "유가 급변동",
 };
 
-// LLM이 schema placeholder를 literal key로 흘려보내는 경우 자연어로 재매핑.
-// 위치 기반 fallback: 0=낙관, 1=기본, 2=비관 (mission_plan.py 순서 = best/base/worst)
-const SCENARIO_POSITION_LABEL = ["낙관 시나리오", "기본 시나리오", "비관 시나리오"];
-const RAW_KEY_OVERRIDES: Record<string, string> = {
-  best_case_label: "낙관 시나리오",
-  base_case_label: "기본 시나리오",
-  worst_case_label: "비관 시나리오",
-  best_case: "낙관 시나리오",
-  base_case: "기본 시나리오",
-  worst_case: "비관 시나리오",
-};
-
-function normalizeScenarioLabel(rawKey: string, idx: number): string {
-  const lower = rawKey.toLowerCase();
-  if (lower in RAW_KEY_OVERRIDES) return RAW_KEY_OVERRIDES[lower];
-  // 영문 snake_case placeholder 패턴이면 위치 기반 fallback
-  if (/^[a-z_]+$/.test(lower) && lower.endsWith("_label")) {
-    return SCENARIO_POSITION_LABEL[idx] ?? rawKey;
-  }
-  // 한글/숫자 포함 자연어 라벨이면 underscore 만 공백으로 정리
-  return rawKey.replace(/_/g, " ");
-}
+// normalizeScenarioLabel → utils로 이동. import해서 사용.
 
 function decideMode(
   cur: PatternScoreCurrent | null | undefined,

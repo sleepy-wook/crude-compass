@@ -6,6 +6,32 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// ────────────────────────────────────────────────────────────────────
+// Scenario label normalizer — LLM이 schema placeholder를 literal key로
+// 흘리거나 underscore 자연어 라벨로 만들 때 사람이 보기 좋게 변환.
+// MissionHero, MissionsPage detail 둘 다 사용.
+// ────────────────────────────────────────────────────────────────────
+const SCENARIO_POSITION_LABEL = ["낙관 시나리오", "기본 시나리오", "비관 시나리오"];
+const RAW_KEY_OVERRIDES: Record<string, string> = {
+  best_case_label: "낙관 시나리오",
+  base_case_label: "기본 시나리오",
+  worst_case_label: "비관 시나리오",
+  best_case: "낙관 시나리오",
+  base_case: "기본 시나리오",
+  worst_case: "비관 시나리오",
+};
+
+export function normalizeScenarioLabel(rawKey: string, idx: number): string {
+  const lower = rawKey.toLowerCase();
+  if (lower in RAW_KEY_OVERRIDES) return RAW_KEY_OVERRIDES[lower];
+  // 영문 snake_case placeholder 패턴이면 위치 기반 fallback
+  if (/^[a-z_]+$/.test(lower) && lower.endsWith("_label")) {
+    return SCENARIO_POSITION_LABEL[idx] ?? rawKey;
+  }
+  // 한글/숫자 포함 자연어 라벨이면 underscore 만 공백으로 정리
+  return rawKey.replace(/_/g, " ");
+}
+
 export function formatScore(s: number | null | undefined): string {
   if (s === null || s === undefined) return "—";
   return s.toFixed(1);

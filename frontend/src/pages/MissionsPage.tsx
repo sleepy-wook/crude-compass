@@ -19,6 +19,7 @@ import {
   formatDate,
   formatScore,
   missionTypeLabel,
+  normalizeScenarioLabel,
   relativeTime,
   statusLabel,
   termSpotLabel,
@@ -164,7 +165,9 @@ function MissionDetail({ missionId }: { missionId: string }) {
   const baseline = m.mission_type === "HEDGE" ? 60 : 40;
   const target = m.target_pct ?? baseline;
   const action = m.mission_type === "HEDGE" ? "장기계약 비중" : "즉시구매 비중";
-  const roiEntries = Object.entries(m.simulation_roi || {});
+  const roiEntries = Object.entries(m.simulation_roi || {}).map(
+    ([rawKey, value], idx) => [normalizeScenarioLabel(rawKey, idx), value] as [string, number]
+  );
 
   return (
     <div className="max-w-3xl px-10 py-10">

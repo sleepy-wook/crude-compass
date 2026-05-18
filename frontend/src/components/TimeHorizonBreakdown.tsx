@@ -29,24 +29,27 @@ const SIGNAL_LABEL: Record<string, string> = {
 
 const HORIZON_META: Record<
   Horizon,
-  { label: string; lead: string; desc: string; color: string }
+  { label: string; sub: string; lead: string; desc: string; color: string }
 > = {
   leading: {
-    label: "Leading",
-    lead: "D-7 ~ D-1",
-    desc: "선행 — 가격 반영 전 감지",
+    label: "선행 (Leading)",
+    sub: "가격 반영 전 감지",
+    lead: "7일 ~ 1일 전",
+    desc: "GDELT 글로벌 뉴스 키워드 burst — 시장이 반응하기 전 신호",
     color: "text-crisis-700",
   },
   macro: {
-    label: "Macro",
-    lead: "D-30 ~ D-7",
-    desc: "구조 — 산유국·환율 trend",
+    label: "구조 (Macro)",
+    sub: "산유국·환율 추세",
+    lead: "30일 ~ 7일 전",
+    desc: "OPEC 월간 보고서 + USD/KRW 환율 trend — 중기 펀더멘털",
     color: "text-ink-1",
   },
   fundamentals: {
-    label: "Fundamentals",
-    lead: "D-7 ~ D+1",
-    desc: "확인 — 재고·가격 직접",
+    label: "확인 (Fundamentals)",
+    sub: "재고·가격 직접",
+    lead: "7일 전 ~ 1일 후",
+    desc: "EIA 미국 재고 + 일별 유가 — 시장이 실제로 움직였는지 검증",
     color: "text-opportunity-700",
   },
 };
@@ -79,7 +82,7 @@ export function TimeHorizonBreakdown() {
           이번 권고의 시간 지평별 근거
         </h3>
         <p className="text-[11px] text-ink-3 mt-0.5">
-          소스마다 가격 반영까지 lead time이 다릅니다. 단일 적중률이 아닌 종합 신호.
+          데이터 소스마다 시장 반영까지 걸리는 시간이 다릅니다. 단일 적중률이 아닌 시간 지평별 종합 신호.
         </p>
       </div>
 

@@ -10,6 +10,7 @@ export default {
         opportunity: tokens.colors.opportunity,
         ink: {
           DEFAULT: tokens.colors.base.ink,
+          1: tokens.colors.base.ink,  // alias for `ink-1` (darkest) — line, etc 패턴 일치
           2: tokens.colors.base.ink2,
           3: tokens.colors.base.ink3,
           4: tokens.colors.base.ink4,
