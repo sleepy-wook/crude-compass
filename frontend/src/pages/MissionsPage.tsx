@@ -17,6 +17,7 @@ import {
 } from "../lib/queries";
 import { MissionSplitBar } from "../components/MissionSplitBar";
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
+import type { Mission } from "../lib/types";
 import {
   formatDate,
   missionTypeLabel,
@@ -436,6 +437,9 @@ function MissionDetail({ missionId }: { missionId: string }) {
         </div>
       )}
 
+      {/* 의사결정 chain — AI 권고가 단순 1-click이 아닌 회사 결정 흐름의 input임을 명시 */}
+      <DecisionChainPanel mission={m} />
+
       {/* Actions */}
       {canAct && !showPivot && !showModify && (
         <div className="flex flex-wrap gap-3">
@@ -449,7 +453,7 @@ function MissionDetail({ missionId }: { missionId: string }) {
                 disabled={confirmMut.isPending}
                 className="px-4 py-2 rounded-md bg-ink-1 text-paper text-[13px] font-medium hover:bg-ink-2 disabled:opacity-50"
               >
-                권고 그대로 기록
+                매니저 회부 (검토 시작)
               </button>
               <button
                 type="button"
@@ -459,7 +463,7 @@ function MissionDetail({ missionId }: { missionId: string }) {
                 }}
                 className="px-4 py-2 rounded-md border border-line-2 text-ink-1 text-[13px] font-medium hover:bg-line-1"
               >
-                조정 후 기록
+                조정 후 회부
               </button>
               <button
                 type="button"
@@ -628,6 +632,114 @@ function DetailStat({ label, value }: { label: string; value: string }) {
     <div>
       <div className="text-[10px] uppercase tracking-widest text-ink-3 mb-1">{label}</div>
       <div className="font-display text-xl font-semibold text-ink-1 tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// DecisionChainPanel — AI 권고가 실제 의사결정 chain의 input임을 명시
+//
+// 매니저의 의심 풀이: "수십억 결정이 1-click? 진짜 도구인가?"
+// 답: 1-click은 trigger. 실제 실행은 매니저 → 데스크 → 위원회 chain 거침.
+// ────────────────────────────────────────────────────────────────────────
+function DecisionChainPanel({ mission }: { mission: Mission }) {
+  // 각 단계 상태 — mission.status에 따라 어디까지 도달했는지 시뮬레이션
+  const steps: { label: string; sub: string; state: "done" | "current" | "pending" }[] = [
+    {
+      label: "AI 권고 생성",
+      sub: `Mission Plan Agent · ${mission.created_at.slice(0, 10)}`,
+      state: "done",
+    },
+    {
+      label: "매니저 회부",
+      sub:
+        mission.status === "proposed"
+          ? "검토 시작 버튼 클릭 대기"
+          : mission.confirmed_at
+            ? `${mission.confirmed_via === "slack" ? "Slack" : "Apps"} 회부 · ${mission.confirmed_at.slice(0, 10)}`
+            : "회부 완료",
+      state:
+        mission.status === "proposed"
+          ? "current"
+          : "done",
+    },
+    {
+      label: "트레이딩 데스크 검토",
+      sub: "데스크 평가 + Hedging 비용 계산 (1-3일)",
+      state:
+        mission.status === "proposed"
+          ? "pending"
+          : ["active", "on_track"].includes(mission.status)
+            ? "current"
+            : ["pivoted", "completed"].includes(mission.status)
+              ? "done"
+              : "pending",
+    },
+    {
+      label: "리스크 위원회 승인",
+      sub: "수십~수백억 결정 — CFO/COO/CRO chain",
+      state:
+        mission.status === "proposed"
+          ? "pending"
+          : ["pivoted", "completed"].includes(mission.status)
+            ? "done"
+            : "pending",
+    },
+    {
+      label: "실행 (OSP allocation)",
+      sub: "Aramco/ADNOC OSP nominee + Spot 매입",
+      state: mission.status === "completed" ? "done" : "pending",
+    },
+  ];
+
+  return (
+    <div className="mb-8 pb-8 border-b border-line-1">
+      <div className="flex items-baseline justify-between mb-3">
+        <div className="text-[11px] uppercase tracking-wider text-ink-3">의사결정 chain</div>
+        <span className="text-[10px] text-ink-3 italic">
+          AI 권고는 input — 실행은 매니저/데스크/위원회 chain 후
+        </span>
+      </div>
+      <ol className="space-y-2">
+        {steps.map((step, i) => (
+          <li
+            key={i}
+            className={`flex items-baseline gap-3 rounded-md p-2.5 ${
+              step.state === "current"
+                ? "bg-ink-1/5 border border-ink-1/15"
+                : "border border-transparent"
+            }`}
+          >
+            <span
+              className={`shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-mono font-semibold tabular-nums ${
+                step.state === "done"
+                  ? "bg-opportunity-500 text-white"
+                  : step.state === "current"
+                    ? "bg-ink-1 text-paper"
+                    : "bg-line-1 text-ink-3"
+              }`}
+              aria-label={step.state}
+            >
+              {step.state === "done" ? "✓" : i + 1}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div
+                className={`text-[13px] font-medium ${
+                  step.state === "pending" ? "text-ink-3" : "text-ink-1"
+                }`}
+              >
+                {step.label}
+              </div>
+              <div className="text-[11px] text-ink-3 leading-snug">{step.sub}</div>
+            </div>
+            {step.state === "current" && (
+              <span className="shrink-0 text-[10px] uppercase tracking-wider text-ink-1 font-medium">
+                현재 단계
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

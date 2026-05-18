@@ -210,6 +210,100 @@ async def prices_wide(days: int = 90) -> dict:
 
 
 # ────────────────────────────────────────────────────────────────────────
+# /api/market/intraday-summary — bronze.oil_prices 5분 데이터 요약 (D-3 추가)
+# OilPriceAPI 5분 단위 raw 데이터로 ticker별 현재/30분/24h 변동.
+# ────────────────────────────────────────────────────────────────────────
+@router.get("/market/intraday-summary")
+async def intraday_summary() -> dict:
+    """Dubai/Brent/WTI ticker별 latest + 30분 전 + 24h 전 가격 + 마지막 spike."""
+    def _fetch():
+        sql = """
+            SELECT ticker, price_usd, delta_pct_5min, fetched_at
+            FROM crude_compass.bronze.oil_prices
+            WHERE fetched_at >= CURRENT_TIMESTAMP() - INTERVAL 24 HOURS
+              AND ticker IN ('dubai', 'brent', 'wti')
+            ORDER BY ticker, fetched_at DESC
+        """
+        rows = _q(sql, timeout="15s")
+        # group by ticker
+        from collections import defaultdict
+        from datetime import datetime, timezone, timedelta
+
+        by_ticker: dict[str, list[dict]] = defaultdict(list)
+        for r in rows:
+            by_ticker[str(r[0])].append(
+                {
+                    "price_usd": float(r[1]) if r[1] is not None else None,
+                    "delta_pct_5min": float(r[2]) if r[2] is not None else None,
+                    "fetched_at": r[3],
+                }
+            )
+
+        now = datetime.now(timezone.utc)
+        out: list[dict] = []
+        for ticker, samples in by_ticker.items():
+            if not samples:
+                continue
+            samples.sort(key=lambda x: x["fetched_at"], reverse=True)
+            latest = samples[0]
+            # 30분 전 sample (≥ 30 min ago, 가장 가까운)
+            t_30m = now - timedelta(minutes=30)
+            sample_30m = next(
+                (s for s in samples if s["fetched_at"] <= t_30m and s["price_usd"] is not None),
+                None,
+            )
+            # 24h 전 sample
+            t_24h = now - timedelta(hours=23)
+            sample_24h = next(
+                (s for s in samples if s["fetched_at"] <= t_24h and s["price_usd"] is not None),
+                None,
+            )
+            # 가장 큰 spike (last 24h)
+            biggest_spike = max(
+                (s for s in samples if s["delta_pct_5min"] is not None),
+                key=lambda x: abs(x["delta_pct_5min"]),
+                default=None,
+            )
+            out.append(
+                {
+                    "ticker": ticker,
+                    "price_usd": latest["price_usd"],
+                    "fetched_at": str(latest["fetched_at"]),
+                    "delta_30min_pct": (
+                        (latest["price_usd"] - sample_30m["price_usd"])
+                        / sample_30m["price_usd"]
+                        * 100
+                        if sample_30m and latest["price_usd"] is not None
+                        else None
+                    ),
+                    "delta_24h_pct": (
+                        (latest["price_usd"] - sample_24h["price_usd"])
+                        / sample_24h["price_usd"]
+                        * 100
+                        if sample_24h and latest["price_usd"] is not None
+                        else None
+                    ),
+                    "biggest_spike_pct": (
+                        biggest_spike["delta_pct_5min"] if biggest_spike else None
+                    ),
+                    "biggest_spike_at": (
+                        str(biggest_spike["fetched_at"]) if biggest_spike else None
+                    ),
+                    "sample_count": len(samples),
+                }
+            )
+        return {"tickers": out}
+
+    try:
+        # 60s cache — 5분 데이터지만 표시용이라 약간의 stale OK
+        return _cached("intraday_summary", 60, _fetch)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)}
+        )
+
+
+# ────────────────────────────────────────────────────────────────────────
 # /api/market/news-top — gold.news_top_signals view (D-3 추가)
 # 시나리오 §6.3 #3 anchor — 최근 7일 importance Top 5/day/direction
 # ────────────────────────────────────────────────────────────────────────

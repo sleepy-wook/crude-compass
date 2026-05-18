@@ -301,6 +301,28 @@ USD/KRW 일별 환율 + 1d/7d delta + 30일 변동성 (`gold.fx_with_delta` view
 }
 ```
 
+### 4.4a-1 `GET /api/market/intraday-summary`
+OilPriceAPI 5분 데이터 ticker별 요약 (`bronze.oil_prices`). Cache TTL 60s.
+시나리오 §7 — Dubai/Brent/WTI intraday 변동 + 24h 내 spike 시각.
+
+**Response 200**:
+```json
+{
+  "tickers": [
+    {
+      "ticker": "dubai",
+      "price_usd": 105.50,
+      "fetched_at": "2026-05-19T08:35:00+00:00",
+      "delta_30min_pct": -0.12,
+      "delta_24h_pct": 1.05,
+      "biggest_spike_pct": 2.8,
+      "biggest_spike_at": "2026-05-19T03:15:00+00:00",
+      "sample_count": 287
+    }
+  ]
+}
+```
+
 ### 4.4b `GET /api/market/news-top?limit=20`
 최근 7일 importance ≥ 60 + direction bullish/bearish 뉴스 (`gold.news_top_signals` view).
 시나리오 §6.3 #3 anchor — Discovery 페이지 "오늘의 발견" 뉴스 리스트.

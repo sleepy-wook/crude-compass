@@ -118,6 +118,15 @@ export function usePricesWide(days: number) {
   });
 }
 
+export function useIntradaySummary() {
+  return useQuery({
+    queryKey: ["market", "intraday-summary"] as const,
+    queryFn: () => api.intradaySummary(),
+    staleTime: 60_000, // 60s — backend cache 60s와 동일
+    refetchInterval: 60_000,
+  });
+}
+
 export function useNewsTop(limit: number) {
   return useQuery({
     queryKey: queryKeys.newsTop(limit),

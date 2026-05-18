@@ -129,6 +129,20 @@ export const api = {
       }[];
     }>(`/api/market/prices-wide?days=${days}`),
 
+  intradaySummary: () =>
+    request<{
+      tickers: {
+        ticker: string;
+        price_usd: number | null;
+        fetched_at: string;
+        delta_30min_pct: number | null;
+        delta_24h_pct: number | null;
+        biggest_spike_pct: number | null;
+        biggest_spike_at: string | null;
+        sample_count: number;
+      }[];
+    }>("/api/market/intraday-summary"),
+
   newsTop: (limit = 20) =>
     request<{
       items: {

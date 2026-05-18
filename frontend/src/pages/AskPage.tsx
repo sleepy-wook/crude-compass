@@ -175,77 +175,7 @@ export function AskPage() {
 
       {/* Chat turns */}
       {turns.length === 0 && (
-        <>
-          {/* Multi-Agent flow diagram — 호출 안 해도 어떤 흐름인지 시각화 */}
-          <div className="bg-panel border border-line-1 rounded-xl p-6 mb-6">
-            <div className="flex items-baseline justify-between mb-4">
-              <div className="text-[11px] uppercase tracking-wider text-ink-3">Multi-Agent 흐름</div>
-              <span className="text-[10px] text-ink-3 italic">평소 같은 endpoint 1개 호출</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-[120px_1fr] gap-3 md:gap-5 items-center">
-              <div className="rounded-md border border-line-2 bg-line-1/40 p-3 text-center">
-                <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">매니저</div>
-                <div className="text-[12px] text-ink-1 font-medium">자연어 질문</div>
-              </div>
-              <div className="text-ink-3 text-center md:text-left text-[12px]">→</div>
-            </div>
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-[120px_1fr] gap-3 md:gap-5 items-center">
-              <div className="rounded-md border border-ink-1 bg-ink-1 text-paper p-3 text-center">
-                <div className="text-[10px] uppercase tracking-wider opacity-70 mb-1">Supervisor</div>
-                <div className="text-[12px] font-medium">자동 라우팅</div>
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-md border border-line-1 bg-panel p-2.5">
-                  <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-0.5">Genie</div>
-                  <div className="text-[11px] text-ink-2">데이터 조회 (SQL)</div>
-                </div>
-                <div className="rounded-md border border-line-1 bg-panel p-2.5">
-                  <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-0.5">Knowledge</div>
-                  <div className="text-[11px] text-ink-2">뉴스·MOMR 검색</div>
-                </div>
-                <div className="rounded-md border border-line-1 bg-panel p-2.5">
-                  <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-0.5">Mission Plan</div>
-                  <div className="text-[11px] text-ink-2">권고 산출 (FMA)</div>
-                </div>
-              </div>
-            </div>
-            <p className="text-[11px] text-ink-3 mt-4 leading-relaxed">
-              질문 내용에 따라 Supervisor가 3 sub-agent를 자동 호출. 응답에 어떤 도구가 호출됐는지 trace 표시됩니다.
-            </p>
-          </div>
-
-          {/* Sample chip — preview 포함 */}
-          <div className="bg-panel border border-line-1 rounded-xl p-6 mb-6">
-            <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-4">예시 질문 — 클릭해서 바로 실행</div>
-            <div className="space-y-2.5">
-              {EXAMPLES.map((ex) => (
-                <button
-                  key={ex.text}
-                  type="button"
-                  onClick={() => submit(ex.text)}
-                  className="w-full text-left rounded-lg border border-line-1 hover:border-ink-3 hover:bg-line-1/30 transition-colors p-3"
-                >
-                  <div className="flex items-baseline justify-between gap-3 mb-1.5">
-                    <span className="text-[13px] text-ink-1 font-medium">{ex.text}</span>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {ex.routes.map((r) => (
-                        <span
-                          key={r}
-                          className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-line-1 text-ink-2 font-mono"
-                        >
-                          {r === "genie" ? "Genie" : r === "knowledge" ? "KA" : "Mission"}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="text-[11px] text-ink-3 leading-relaxed italic">
-                    예상 응답: {ex.preview}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
+        <EmptyStateGuide examples={EXAMPLES} onPick={submit} />
       )}
 
       {turns.map((t, i) => (
@@ -290,6 +220,162 @@ export function AskPage() {
 
       <div className="h-20" />
     </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// EmptyStateGuide — Multi-Agent flow diagram + Sample chip (dynamic).
+//
+// Hover/click 시 chip의 routes에 해당하는 sub-agent 노드가 active 색으로 강조.
+// 평가위원 demo: "Supervisor가 어떤 sub-agent 호출하는지 자동" 5초에 인지.
+// ────────────────────────────────────────────────────────────────────────
+type AgentKey = "genie" | "knowledge" | "mission_plan";
+
+const AGENT_META: Record<
+  AgentKey,
+  { name: string; role: string; source: string; icon: string }
+> = {
+  genie: {
+    name: "Genie",
+    role: "데이터 조회 (SQL)",
+    source: "Unity Catalog · gold/silver tables",
+    icon: "▤",
+  },
+  knowledge: {
+    name: "Knowledge",
+    role: "뉴스·MOMR 검색",
+    source: "GDELT + OPEC MOMR PDF + bronze.news",
+    icon: "✦",
+  },
+  mission_plan: {
+    name: "Mission Plan",
+    role: "권고 산출 (FMA)",
+    source: "Claude Haiku 4.5 · target_pct + simulation",
+    icon: "◆",
+  },
+};
+
+function EmptyStateGuide({
+  examples,
+  onPick,
+}: {
+  examples: SampleQuery[];
+  onPick: (q: string) => void;
+}) {
+  const [hoveredRoutes, setHoveredRoutes] = useState<AgentKey[] | null>(null);
+
+  return (
+    <>
+      {/* Multi-Agent flow diagram — hover/active routes 강조 */}
+      <div className="bg-panel border border-line-1 rounded-xl p-6 mb-6">
+        <div className="flex items-baseline justify-between mb-4">
+          <div className="text-[11px] uppercase tracking-wider text-ink-3">Multi-Agent 흐름</div>
+          <span className="text-[10px] text-ink-3 italic">
+            예시 질문에 hover하면 어떤 sub-agent 호출되는지 강조
+          </span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-[110px_24px_1fr] gap-3 md:gap-4 items-stretch">
+          {/* 매니저 노드 */}
+          <div className="rounded-md border border-line-2 bg-line-1/40 p-3 text-center flex flex-col justify-center">
+            <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">매니저</div>
+            <div className="text-[12px] text-ink-1 font-medium">자연어 질문</div>
+          </div>
+          {/* arrow */}
+          <div className="hidden md:flex items-center justify-center text-ink-3 text-lg">→</div>
+          {/* Supervisor + sub-agents */}
+          <div>
+            <div className="rounded-md border border-ink-1 bg-ink-1 text-paper p-3 mb-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-[14px]">⚡</span>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider opacity-70">Supervisor</div>
+                  <div className="text-[12px] font-medium">자동 라우팅 — 질문 분석 후 sub-agent 선택</div>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {(Object.keys(AGENT_META) as AgentKey[]).map((key) => {
+                const a = AGENT_META[key];
+                const active = hoveredRoutes?.includes(key) ?? false;
+                return (
+                  <div
+                    key={key}
+                    className={`rounded-md p-2.5 transition-all border ${
+                      active
+                        ? "border-ink-1 bg-ink-1/5 shadow-sm"
+                        : "border-line-1 bg-panel opacity-80"
+                    }`}
+                  >
+                    <div className="flex items-baseline gap-1.5 mb-1">
+                      <span
+                        className={`text-[12px] ${active ? "text-ink-1" : "text-ink-3"}`}
+                        aria-hidden
+                      >
+                        {a.icon}
+                      </span>
+                      <div className="text-[10px] uppercase tracking-wider text-ink-3">
+                        {a.name}
+                      </div>
+                      {active && (
+                        <span className="ml-auto text-[9px] uppercase tracking-wider bg-crisis-500 text-white px-1.5 py-0.5 rounded">
+                          호출 예정
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-ink-2 leading-snug">{a.role}</div>
+                    <div className="text-[10px] text-ink-3 mt-1 leading-snug italic">
+                      {a.source}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        <p className="text-[11px] text-ink-3 mt-4 leading-relaxed">
+          단일 endpoint 1개 호출 — Supervisor가 자동 분석해 3 sub-agent 중 필요한 것만 delegate.
+          응답에 어떤 도구가 호출됐는지 trace 표시.
+        </p>
+      </div>
+
+      {/* Sample chip — hover로 다이어그램 강조, click으로 즉시 실행 */}
+      <div className="bg-panel border border-line-1 rounded-xl p-6 mb-6">
+        <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-4">
+          예시 질문 — hover로 routing 확인, 클릭으로 즉시 실행
+        </div>
+        <div className="space-y-2.5">
+          {examples.map((ex) => (
+            <button
+              key={ex.text}
+              type="button"
+              onMouseEnter={() => setHoveredRoutes(ex.routes as AgentKey[])}
+              onMouseLeave={() => setHoveredRoutes(null)}
+              onFocus={() => setHoveredRoutes(ex.routes as AgentKey[])}
+              onBlur={() => setHoveredRoutes(null)}
+              onClick={() => onPick(ex.text)}
+              className="w-full text-left rounded-lg border border-line-1 hover:border-ink-3 hover:bg-line-1/30 transition-colors p-3"
+            >
+              <div className="flex items-baseline justify-between gap-3 mb-1.5">
+                <span className="text-[13px] text-ink-1 font-medium">{ex.text}</span>
+                <div className="flex items-center gap-1 shrink-0">
+                  {ex.routes.map((r) => (
+                    <span
+                      key={r}
+                      className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-line-1 text-ink-2 font-mono"
+                    >
+                      {AGENT_META[r as AgentKey]?.name ?? r}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="text-[11px] text-ink-3 leading-relaxed italic">
+                예상 응답: {ex.preview}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
 

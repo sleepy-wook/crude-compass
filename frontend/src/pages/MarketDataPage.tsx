@@ -10,6 +10,7 @@ import { OpecCitation } from "../components/OpecCitation";
 import { PriceLineChart } from "../components/PriceLineChart";
 import { NewsTopList } from "../components/NewsTopList";
 import { FxLineChart } from "../components/FxLineChart";
+import { IntradayTicker } from "../components/IntradayTicker";
 import { usePatternCurrent } from "../lib/queries";
 
 export function MarketDataPage() {
@@ -59,6 +60,9 @@ export function MarketDataPage() {
           → AI는 이 종합 신호를 Mission Plan Agent에 전달해 권고를 만듭니다.
         </div>
       </div>
+
+      {/* Intraday 5분 ticker — OilPriceAPI bronze 데이터 활용 */}
+      <IntradayTicker />
 
       {/* Price + FX */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
