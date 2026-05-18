@@ -10,13 +10,21 @@ import { useMutation } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import type { SubAgentCall, SupervisorQueryResponse } from "../lib/types";
 import { BacktestTimeSlider } from "../components/BacktestTimeSlider";
+import { usePatternCurrent } from "../lib/queries";
 
 const EXAMPLES = [
-  "오늘 위기 점수 어디서 왔어?",
-  "OPEC 5월 사우디 감산 근거는?",
-  "최근 OPEC 사우디 공급 수치 보여줘",
-  "두바이유 7일 추세와 매입 비중 추천",
+  "지금 같은 시장 상황은 과거에 어떻게 됐어?",
+  "호르무즈 긴장 누적될 때 평균 가격 반영은?",
+  "OPEC 사우디 최근 공급 추세 알려줘",
+  "지금 추세에서 30일 후 가격 예측은?",
 ];
+
+interface SimilarContext {
+  n: number;
+  avg_saving_30d_pct: number | null;
+  avg_dubai_change_30d_pct: number | null;
+  hit_rate_pct: number | null;
+}
 
 const AGENT_LABEL: Record<string, string> = {
   genie: "데이터 조회",
@@ -35,7 +43,9 @@ function labelAgent(name: string): string {
 }
 
 interface ChatTurn {
-  question: string;
+  question: string;            // 원본 매니저 질문
+  enriched_question: string;   // backend로 보낸 enriched (context prepended)
+  similar_context: SimilarContext | null;  // 응답 카드에 "참조한 과거 N건" 표시
   response: SupervisorQueryResponse | null;
   pending: boolean;
   error: boolean;
@@ -44,14 +54,16 @@ interface ChatTurn {
 export function AskPage() {
   const [question, setQuestion] = useState("");
   const [turns, setTurns] = useState<ChatTurn[]>([]);
+  const pattern = usePatternCurrent();
 
   const mut = useMutation({
-    mutationFn: (q: string) => api.supervisorQuery(q),
-    onSuccess: (data, q) => {
-      setTurns((prev) => updateTurn(prev, q, { response: data, pending: false, error: false }));
+    mutationFn: ({ enriched }: { original: string; enriched: string }) =>
+      api.supervisorQuery(enriched),
+    onSuccess: (data, { original }) => {
+      setTurns((prev) => updateTurn(prev, original, { response: data, pending: false, error: false }));
     },
-    onError: (_err, q) => {
-      setTurns((prev) => updateTurn(prev, q, { response: null, pending: false, error: true }));
+    onError: (_err, { original }) => {
+      setTurns((prev) => updateTurn(prev, original, { response: null, pending: false, error: true }));
     },
   });
 
@@ -62,12 +74,67 @@ export function AskPage() {
     return next;
   }
 
-  function submit(text?: string) {
+  async function submit(text?: string) {
     const q = (text ?? question).trim();
     if (q.length < 2 || mut.isPending) return;
-    setTurns((prev) => [...prev, { question: q, response: null, pending: true, error: false }]);
+
+    // Auto-inject similar market memory context (★ wow)
+    const score = pattern.data?.current?.pattern_score ?? null;
+    const missionType =
+      score == null
+        ? null
+        : score >= 70
+          ? "HEDGE"
+          : score <= 30
+            ? "OPPORTUNITY"
+            : null;
+
+    let similarCtx: SimilarContext | null = null;
+    let contextPrefix = "";
+    if (score != null) {
+      try {
+        const sim = await api.marketMemorySimilar({
+          pattern_score: score,
+          mission_type: missionType,
+          limit: 5,
+          score_range: 10,
+        });
+        if (sim.lakebase_available && sim.summary?.n && sim.summary.n > 0) {
+          similarCtx = {
+            n: sim.summary.n,
+            avg_saving_30d_pct: sim.summary.avg_saving_30d_pct ?? null,
+            avg_dubai_change_30d_pct: sim.summary.avg_dubai_change_30d_pct ?? null,
+            hit_rate_pct: sim.summary.hit_rate_pct ?? null,
+          };
+          contextPrefix =
+            `[참고 컨텍스트 — 시장 메모리]\n` +
+            `현재 위기 점수 ${score.toFixed(0)} (${missionType ?? "관망"} zone).\n` +
+            `지난 7년 비슷한 시그널 조합이 ${sim.summary.n}건 발견됨.\n` +
+            `평균 30일 후 두바이 가격 변동 ${(sim.summary.avg_dubai_change_30d_pct ?? 0).toFixed(1)}%, ` +
+            `AI 추천 적중률 ${(sim.summary.hit_rate_pct ?? 0).toFixed(0)}%, ` +
+            `평균 절감 ${(sim.summary.avg_saving_30d_pct ?? 0).toFixed(2)}%.\n\n` +
+            `[매니저 질문]\n`;
+        }
+      } catch {
+        // similar fetch 실패 시 context 없이 진행 (graceful)
+      }
+    }
+
+    const enriched = contextPrefix + q;
+
+    setTurns((prev) => [
+      ...prev,
+      {
+        question: q,
+        enriched_question: enriched,
+        similar_context: similarCtx,
+        response: null,
+        pending: true,
+        error: false,
+      },
+    ]);
     setQuestion("");
-    mut.mutate(q);
+    mut.mutate({ original: q, enriched });
   }
 
   return (
@@ -150,6 +217,27 @@ export function AskPage() {
 function ChatTurnView({ turn }: { turn: ChatTurn }) {
   return (
     <div className="mb-8">
+      {/* Similar context badge — ★ wow: AI가 자동으로 시장 메모리 참조 */}
+      {turn.similar_context && (
+        <div className="mb-2 text-[11px] text-ink-3 flex items-center gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-line-1 text-ink-2">
+            시장 메모리 자동 참조
+          </span>
+          <span>
+            지난 7년 비슷한 패턴{" "}
+            <span className="text-ink-1 font-medium">{turn.similar_context.n}건</span>{" "}
+            · 30일 평균{" "}
+            <span className="text-ink-1 font-medium">
+              {(turn.similar_context.avg_dubai_change_30d_pct ?? 0).toFixed(1)}%
+            </span>{" "}
+            · 적중률{" "}
+            <span className="text-ink-1 font-medium">
+              {(turn.similar_context.hit_rate_pct ?? 0).toFixed(0)}%
+            </span>
+          </span>
+        </div>
+      )}
+
       {/* Question */}
       <div className="bg-line-1/60 rounded-lg px-5 py-3 mb-3 ml-auto max-w-xl">
         <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-1">질문</div>

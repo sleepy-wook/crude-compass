@@ -12,8 +12,8 @@ import { api } from "../lib/api";
 import { queryKeys } from "../lib/queries";
 
 const navItems = [
-  { to: "/", label: "오늘의 결정", desc: "AI 권고" },
-  { to: "/missions", label: "임무", desc: "진행 임무" },
+  { to: "/", label: "오늘", desc: "시장 메모리 + 시그널" },
+  { to: "/missions", label: "내 결정", desc: "행동 기록" },
   { to: "/ask", label: "AI에게 묻기", desc: "Multi-Agent" },
 ];
 

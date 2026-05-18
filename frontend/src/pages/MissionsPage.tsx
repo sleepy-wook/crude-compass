@@ -59,8 +59,11 @@ export function MissionsPage() {
       <div className="w-[380px] border-r border-line-1 flex flex-col">
         {/* Page header */}
         <div className="px-6 py-5 border-b border-line-1">
-          <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">임무</div>
-          <h1 className="font-display text-xl font-semibold text-ink-1 mb-3">진행 임무 관리</h1>
+          <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">내 결정</div>
+          <h1 className="font-display text-xl font-semibold text-ink-1 mb-1">매니저 결정 기록</h1>
+          <p className="text-[11px] text-ink-3 mb-3 leading-snug">
+            AI가 결정하지 않습니다. 매니저가 기록 — 시장 메모리로 누적됩니다.
+          </p>
           {/* Filter tabs */}
           <div className="flex gap-1 text-[12px]">
             {(["all", "proposed", "active"] as Filter[]).map((f) => (
@@ -74,7 +77,7 @@ export function MissionsPage() {
                     : "px-2.5 py-1 rounded text-ink-3 hover:text-ink-1 hover:bg-line-1"
                 }
               >
-                {f === "all" ? "전체" : f === "proposed" ? "신규 제안" : "진행 중"}
+                {f === "all" ? "전체" : f === "proposed" ? "검토 대기" : "진행 중"}
                 <span className="ml-1.5 text-[11px] opacity-70">
                   {f === "all"
                     ? missions.length
@@ -248,7 +251,7 @@ function MissionDetail({ missionId }: { missionId: string }) {
                 disabled={confirmMut.isPending}
                 className="px-4 py-2 rounded-md bg-ink-1 text-paper text-[13px] font-medium hover:bg-ink-2 disabled:opacity-50"
               >
-                권고 채택
+                내 결정으로 기록
               </button>
               <button
                 type="button"

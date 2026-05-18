@@ -2,7 +2,7 @@
  * MissionHero — Discovery 페이지 hero card (mission-centric redesign).
  *
  * 매니저가 5초 안에 "오늘 권고 + 신뢰도 + 액션"을 인지하도록 설계.
- * 3 state: proposed (신규 권고) · active (진행 중) · 관망 (mission 없음)
+ * 3 state: proposed (AI 검토 권한) · active (진행 중) · 관망 (mission 없음)
  *
  * Mission 정보 전체를 카드 하나에 통합 — 별도 detail page 없이 expand 가능.
  */
@@ -12,7 +12,7 @@ import {
   useMissionPivot,
   useMissionReject,
 } from "../lib/queries";
-import { formatConfidence, formatRoundedScore } from "../lib/utils";
+import { formatConfidence } from "../lib/utils";
 import type { Mission, PatternScoreCurrent } from "../lib/types";
 import { SimulationScenarios } from "./SimulationScenarios";
 
@@ -160,7 +160,7 @@ export function MissionHero({
           </span>
           {isProposed && (
             <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium bg-ink-1 text-paper">
-              신규 권고
+              AI 검토 권한
             </span>
           )}
           {isActive && (
@@ -257,7 +257,7 @@ function StableHero({
         {reasoning}
       </p>
       <div className="flex flex-wrap items-center gap-x-8 gap-y-2 mb-8 pb-8 border-b border-line-1">
-        <Stat label="위기 점수" value={formatRoundedScore(score)} />
+        <Stat label="위기 강도" value={score == null ? "—" : `${Math.round(score / 10)}/10`} />
         <Stat label="신뢰도" value={formatConfidence(confidence)} />
       </div>
       {onRequestAnalysis && (
@@ -335,7 +335,7 @@ function MissionCard({
 
       {/* Stat row */}
       <div className="flex flex-wrap items-center gap-x-10 gap-y-4 mb-8 pb-8 border-b border-line-1">
-        <Stat label="위기 점수" value={formatRoundedScore(score)} />
+        <Stat label="위기 강도" value={score == null ? "—" : `${Math.round(score / 10)}/10`} />
         <Stat label="기간" value={`${mission.duration_days}일`} />
         {confidence !== null && confidence !== undefined && (
           <Stat label="신뢰도" value={formatConfidence(confidence)} />
@@ -438,7 +438,7 @@ function MissionCard({
             disabled={confirmMut.isPending}
             className="px-5 py-2.5 rounded-md bg-ink-1 text-paper text-[13px] font-medium hover:bg-ink-2 disabled:opacity-50 transition-colors"
           >
-            {confirmMut.isPending ? "처리 중..." : "권고 채택"}
+            {confirmMut.isPending ? "기록 중..." : "내 결정으로 기록"}
           </button>
           <button
             type="button"

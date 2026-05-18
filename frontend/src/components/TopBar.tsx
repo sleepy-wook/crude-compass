@@ -5,7 +5,6 @@
  */
 import { useMissionsActive, usePatternCurrent } from "../lib/queries";
 import { useMissionsWebSocket } from "../lib/ws";
-import { formatRoundedScore } from "../lib/utils";
 
 type Mode = "HEDGE" | "OPPORTUNITY" | "STABLE";
 
@@ -61,10 +60,10 @@ export function TopBar() {
   return (
     <header className="sticky top-0 z-30 bg-paper/95 backdrop-blur-md border-b border-line-1">
       <div className="max-w-7xl mx-auto px-8 py-3.5 flex items-center gap-x-6 flex-wrap">
-        {/* Score + mode */}
+        {/* Score + mode — 자연어 강도 */}
         <KpiChip
-          label="위기 점수"
-          value={formatRoundedScore(score)}
+          label="위기 강도"
+          value={score == null ? "—" : `${Math.round(score / 10)}/10`}
           chip={
             <span
               className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${modeColor(mode)}`}
