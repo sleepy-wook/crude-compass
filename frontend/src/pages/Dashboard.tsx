@@ -53,6 +53,10 @@ export function Dashboard() {
         <p className="text-sm text-ink-2 leading-relaxed max-w-2xl">
           공개 데이터 기반 일일 시그널 · 7년 시장 메모리 · 매니저 결정 기록.
         </p>
+
+        {/* OSP cycle chip — 매니저 결정 cycle 어디인지 한 줄 */}
+        <OspCycleChip />
+
         {spikeFlash && (
           <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-crisis-50 text-crisis-700 text-[12px] font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-crisis-500 animate-pulse" />
@@ -161,6 +165,52 @@ function MissionSummaryCard({
           내 결정으로 기록하기 <span aria-hidden>→</span>
         </Link>
       </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// OspCycleChip — 매니저 결정 cycle 어디인지 한 줄 (시나리오 §1.2)
+//   매월 5일경 Saudi Aramco OSP 발표 가정.
+//   월초 (1-5일): OSP 발표 직후 — 이번 달 Term 적용 시점
+//   월말 (25-31일): 다음 달 OSP 임박 — Term 갱신 cycle
+//   월중 (6-24일): Spot 비중 조정 cycle
+// ────────────────────────────────────────────────────────────────────────
+function OspCycleChip() {
+  const today = new Date();
+  const day = today.getDate();
+  const month = today.getMonth();
+  const year = today.getFullYear();
+  const lastDay = new Date(year, month + 1, 0).getDate();
+
+  let phase: string;
+  let daysToNext: number;
+  let tone: "crisis" | "ink" = "ink";
+
+  if (day <= 5) {
+    phase = "이번 달 OSP 발표 직후 — Term 계약 가격 적용 시점";
+    daysToNext = lastDay - day + 5; // 다음 달 5일까지
+  } else if (day >= 25) {
+    phase = "다음 달 OSP 임박 — Term 갱신 검토 cycle";
+    daysToNext = lastDay - day + 5;
+    tone = "crisis";
+  } else {
+    phase = "월중 — Spot 비중 미세 조정 cycle";
+    daysToNext = lastDay - day + 5;
+  }
+
+  const toneCls =
+    tone === "crisis"
+      ? "border-crisis-100 bg-crisis-50 text-crisis-700"
+      : "border-line-2 bg-line-1 text-ink-2";
+
+  return (
+    <div
+      className={`mt-4 inline-flex items-baseline gap-2 px-3 py-1.5 rounded-md border text-[12px] ${toneCls}`}
+    >
+      <span className="text-[10px] uppercase tracking-wider opacity-75">OSP cycle</span>
+      <span className="font-medium">{phase}</span>
+      <span className="opacity-75 tabular-nums">· 다음 Aramco OSP D-{daysToNext}</span>
     </div>
   );
 }

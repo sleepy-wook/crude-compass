@@ -10,11 +10,20 @@
  */
 import type { Mission, PatternScoreCurrent } from "../lib/types";
 import { formatRoundedScore } from "../lib/utils";
+import { useSignalContribution } from "../lib/queries";
 
 interface Props {
   cur: PatternScoreCurrent | null | undefined;
   topMission?: Mission | null;
 }
+
+const SIGNAL_LABEL: Record<string, string> = {
+  news_tone: "GDELT 뉴스 키워드 burst",
+  opec_momr: "OPEC 사우디·이란 생산",
+  fx_krw_usd: "USD/KRW 환율",
+  eia_inventory: "EIA 미국 재고",
+  price_spike: "유가 급변동",
+};
 
 function zoneOf(score: number): "HEDGE" | "STABLE" | "OPPORTUNITY" {
   if (score >= 70) return "HEDGE";
@@ -28,6 +37,9 @@ export function Bidirectional3Zone({ cur, topMission }: Props) {
   const bearish = cur?.bearish_score ?? null;
   const currentZone = score !== null ? zoneOf(score) : null;
   const isUrgent = score !== null && (score >= 90 || score <= 10);
+  // 오늘 점수에 가장 크게 기여한 시그널 top 3 — "왜 위기인지" 인라인 답
+  const sigContrib = useSignalContribution();
+  const topContribs = (sigContrib.data?.items ?? []).slice(0, 3);
 
   // marker position (top = 0%, bottom = 100%)
   const markerTop = score !== null ? `${100 - score}%` : "50%";
@@ -125,6 +137,36 @@ export function Bidirectional3Zone({ cur, topMission }: Props) {
             <div className="font-display text-base font-semibold text-opportunity-700 tabular-nums">
               {bearish !== null ? bearish.toFixed(0) : "—"}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* "왜 이 점수인지" 인라인 답 — top 3 시그널 */}
+      {topContribs.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-line-1">
+          <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-2">
+            오늘 가장 강한 시그널 Top 3
+          </div>
+          <div className="space-y-1.5">
+            {topContribs.map((s, i) => (
+              <div key={`${s.signal_type}-${i}`} className="flex items-center gap-2 text-[12px]">
+                <span
+                  className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
+                    s.direction === "bullish"
+                      ? "bg-crisis-500"
+                      : s.direction === "bearish"
+                        ? "bg-opportunity-500"
+                        : "bg-ink-3/40"
+                  }`}
+                />
+                <span className="text-ink-1 flex-1 truncate">
+                  {SIGNAL_LABEL[s.signal_type] ?? s.signal_type}
+                </span>
+                <span className="text-ink-3 text-[11px] tabular-nums">
+                  {s.share_pct.toFixed(1)}%
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}
