@@ -42,6 +42,12 @@ export function IntradayTicker() {
   const { data, isLoading, isError } = useIntradaySummary();
   const tickers = data?.tickers ?? [];
 
+  // 데이터 없거나 fetch 실패 시 컴포넌트 자체 hide — demo에서 empty card 노출 방지.
+  // bronze.oil_prices 적재 cron 정상화되면 자동 표시.
+  if (!isLoading && (isError || tickers.length === 0)) {
+    return null;
+  }
+
   return (
     <section className="bg-panel border border-line-1 rounded-xl p-5 mb-6">
       <div className="flex items-baseline justify-between mb-3">
@@ -68,17 +74,7 @@ export function IntradayTicker() {
         </div>
       )}
 
-      {isError && (
-        <div className="text-xs text-ink-3">Intraday 데이터 일시 불가.</div>
-      )}
-
-      {!isLoading && !isError && tickers.length === 0 && (
-        <div className="text-xs text-ink-3">
-          Intraday 데이터 없음 — bronze.oil_prices 적재 대기.
-        </div>
-      )}
-
-      {!isLoading && !isError && tickers.length > 0 && (
+      {!isLoading && tickers.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {tickers.map((t) => (
             <div
