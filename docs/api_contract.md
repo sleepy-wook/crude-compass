@@ -657,6 +657,49 @@ Slack Bolt mount + signing secret 상태 확인 (Apps deploy 후 Slack interacti
 
 ---
 
+## 8.3 Admin Endpoints (D-0 추가)
+
+매니저/시연자가 daily_curation job을 수동으로 trigger + freshness 확인.
+
+### `POST /api/admin/refresh-curation`
+Daily curation job 수동 실행 (gold.daily_risk_score 갱신).
+
+**Prerequisite**:
+- env `DAILY_CURATION_JOB_ID` (Databricks Workflows job id)
+- Apps Service Principal에 해당 job MANAGE 권한
+
+**Response 200**:
+```json
+{
+  "ok": true,
+  "run_id": 123456789,
+  "job_id": 987654321,
+  "message": "데이터 갱신을 시작했습니다. 완료까지 5-10분 소요됩니다."
+}
+```
+
+**Response 503** (env 미설정):
+```json
+{
+  "detail": {
+    "code": "JOB_NOT_CONFIGURED",
+    "message": "DAILY_CURATION_JOB_ID 환경변수가 설정되지 않았습니다."
+  }
+}
+```
+
+### `GET /api/admin/curation-status`
+gold.daily_risk_score latest date 반환. Frontend가 stale 여부 판단용 (오늘 데이터인지 N일 전인지).
+
+**Response 200**:
+```json
+{
+  "latest_date": "2026-05-18"
+}
+```
+
+---
+
 ## 9. FastAPI Project 구조 (`backend/app/`)
 
 ```

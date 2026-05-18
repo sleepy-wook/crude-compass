@@ -211,6 +211,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify(overrides ?? {}),
     }),
+
+  // Admin — daily_curation 수동 trigger + freshness 확인
+  refreshCuration: () =>
+    request<{ ok: boolean; run_id: number; job_id: number; message: string }>(
+      "/api/admin/refresh-curation",
+      { method: "POST" },
+    ),
+  curationStatus: () =>
+    request<{ latest_date: string | null }>("/api/admin/curation-status"),
 };
 
 export { ApiError };

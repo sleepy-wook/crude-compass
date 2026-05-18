@@ -4,16 +4,42 @@
  * Single page mission-centric 구조에서 좌측에 K-Petroleum 브랜드 + 채점 가시성 + 데이터 출처.
  */
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { GlossaryModal } from "./Glossary";
 import { cn } from "../lib/utils";
-import { useMissionsActive } from "../lib/queries";
+import { useMissionsActive, queryKeys } from "../lib/queries";
 import { useMissionsWebSocket } from "../lib/ws";
+import { api } from "../lib/api";
 
 export function Sidebar() {
   const { status } = useMissionsWebSocket();
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const missions = useMissionsActive();
   const activeCount = missions.data?.missions?.length ?? 0;
+  const qc = useQueryClient();
+  const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
+
+  const refreshMut = useMutation({
+    mutationFn: () => api.refreshCuration(),
+    onSuccess: (data) => {
+      setRefreshMsg(data.message || "갱신 시작됨");
+      // 5초 후 pattern current refetch (job 시작은 즉시 반영 안 됨)
+      window.setTimeout(() => {
+        qc.invalidateQueries({ queryKey: queryKeys.patternCurrent });
+      }, 5000);
+      window.setTimeout(() => setRefreshMsg(null), 10_000);
+    },
+    onError: (err: Error) => {
+      const msg = err.message || "갱신 실패";
+      // 503 응답에 JOB_NOT_CONFIGURED 포함
+      if (msg.includes("JOB_NOT_CONFIGURED") || msg.includes("환경변수")) {
+        setRefreshMsg("관리자 설정 필요 (DAILY_CURATION_JOB_ID)");
+      } else {
+        setRefreshMsg("갱신 실패. 로그 확인 필요.");
+      }
+      window.setTimeout(() => setRefreshMsg(null), 10_000);
+    },
+  });
 
   return (
     <aside className="w-72 bg-sidebar-bg text-white flex flex-col h-screen sticky top-0 border-r border-sidebar-bg2 shrink-0">
@@ -90,6 +116,22 @@ export function Sidebar() {
       </div>
 
       <div className="flex-1" />
+
+      {/* Admin — 데이터 갱신 */}
+      <div className="px-6 py-4 border-t border-sidebar-bg2">
+        <button
+          type="button"
+          onClick={() => refreshMut.mutate()}
+          disabled={refreshMut.isPending}
+          className="w-full text-left text-[12px] text-sidebar-muted hover:text-white transition-colors flex items-center justify-between disabled:opacity-50"
+        >
+          <span>{refreshMut.isPending ? "갱신 요청 중..." : "데이터 갱신"}</span>
+          <span className="text-[11px] text-sidebar-muted2">↻</span>
+        </button>
+        {refreshMsg && (
+          <div className="text-[10px] text-sidebar-muted2 mt-2 leading-snug">{refreshMsg}</div>
+        )}
+      </div>
 
       {/* Glossary trigger */}
       <button

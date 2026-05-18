@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__
-from app.api import demo as demo_api, genie as genie_api, missions, pattern, reactive as reactive_api, slack as slack_api, supervisor as supervisor_api
+from app.api import admin as admin_api, demo as demo_api, genie as genie_api, missions, pattern, reactive as reactive_api, slack as slack_api, supervisor as supervisor_api
 from app.core.config import get_settings
 from app.services.slack_bus_subscriber import run_slack_subscriber
 from app.services.slack_notify import get_notifier
@@ -81,6 +81,7 @@ def create_app() -> FastAPI:
     app.include_router(slack_api.router)
     app.include_router(genie_api.router)
     app.include_router(supervisor_api.router)
+    app.include_router(admin_api.router)
     app.include_router(ws_missions.router)
 
     # Demo router — DEMO_MODE=true 일 때만 mount (production 보호)
