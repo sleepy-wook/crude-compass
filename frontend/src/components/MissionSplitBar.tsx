@@ -17,24 +17,34 @@ type MissionType = "HEDGE" | "OPPORTUNITY";
 
 interface Props {
   missionType: MissionType;
-  /** target_pct: HEDGE면 Term ratio, OPPORTUNITY면 Spot ratio */
+  /** target_pct: HEDGE면 Term ratio, OPPORTUNITY면 Spot ratio (AI 권고) */
   targetPct: number;
-  /** 평시 baseline. default Term=60, Spot=40 (시나리오 §4). */
-  baselineTermPct?: number;
+  /**
+   * 현재 운영 중인 Term 비중 (회사가 실제로 가지고 있는 portfolio).
+   * 이전 active mission의 target_pct 기반.
+   * 데이터 없으면 평시 default 60 (시나리오 §4).
+   */
+  currentTermPct?: number;
+  /** 현재 운영 비중의 출처 — "지난 mission 5/15 기록" 또는 "회사 평시 기준 (history 없음)" */
+  currentSourceLabel?: string;
   size?: "compact" | "full";
 }
 
 interface Split {
   termTarget: number;
   spotTarget: number;
-  termBaseline: number;
-  spotBaseline: number;
+  termCurrent: number;
+  spotCurrent: number;
   termDelta: number;
   spotDelta: number;
 }
 
-function computeSplit(missionType: MissionType, targetPct: number, baselineTermPct: number): Split {
-  const baselineSpotPct = 100 - baselineTermPct;
+function computeSplit(
+  missionType: MissionType,
+  targetPct: number,
+  currentTermPct: number,
+): Split {
+  const currentSpotPct = 100 - currentTermPct;
   let termTarget: number;
   let spotTarget: number;
   if (missionType === "HEDGE") {
@@ -49,20 +59,21 @@ function computeSplit(missionType: MissionType, targetPct: number, baselineTermP
   return {
     termTarget,
     spotTarget,
-    termBaseline: baselineTermPct,
-    spotBaseline: baselineSpotPct,
-    termDelta: termTarget - baselineTermPct,
-    spotDelta: spotTarget - baselineSpotPct,
+    termCurrent: currentTermPct,
+    spotCurrent: currentSpotPct,
+    termDelta: termTarget - currentTermPct,
+    spotDelta: spotTarget - currentSpotPct,
   };
 }
 
 export function MissionSplitBar({
   missionType,
   targetPct,
-  baselineTermPct = 60,
+  currentTermPct = 60,
+  currentSourceLabel,
   size = "full",
 }: Props) {
-  const s = computeSplit(missionType, targetPct, baselineTermPct);
+  const s = computeSplit(missionType, targetPct, currentTermPct);
   const termHigher = s.termDelta > 0;
   const spotHigher = s.spotDelta > 0;
 
@@ -73,7 +84,36 @@ export function MissionSplitBar({
 
   return (
     <div className="w-full">
-      {/* 권고 (target) */}
+      {/* 현재 운영 비중 — 회사가 실제로 가지고 있는 portfolio (이전 active mission target 또는 평시 default) */}
+      <div className="mb-3">
+        <div className="flex items-baseline justify-between mb-1.5">
+          <div className="text-[11px] uppercase tracking-wider text-ink-3/80 font-medium">
+            현재 운영 비중
+          </div>
+          <div className="flex items-baseline gap-3 text-[12px] text-ink-2">
+            <span className="font-display tabular-nums">Term {s.termCurrent}%</span>
+            <span className="text-ink-3">·</span>
+            <span className="font-display tabular-nums">Spot {s.spotCurrent}%</span>
+          </div>
+        </div>
+        <div className="flex h-5 rounded-md overflow-hidden border border-dashed border-line-2 bg-line-1/30">
+          <div
+            className="bg-ink-3/25"
+            style={{ width: `${s.termCurrent}%` }}
+            title={`현재 Term (장기 계약) ${s.termCurrent}%`}
+          />
+          <div
+            className="bg-ink-3/40"
+            style={{ width: `${s.spotCurrent}%` }}
+            title={`현재 Spot (즉시 매입) ${s.spotCurrent}%`}
+          />
+        </div>
+        {size === "full" && currentSourceLabel && (
+          <div className="text-[10px] text-ink-3 mt-1 italic">↑ {currentSourceLabel}</div>
+        )}
+      </div>
+
+      {/* AI 권고 (target) */}
       <div className="mb-3">
         <div className="flex items-baseline justify-between mb-1.5">
           <div className="text-[11px] uppercase tracking-wider text-ink-3 font-medium">
@@ -93,47 +133,19 @@ export function MissionSplitBar({
           <div
             className={`flex items-center justify-end px-2 text-[11px] font-medium text-white tabular-nums ${termAccent}`}
             style={{ width: `${s.termTarget}%` }}
-            title={`Term (장기 계약) ${s.termTarget}%`}
+            title={`AI 권고 Term (장기 계약) ${s.termTarget}%`}
           >
             {s.termTarget >= 15 && `${s.termTarget}%`}
           </div>
           <div
             className={`flex items-center justify-start px-2 text-[11px] font-medium text-white tabular-nums ${spotAccent}`}
             style={{ width: `${s.spotTarget}%` }}
-            title={`Spot (즉시 매입) ${s.spotTarget}%`}
+            title={`AI 권고 Spot (즉시 매입) ${s.spotTarget}%`}
           >
             {s.spotTarget >= 15 && `${s.spotTarget}%`}
           </div>
         </div>
       </div>
-
-      {/* 평시 baseline (ghost) — full mode만 */}
-      {size === "full" && (
-        <div className="mb-3">
-          <div className="flex items-baseline justify-between mb-1.5">
-            <div className="text-[11px] uppercase tracking-wider text-ink-3/70 font-medium">
-              평시 기준 비중
-            </div>
-            <div className="flex items-baseline gap-3 text-[12px] text-ink-3">
-              <span className="font-display tabular-nums">Term {s.termBaseline}%</span>
-              <span>·</span>
-              <span className="font-display tabular-nums">Spot {s.spotBaseline}%</span>
-            </div>
-          </div>
-          <div className="flex h-5 rounded-md overflow-hidden border border-dashed border-line-2 bg-line-1/40">
-            <div
-              className="bg-ink-3/15"
-              style={{ width: `${s.termBaseline}%` }}
-              title="Term baseline"
-            />
-            <div
-              className="bg-ink-3/25"
-              style={{ width: `${s.spotBaseline}%` }}
-              title="Spot baseline"
-            />
-          </div>
-        </div>
-      )}
 
       {/* 변화량 narration */}
       <div className="flex items-center gap-3 text-[12px] text-ink-2">
@@ -141,7 +153,7 @@ export function MissionSplitBar({
         <DeltaPill label="Spot" delta={s.spotDelta} />
         {size === "full" && (
           <span className="text-[11px] text-ink-3 italic ml-auto">
-            평시 → 권고 비중 차이
+            현재 운영 → AI 권고 변화
           </span>
         )}
       </div>

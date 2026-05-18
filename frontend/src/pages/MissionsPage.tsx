@@ -159,6 +159,7 @@ export function MissionsPage() {
 
 function MissionDetail({ missionId }: { missionId: string }) {
   const { data: m, isLoading } = useMission(missionId);
+  const { data: missionsData } = useMissionsActive();
   const confirmMut = useMissionConfirm();
   const rejectMut = useMissionReject();
   const pivotMut = useMissionPivot();
@@ -181,6 +182,27 @@ function MissionDetail({ missionId }: { missionId: string }) {
   const roiEntries = Object.entries(m.simulation_roi || {}).map(
     ([rawKey, value], idx) => [normalizeScenarioLabel(rawKey, idx), value] as [string, number]
   );
+
+  // 현재 운영 mission — 본 mission 외의 가장 최근 active/on_track/at_risk (자기 자신 제외)
+  const operatingMission =
+    (missionsData?.missions ?? [])
+      .filter(
+        (x) =>
+          x.mission_id !== m.mission_id &&
+          ["active", "on_track", "at_risk"].includes(x.status),
+      )
+      .sort((a, b) =>
+        (b.confirmed_at ?? b.created_at).localeCompare(a.confirmed_at ?? a.created_at),
+      )[0] ?? null;
+  const currentTermPct =
+    operatingMission && operatingMission.target_pct != null
+      ? operatingMission.mission_type === "HEDGE"
+        ? operatingMission.target_pct
+        : 100 - operatingMission.target_pct
+      : 60;
+  const currentSourceLabel = operatingMission
+    ? `직전 운영 mission ${operatingMission.created_at.slice(0, 10)} 기록 기준`
+    : "회사 평시 기준 (운영 history 없음)";
 
   return (
     <div className="max-w-3xl px-10 py-10">
@@ -226,14 +248,94 @@ function MissionDetail({ missionId }: { missionId: string }) {
       </h1>
       <p className="text-sm text-ink-2 leading-relaxed mb-8">{m.reasoning}</p>
 
-      {/* Term/Spot 분할 시각화 — 평시 baseline vs AI 권고 한눈에 */}
+      {/* Term/Spot 분할 시각화 — 현재 운영 비중 vs AI 권고 한눈에 */}
       <div className="mb-8 pb-8 border-b border-line-1">
         <MissionSplitBar
           missionType={m.mission_type}
           targetPct={target}
+          currentTermPct={currentTermPct}
+          currentSourceLabel={currentSourceLabel}
           size="full"
         />
       </div>
+
+      {/* 어제 vs 오늘 권고 변동 narrative — AI Agent self-awareness */}
+      {m.delta_vs_previous && (
+        <div className="mb-8 pb-8 border-b border-line-1">
+          <div className="flex items-baseline justify-between mb-3">
+            <div className="text-[11px] uppercase tracking-wider text-ink-3">
+              어제 vs 오늘 권고 변동
+            </div>
+            {m.delta_vs_previous.direction_changed && (
+              <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider bg-crisis-500 text-white px-2 py-0.5 rounded">
+                방향 전환
+              </span>
+            )}
+          </div>
+          <div className="bg-panel border border-line-1 rounded-lg p-5">
+            {/* 이전 vs 현재 권고 */}
+            <div className="flex items-center gap-3 mb-4 text-[13px]">
+              <div className="flex-1">
+                <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">
+                  어제 ({m.delta_vs_previous.previous_date})
+                </div>
+                <div className="font-medium text-ink-2">
+                  {m.delta_vs_previous.previous_mission_type === "HEDGE"
+                    ? "위험방어"
+                    : "기회포착"}{" "}
+                  · {m.delta_vs_previous.previous_target_pct ?? "—"}%
+                </div>
+              </div>
+              <div className="text-ink-3 text-lg">→</div>
+              <div className="flex-1 text-right">
+                <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">
+                  오늘 ({m.created_at.slice(0, 10)})
+                </div>
+                <div className="font-medium text-ink-1">
+                  {m.mission_type === "HEDGE" ? "위험방어" : "기회포착"} · {target}%
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[13px] text-ink-2 leading-relaxed mb-3">
+              {m.delta_vs_previous.reason}
+            </p>
+
+            {(m.delta_vs_previous.new_signals?.length ?? 0) > 0 && (
+              <div className="mb-2">
+                <div className="text-[10px] uppercase tracking-wider text-crisis-700 mb-1">
+                  + 신규 시그널 (어제는 없었음)
+                </div>
+                <ul className="space-y-0.5">
+                  {m.delta_vs_previous.new_signals.map((s, i) => (
+                    <li key={i} className="text-[12px] text-ink-2 pl-3">
+                      · {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {(m.delta_vs_previous.weakened_signals?.length ?? 0) > 0 && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-opportunity-700 mb-1">
+                  − 약해진 시그널 (어제는 강했음)
+                </div>
+                <ul className="space-y-0.5">
+                  {m.delta_vs_previous.weakened_signals.map((s, i) => (
+                    <li key={i} className="text-[12px] text-ink-2 pl-3">
+                      · {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          <p className="text-[11px] text-ink-3 mt-3 leading-relaxed italic">
+            AI는 매일 권고가 바뀌어도 이전 권고와의 차이를 명시합니다. 매니저가 변동 자체를 검증할 수 있도록.
+          </p>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-6 pb-8 mb-8 border-b border-line-1">

@@ -64,6 +64,16 @@ def _row_to_mission(row: dict[str, Any]) -> Mission:
         for s in supplier_mix_raw
     ]
 
+    # delta_vs_previous JSONB (D-3, 옵션 — column 없으면 None)
+    delta_raw = row.get("delta_vs_previous")
+    delta_vs_previous = None
+    if delta_raw:
+        from app.schemas.mission import DeltaVsPrevious
+        try:
+            delta_vs_previous = DeltaVsPrevious.model_validate(delta_raw)
+        except Exception:
+            delta_vs_previous = None
+
     # Sub-B — simulation_scenarios JSONB (옵션, column 없으면 [])
     scenarios_raw = row.get("simulation_scenarios") or []
     simulation_scenarios = []
@@ -107,6 +117,8 @@ def _row_to_mission(row: dict[str, Any]) -> Mission:
         cycle=row.get("cycle"),
         supplier_mix=supplier_mix,
         simulation_scenarios=simulation_scenarios,
+        # AI Agent delta_vs_previous (D-3)
+        delta_vs_previous=delta_vs_previous,
     )
 
 
@@ -122,14 +134,15 @@ def insert(conn: psycopg.Connection, mission: Mission) -> Mission:
                 mission_id, mission_type, status, goal_text, pattern_score, reasoning,
                 simulation_roi, urgency, target_pct, duration_days,
                 created_at, pivot_history, version,
-                cycle, supplier_mix, simulation_scenarios
+                cycle, supplier_mix, simulation_scenarios, delta_vs_previous
             )
             VALUES (
                 %(mission_id)s, %(mission_type)s, %(status)s, %(goal_text)s,
                 %(pattern_score)s, %(reasoning)s,
                 %(simulation_roi)s::jsonb, %(urgency)s, %(target_pct)s, %(duration_days)s,
                 %(created_at)s, %(pivot_history)s::jsonb, %(version)s,
-                %(cycle)s, %(supplier_mix)s::jsonb, %(simulation_scenarios)s::jsonb
+                %(cycle)s, %(supplier_mix)s::jsonb, %(simulation_scenarios)s::jsonb,
+                %(delta_vs_previous)s::jsonb
             )
             RETURNING *
             """,
@@ -151,6 +164,12 @@ def insert(conn: psycopg.Connection, mission: Mission) -> Mission:
                 "cycle": mission.cycle,
                 "supplier_mix": json.dumps([s.model_dump(mode="json") for s in mission.supplier_mix]),
                 "simulation_scenarios": json.dumps([s.model_dump(mode="json") for s in mission.simulation_scenarios]),
+                # Delta vs previous (D-3)
+                "delta_vs_previous": (
+                    json.dumps(mission.delta_vs_previous.model_dump(mode="json"))
+                    if mission.delta_vs_previous
+                    else None
+                ),
             },
         )
         row = cur.fetchone()

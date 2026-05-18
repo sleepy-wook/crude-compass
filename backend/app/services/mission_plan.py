@@ -80,9 +80,28 @@ SYSTEM_PROMPT = """You are **Crude Compass Mission Plan Agent** — a decision-s
   "supplier_mix": [
     {"supplier_name": "ARAMCO Arab Light", "delta_bpd": 25000, "rationale": "Saudi OSP +$0.50 예상 + 호르무즈 우회"},
     {"supplier_name": "US WTI/Bakken/Eagle Ford", "delta_bpd": 15000, "rationale": "Brent linked, 호르무즈 우회 회피"}
-  ]
+  ],
+  "delta_vs_previous": {
+    "previous_date": "2026-05-18",
+    "previous_mission_type": "OPPORTUNITY",
+    "previous_target_pct": 65,
+    "direction_changed": true,
+    "reason": "어제 안정 신호 우세 → 오늘 위기 신호 역전 (호르무즈 해상 경보 신규 + USD/KRW +1.8% 급등)",
+    "new_signals": ["호르무즈 해상 경보 (geopolitical)", "VLCC 운임 +12% (market)"],
+    "weakened_signals": ["휴전 협상 진전 신호 약화"]
+  }
+  // delta_vs_previous는 previous_recommendations input 있을 때만 출력. 없으면 null/omit.
 }
 ```
+
+## 어제 vs 오늘 변동 narrative (delta_vs_previous) — 매니저가 도구 신뢰하는 핵심
+- previous_recommendations input이 있으면 가장 최근 권고와 비교
+- direction_changed: 어제 HEDGE → 오늘 OPP 또는 그 반대일 때 true (가장 큰 변동)
+- reason: "어제 X 시그널 우세 → 오늘 Y로 역전 (구체 이유 1-2개)" 자연어
+- new_signals: 어제는 없었는데 오늘 추가된 시그널 (1-3개)
+- weakened_signals: 어제 강했는데 오늘 약해진 시그널 (0-2개)
+- 매니저가 "어제 다른 방향 권고했더니 왜 오늘 바뀜?" 의심을 풀어주는 narrative
+- previous_recommendations 비어있으면 delta_vs_previous는 출력 X (null/omit)
 
 ## 의사결정 cycle 추론 가이드 (current_date 기반)
 - 월초 (1-5일): "이번 달 Saudi Aramco OSP 발표 직후 — Term contract 가격 적용"
@@ -299,6 +318,17 @@ def call_mission_plan_agent(input_data: MissionPlanInput) -> MissionPlanOutput |
 
     current_date_str = input_data.current_date or "(unknown)"
 
+    # 이전 7일 권고 history (없으면 안내문)
+    prev_block = "(이전 권고 history 없음 — 첫 권고 cycle이라 delta_vs_previous 출력 skip)"
+    if input_data.previous_recommendations:
+        prev_lines = []
+        for p in input_data.previous_recommendations[:7]:
+            prev_lines.append(
+                f"- {p.date} · {p.mission_type} · target {p.target_pct}% · score {p.pattern_score:.0f} · "
+                f"{p.reasoning_summary[:80]}"
+            )
+        prev_block = "\n".join(prev_lines)
+
     user_msg = f"""## Current state (date: {current_date_str})
 
 **Pattern Score**: {input_data.pattern_score:.1f}
@@ -315,6 +345,9 @@ def call_mission_plan_agent(input_data: MissionPlanInput) -> MissionPlanOutput |
 
 ## Top signals (last 90d, sorted by importance desc)
 {_format_signals(input_data.top_signals)}
+
+## 이전 7일 권고 history (delta_vs_previous 생성용)
+{prev_block}
 
 ## Active Mission
 {_format_active_mission(input_data.active_mission)}{constraint_note}

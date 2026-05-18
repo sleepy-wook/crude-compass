@@ -27,6 +27,13 @@ export function Dashboard() {
   const activeMissions = missions.data?.missions || [];
   const topMission =
     activeMissions.find((m) => m.status === "proposed") ?? activeMissions[0] ?? null;
+  // 현재 운영 중인 mission — 이전 active/on_track/at_risk 중 가장 최근 confirmed
+  const operatingMission =
+    activeMissions
+      .filter((m) => ["active", "on_track", "at_risk"].includes(m.status))
+      .sort((a, b) =>
+        (b.confirmed_at ?? b.created_at).localeCompare(a.confirmed_at ?? a.created_at),
+      )[0] ?? null;
 
   // Reactive trigger flash (위기 spike alert)
   const [spikeFlash, setSpikeFlash] = useState(false);
@@ -79,7 +86,11 @@ export function Dashboard() {
       />
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6 mb-10">
         <Bidirectional3Zone cur={cur} topMission={topMission} />
-        <MissionSummaryCard mission={topMission} isLoading={pattern.isLoading || missions.isLoading} />
+        <MissionSummaryCard
+          mission={topMission}
+          operatingMission={operatingMission}
+          isLoading={pattern.isLoading || missions.isLoading}
+        />
       </div>
 
       <div className="h-12" />
@@ -90,11 +101,19 @@ export function Dashboard() {
 // ────────────────────────────────────────────────────────────────────────
 // MissionSummaryCard — Dashboard mini ledger (full detail은 /missions)
 // ────────────────────────────────────────────────────────────────────────
+// 현재 운영 비중 helper — mission_type 따라 Term ratio 환산
+function getCurrentTermPct(op: Mission | null): number {
+  if (!op || op.target_pct == null) return 60;
+  return op.mission_type === "HEDGE" ? op.target_pct : 100 - op.target_pct;
+}
+
 function MissionSummaryCard({
   mission,
+  operatingMission,
   isLoading,
 }: {
   mission: Mission | null;
+  operatingMission: Mission | null;
   isLoading?: boolean;
 }) {
   if (isLoading) {
@@ -144,11 +163,17 @@ function MissionSummaryCard({
         </span>
       </div>
 
-      {/* Term/Spot 분할 시각화 — 해커톤 1등 demo killer fix */}
+      {/* Term/Spot 분할 시각화 — 현재 운영 vs AI 권고 비교 */}
       <div className="mb-5">
         <MissionSplitBar
           missionType={mission.mission_type}
           targetPct={target}
+          currentTermPct={getCurrentTermPct(operatingMission)}
+          currentSourceLabel={
+            operatingMission
+              ? `직전 운영 mission ${operatingMission.created_at.slice(0, 10)} 기록 기준`
+              : "회사 평시 기준 (운영 history 없음)"
+          }
           size="compact"
         />
       </div>

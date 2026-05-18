@@ -220,8 +220,12 @@ def migrate_d4() -> bool:
                 cur.execute(
                     "ALTER TABLE missions ADD COLUMN IF NOT EXISTS simulation_scenarios JSONB NOT NULL DEFAULT '[]'::jsonb"
                 )
+                # D-3: delta_vs_previous (AI Agent 어제 vs 오늘 변동 narrative)
+                cur.execute(
+                    "ALTER TABLE missions ADD COLUMN IF NOT EXISTS delta_vs_previous JSONB"
+                )
             conn.commit()
-        logger.info("Lakebase migrate_d4 applied (cycle + supplier_mix + simulation_scenarios)")
+        logger.info("Lakebase migrate_d4 applied (cycle + supplier_mix + simulation_scenarios + delta_vs_previous)")
         return True
     except Exception as e:
         logger.warning("Lakebase migrate_d4 skipped: %s", e)

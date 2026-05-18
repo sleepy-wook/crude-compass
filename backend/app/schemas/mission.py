@@ -74,6 +74,9 @@ class Mission(BaseModel):
     # Sub-B — Honest Simulation (옵션, backward compat)
     simulation_scenarios: list["SimulationScenario"] = Field(default_factory=list)
 
+    # AI Agent 어제 vs 오늘 변동 narrative (D-3 추가, 옵션)
+    delta_vs_previous: "DeltaVsPrevious | None" = None
+
 
 class MissionPlanOutput(BaseModel):
     """Mission Plan Agent (Agent Bricks) 출력 schema.
@@ -102,6 +105,25 @@ class MissionPlanOutput(BaseModel):
 
     # Honest Simulation — Best/Likely/Worst 3 scenarios (backend deterministic 계산)
     simulation_scenarios: list["SimulationScenario"] = Field(default_factory=list)
+
+    # 어제 vs 오늘 변동 narrative (D-3 추가)
+    # 이전 권고와의 차이를 LLM이 자연어로 설명. previous_recommendation 있을 때만 채움.
+    delta_vs_previous: "DeltaVsPrevious | None" = None
+
+
+class DeltaVsPrevious(BaseModel):
+    """이전 권고와 오늘 권고 비교 — AI Agent의 변동 self-awareness.
+
+    매니저가 "어제 spot 늘리라더니 오늘 term?" 의심을 풀 narrative 제공.
+    """
+
+    previous_date: str               # "2026-05-18"
+    previous_mission_type: MissionType
+    previous_target_pct: int | None  # 어제 권고 비중
+    direction_changed: bool          # True면 HEDGE↔OPPORTUNITY 반전 (가장 큰 변동)
+    reason: str                      # "어제 안정 신호 우세 → 오늘 위기 신호 역전 (호르무즈 해상 경보 추가, USD/KRW +1.8%)"
+    new_signals: list[str] = Field(default_factory=list)  # ["호르무즈 해상 경보 (geopolitical)"]
+    weakened_signals: list[str] = Field(default_factory=list)  # ["휴전 협상 신호 약화"]
 
 
 class SignalContext(BaseModel):
@@ -240,3 +262,17 @@ class MissionPlanInput(BaseModel):
 
     # 현재 ISO date — LLM이 의사결정 cycle 추론 ("6월 Term 갱신" 등)
     current_date: str | None = None
+
+    # 이전 7일 권고 history — AI Agent의 어제 vs 오늘 변동 self-awareness (D-3 추가)
+    # LLM이 이전 권고와 비교해 delta_vs_previous 출력.
+    previous_recommendations: list["PreviousRecommendation"] = Field(default_factory=list)
+
+
+class PreviousRecommendation(BaseModel):
+    """최근 N일 LLM 권고 history — 새 권고 생성 시 LLM에 context로 inject."""
+
+    date: str                    # "2026-05-18"
+    mission_type: MissionType
+    target_pct: int | None       # 그 날 권고 비중
+    pattern_score: float
+    reasoning_summary: str       # 첫 100자만 (token 절약)

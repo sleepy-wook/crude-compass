@@ -554,8 +554,35 @@ async def recommend_now(body: RecommendNowRequest = RecommendNowRequest()) -> di
     market_context = await asyncio.to_thread(_fetch_market_context)
 
     # K-Petroleum supplier universe + current_date (LLM이 cycle / supplier_mix 추론)
-    from app.schemas.mission import K_PETROLEUM_SUPPLIER_UNIVERSE
+    from app.schemas.mission import K_PETROLEUM_SUPPLIER_UNIVERSE, PreviousRecommendation
     from datetime import date as _date
+
+    # 이전 7일 권고 history — LLM이 delta_vs_previous narrative 생성
+    previous_recommendations: list[PreviousRecommendation] = []
+    try:
+        store = get_store()
+        all_missions = await store.all()
+        # 오늘 외, 최근 7일, 가장 최근 순
+        today_iso = _date.today().isoformat()
+        prev_missions = [
+            mm
+            for mm in all_missions
+            if mm.created_at.date().isoformat() != today_iso
+            and mm.target_pct is not None
+        ]
+        prev_missions.sort(key=lambda x: x.created_at, reverse=True)
+        for prev in prev_missions[:7]:
+            previous_recommendations.append(
+                PreviousRecommendation(
+                    date=prev.created_at.date().isoformat(),
+                    mission_type=prev.mission_type,
+                    target_pct=prev.target_pct,
+                    pattern_score=prev.pattern_score,
+                    reasoning_summary=prev.reasoning[:100],
+                )
+            )
+    except Exception as e:
+        logger.warning("previous_recommendations fetch failed: %s", e)
 
     payload = MissionPlanInput(
         pattern_score=pattern_score,
@@ -568,6 +595,7 @@ async def recommend_now(body: RecommendNowRequest = RecommendNowRequest()) -> di
         market_context=market_context,
         supplier_universe=K_PETROLEUM_SUPPLIER_UNIVERSE,
         current_date=_date.today().isoformat(),
+        previous_recommendations=previous_recommendations,
     )
 
     # 기존 recommend logic 재사용
@@ -619,6 +647,8 @@ async def recommend_now(body: RecommendNowRequest = RecommendNowRequest()) -> di
             cycle=result.cycle,
             supplier_mix=result.supplier_mix,
             simulation_scenarios=sim_scenarios,
+            # AI Agent 어제 vs 오늘 변동 narrative
+            delta_vs_previous=result.delta_vs_previous,
         )
         await store.create(mission)
         await bus.publish({"type": "mission.proposed", "mission": mission.model_dump(mode="json")})

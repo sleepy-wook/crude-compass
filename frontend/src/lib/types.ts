@@ -47,6 +47,16 @@ export interface SimulationScenario {
   confidence_note?: string | null;
 }
 
+export interface DeltaVsPrevious {
+  previous_date: string;
+  previous_mission_type: MissionType;
+  previous_target_pct: number | null;
+  direction_changed: boolean;
+  reason: string;
+  new_signals: string[];
+  weakened_signals: string[];
+}
+
 export interface Mission {
   mission_id: string;
   mission_type: MissionType;
@@ -70,6 +80,8 @@ export interface Mission {
   supplier_mix?: SupplierAllocation[];
   // Sub-B — honest simulation (옵션, backward compat)
   simulation_scenarios?: SimulationScenario[];
+  // AI Agent 어제 vs 오늘 변동 narrative (D-3 추가, 옵션)
+  delta_vs_previous?: DeltaVsPrevious | null;
 }
 
 export interface PatternScoreCurrent {
