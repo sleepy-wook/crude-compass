@@ -37,10 +37,13 @@ const CATEGORY_LABEL: Record<string, string> = {
   // GDELT aggregate / region-specific tags
   russia_ukraine: "러시아·우크라이나",
   iran_sanctions: "이란 제재",
+  venezuela_sanctions: "베네수엘라 제재",
+  china_demand: "중국 수요",
   middle_east: "중동",
   hormuz: "호르무즈",
   saudi: "사우디",
   opec: "OPEC",
+  spr_release: "전략비축유 방출",
   GDELT_aggregate: "GDELT 종합",
   gdelt_aggregate: "GDELT 종합",
 };

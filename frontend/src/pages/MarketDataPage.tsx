@@ -48,8 +48,8 @@ export function MarketDataPage() {
 
       {/* Time-horizon breakdown */}
       <SectionHeader
-        title="시간 지평별 source 기여도"
-        subtitle="Leading / Macro / Fundamentals — 시그널이 어느 horizon에서 오는지"
+        title="시간 지평별 시그널 기여도"
+        subtitle="선행 · 구조 · 확인 — 어느 시간대 신호인지에 따라 의미가 다릅니다"
       />
       <TimeHorizonBreakdown />
 
