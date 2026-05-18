@@ -11,6 +11,7 @@ import {
   useMission,
   useMissionsActive,
   useMissionConfirm,
+  useMissionModify,
   useMissionPivot,
   useMissionReject,
 } from "../lib/queries";
@@ -161,8 +162,12 @@ function MissionDetail({ missionId }: { missionId: string }) {
   const confirmMut = useMissionConfirm();
   const rejectMut = useMissionReject();
   const pivotMut = useMissionPivot();
+  const modifyMut = useMissionModify();
   const [showPivot, setShowPivot] = useState(false);
   const [pivotReason, setPivotReason] = useState("");
+  const [showModify, setShowModify] = useState(false);
+  const [modifyTarget, setModifyTarget] = useState<number | null>(null);
+  const [modifyReason, setModifyReason] = useState("");
 
   if (isLoading) return <div className="p-10 text-sm text-ink-3">불러오는 중...</div>;
   if (!m) return <div className="p-10 text-sm text-ink-3">임무를 찾을 수 없습니다.</div>;
@@ -188,8 +193,33 @@ function MissionDetail({ missionId }: { missionId: string }) {
             긴급
           </span>
         )}
+        {m.confirmed_via && (
+          <span
+            className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded ${
+              m.confirmed_via === "slack"
+                ? "bg-opportunity-50 text-opportunity-700"
+                : "bg-line-1 text-ink-2"
+            }`}
+            title={`${m.confirmed_via === "slack" ? "Slack" : "Apps"}에서 매니저가 채택`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-opportunity-500" />
+            {m.confirmed_via === "slack" ? "Slack 채택" : "Apps 채택"}
+          </span>
+        )}
         <span className="ml-auto text-[11px] text-ink-3">생성 {formatDate(m.created_at)}</span>
       </div>
+
+      {/* Decision trace — 채택 후 표시 */}
+      {m.confirmed_at && (
+        <div className="text-[11px] text-ink-3 mb-4 -mt-2">
+          {m.confirmed_by && (
+            <span>
+              <span className="text-ink-2 font-medium">{m.confirmed_by}</span>이 결정 기록 ·{" "}
+            </span>
+          )}
+          {formatDate(m.confirmed_at)} · {m.confirmed_via === "slack" ? "Slack" : "Apps"} 채널
+        </div>
+      )}
 
       <h1 className="font-display text-2xl md:text-3xl font-semibold tracking-tight text-ink-1 mb-2 leading-tight">
         {action} 권고
@@ -247,26 +277,65 @@ function MissionDetail({ missionId }: { missionId: string }) {
       {/* Pivot history */}
       {m.pivot_history.length > 0 && (
         <div className="mb-8 pb-8 border-b border-line-1">
-          <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-3">방향 전환 이력</div>
+          <div className="flex items-baseline justify-between mb-3">
+            <div className="text-[11px] uppercase tracking-wider text-ink-3">방향 전환 이력</div>
+            <span className="text-[10px] text-ink-3 italic">
+              위기 ↔ 기회 양방향 전환 추적
+            </span>
+          </div>
           <div className="space-y-3">
-            {m.pivot_history.map((p, i) => (
-              <div key={i} className="text-sm">
-                <div className="text-xs text-ink-3 mb-0.5">
-                  {formatDate(p.occurred_at)} · 위기 강도{" "}
-                  {p.pattern_score_at != null ? Math.round(p.pattern_score_at / 10) : "—"}/10
+            {m.pivot_history.map((p, i) => {
+              const fromHedge = p.from_type === "HEDGE";
+              const toHedge = p.to_type === "HEDGE";
+              const intensity =
+                p.pattern_score_at != null ? Math.round(p.pattern_score_at / 10) : null;
+              return (
+                <div
+                  key={i}
+                  className="bg-panel border border-line-1 rounded-lg p-4"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium ${
+                        fromHedge
+                          ? "bg-crisis-50 text-crisis-700"
+                          : "bg-opportunity-50 text-opportunity-700"
+                      }`}
+                    >
+                      {fromHedge ? "위험방어" : "기회포착"}
+                    </span>
+                    <span className="text-ink-3" aria-hidden>
+                      →
+                    </span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium ${
+                        toHedge
+                          ? "bg-crisis-50 text-crisis-700"
+                          : "bg-opportunity-50 text-opportunity-700"
+                      }`}
+                    >
+                      {toHedge ? "위험방어" : "기회포착"}
+                    </span>
+                    <span className="ml-auto text-[10px] text-ink-3">
+                      {formatDate(p.occurred_at)}
+                      {intensity != null && (
+                        <>
+                          {" · 위기 강도 "}
+                          <span className="font-medium tabular-nums">{intensity}/10</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  <div className="text-[13px] text-ink-2 leading-relaxed">{p.reason}</div>
                 </div>
-                <div className="text-ink-1">
-                  {missionTypeLabel(p.from_type)} → {missionTypeLabel(p.to_type)}
-                </div>
-                <div className="text-xs text-ink-2 mt-0.5">{p.reason}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
 
       {/* Actions */}
-      {canAct && !showPivot && (
+      {canAct && !showPivot && !showModify && (
         <div className="flex flex-wrap gap-3">
           {m.status === "proposed" && (
             <>
@@ -278,7 +347,17 @@ function MissionDetail({ missionId }: { missionId: string }) {
                 disabled={confirmMut.isPending}
                 className="px-4 py-2 rounded-md bg-ink-1 text-paper text-[13px] font-medium hover:bg-ink-2 disabled:opacity-50"
               >
-                내 결정으로 기록
+                권고 그대로 기록
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setModifyTarget(target);
+                  setShowModify(true);
+                }}
+                className="px-4 py-2 rounded-md border border-line-2 text-ink-1 text-[13px] font-medium hover:bg-line-1"
+              >
+                조정 후 기록
               </button>
               <button
                 type="button"
@@ -305,6 +384,91 @@ function MissionDetail({ missionId }: { missionId: string }) {
               방향 전환
             </button>
           )}
+        </div>
+      )}
+
+      {/* Modify form — 매니저가 AI 권고 target_pct를 자기 판단으로 조정 */}
+      {showModify && (
+        <div className="bg-panel border border-line-1 rounded-lg p-5">
+          <div className="text-sm text-ink-1 font-medium mb-1">
+            매니저 조정 — {m.mission_type === "HEDGE" ? "Term" : "Spot"} 비중
+          </div>
+          <div className="text-[12px] text-ink-3 mb-4">
+            AI 권고는 {target}%. 매니저 판단으로 조정해서 기록할 수 있습니다.
+          </div>
+
+          <div className="flex items-baseline gap-3 mb-3">
+            <span className="text-[11px] uppercase tracking-wider text-ink-3 w-16">조정 비중</span>
+            <input
+              type="range"
+              min={m.mission_type === "HEDGE" ? 55 : 45}
+              max={m.mission_type === "HEDGE" ? 90 : 90}
+              value={modifyTarget ?? target}
+              onChange={(e) => setModifyTarget(Number(e.target.value))}
+              className="flex-1 accent-ink-1"
+            />
+            <span className="font-display text-xl font-semibold text-ink-1 tabular-nums w-12 text-right">
+              {modifyTarget ?? target}%
+            </span>
+          </div>
+
+          {modifyTarget != null && modifyTarget !== target && (
+            <div className="text-[12px] text-ink-2 mb-3">
+              AI 권고 {target}% → 매니저 조정 {modifyTarget}%{" "}
+              <span className={modifyTarget < target ? "text-opportunity-700" : "text-crisis-700"}>
+                ({modifyTarget > target ? "+" : ""}
+                {modifyTarget - target}%p)
+              </span>
+            </div>
+          )}
+
+          <textarea
+            value={modifyReason}
+            onChange={(e) => setModifyReason(e.target.value)}
+            placeholder="조정 사유 (선택) — 예: AI 권고보다 보수적으로, OSP 발표 직후 확정 예정"
+            rows={2}
+            className="w-full text-sm p-3 border border-line-2 rounded-md focus:outline-none focus:border-ink-3 mb-3 resize-none"
+          />
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const nextTarget = modifyTarget ?? target;
+                modifyMut.mutate(
+                  {
+                    id: m.mission_id,
+                    version: m.version,
+                    target_pct: nextTarget,
+                  },
+                  {
+                    onSuccess: (updated) => {
+                      // modify 성공 시 confirm chain — "조정 후 기록" intent
+                      confirmMut.mutate({ id: updated.mission_id, version: updated.version });
+                      setShowModify(false);
+                      setModifyTarget(null);
+                      setModifyReason("");
+                    },
+                  }
+                );
+              }}
+              disabled={modifyMut.isPending || confirmMut.isPending}
+              className="px-4 py-2 rounded-md bg-ink-1 text-paper text-[13px] font-medium hover:bg-ink-2 disabled:opacity-50"
+            >
+              {modifyMut.isPending || confirmMut.isPending ? "기록 중..." : "조정 후 기록"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowModify(false);
+                setModifyTarget(null);
+                setModifyReason("");
+              }}
+              className="px-4 py-2 rounded-md border border-line-2 text-ink-3 text-[13px]"
+            >
+              취소
+            </button>
+          </div>
         </div>
       )}
 
@@ -335,7 +499,7 @@ function MissionDetail({ missionId }: { missionId: string }) {
                 })
               }
               disabled={pivotMut.isPending || !pivotReason}
-              className="px-4 py-2 rounded-md bg-opportunity-600 text-white text-[13px] font-medium hover:bg-opportunity-700 disabled:opacity-50"
+              className="px-4 py-2 rounded-md bg-opportunity-500 text-white text-[13px] font-medium hover:bg-opportunity-700 disabled:opacity-50"
             >
               전환 실행
             </button>

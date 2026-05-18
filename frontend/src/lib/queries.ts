@@ -180,3 +180,24 @@ export function useMissionPivot() {
     },
   });
 }
+
+export function useMissionModify() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      version,
+      target_pct,
+      duration_days,
+    }: {
+      id: string;
+      version: number;
+      target_pct?: number;
+      duration_days?: number;
+    }) => api.missionModify(id, { version, target_pct, duration_days }),
+    onSuccess: (m) => {
+      qc.invalidateQueries({ queryKey: queryKeys.missionsActive });
+      qc.setQueryData(queryKeys.mission(m.mission_id), m);
+    },
+  });
+}
