@@ -296,18 +296,21 @@ function MissionCard({
   const [showPivot, setShowPivot] = useState(false);
   const [pivotReason, setPivotReason] = useState("");
 
+  // baseline은 시나리오 §4 K-Petroleum default (대한석유협회 산업 평균 Term 57-60 : Spot 40-43)
   const baseline = mode === "HEDGE" ? 60 : 40;
   const target = mission.target_pct ?? baseline;
-  const action = mode === "HEDGE" ? "장기계약 비중" : "즉시구매 비중";
+  // crude — mission_type 기본 매핑. 실제 mission goal_text에 구체 명시되면 그것이 우선.
+  const crude = mode === "HEDGE" ? "두바이" : "WTI";
+  const action = mode === "HEDGE" ? "장기 비중" : "즉시 비중";
 
-  // Simulation ROI — 3 시나리오 정렬
+  // Simulation ROI — 시뮬레이션 (시연용 예시 시나리오)
   const roiEntries = Object.entries(mission.simulation_roi || {});
 
   return (
     <div className="bg-panel border border-line-1 rounded-2xl p-8 md:p-10">
       {/* Headline */}
       <div className="text-[13px] text-ink-3 mb-3">
-        오늘 두바이 {action}
+        오늘 {crude} {action} <span className="text-ink-3/70">· 평시 {baseline}%</span>
       </div>
       <h1 className="font-display text-[36px] md:text-[48px] lg:text-[56px] font-semibold tracking-tight leading-[1.1] text-ink-1 mb-5">
         {baseline}% <span className="text-ink-3 mx-2">→</span> {target}%
@@ -317,15 +320,22 @@ function MissionCard({
       {/* Stat row */}
       <div className="flex flex-wrap items-center gap-x-10 gap-y-4 mb-8 pb-8 border-b border-line-1">
         <Stat label="위기 점수" value={formatRoundedScore(score)} />
-        <Stat label="신뢰도" value={formatConfidence(confidence)} />
         <Stat label="기간" value={`${mission.duration_days}일`} />
+        {confidence !== null && confidence !== undefined && (
+          <Stat label="신뢰도" value={formatConfidence(confidence)} />
+        )}
       </div>
 
-      {/* Simulation ROI strip */}
+      {/* Simulation ROI strip — 시연용 예시 시나리오 (정직성 disclaimer) */}
       {roiEntries.length > 0 && (
         <div className="mb-8 pb-8 border-b border-line-1">
-          <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-3">
-            예상 시나리오
+          <div className="flex items-baseline justify-between mb-3">
+            <div className="text-[11px] uppercase tracking-wider text-ink-3">
+              예상 시나리오
+            </div>
+            <span className="text-[10px] text-ink-3 italic">
+              시뮬레이션 · 시연용 예시
+            </span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {roiEntries.map(([scenario, roi]) => (

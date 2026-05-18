@@ -5,7 +5,7 @@
  */
 import { useMissionsActive, usePatternCurrent } from "../lib/queries";
 import { useMissionsWebSocket } from "../lib/ws";
-import { formatConfidence, formatRoundedScore } from "../lib/utils";
+import { formatRoundedScore } from "../lib/utils";
 
 type Mode = "HEDGE" | "OPPORTUNITY" | "STABLE";
 
@@ -76,8 +76,15 @@ export function TopBar() {
 
         <Divider />
 
-        {/* Confidence */}
-        <KpiChip label="신뢰도" value={formatConfidence(cur?.confidence_score)} />
+        {/* Signal accumulated count — 신뢰도 대신 진짜 핵심 */}
+        <KpiChip
+          label="90일 시그널"
+          value={
+            cur?.signal_count_90d != null
+              ? `${cur.signal_count_90d.toLocaleString()}건`
+              : "—"
+          }
+        />
 
         <Divider />
 
@@ -88,6 +95,12 @@ export function TopBar() {
 
         {/* Last update */}
         <KpiChip label="데이터" value={formatRelativeDate(cur?.date)} />
+
+        <Divider />
+
+        {/* Open Data Track 1 tagline */}
+        <KpiChip label="Track 1" value="6 source · 무료" />
+
 
         <div className="flex-1" />
 

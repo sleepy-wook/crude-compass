@@ -101,16 +101,22 @@ export function Sidebar() {
         </ul>
       </div>
 
-      {/* Data sources */}
+      {/* Data sources — Open Data Democratization */}
       <div className="px-5 py-4 border-t border-sidebar-bg2">
-        <div className="text-[9px] uppercase tracking-wider text-sidebar-muted2 mb-2">데이터 출처</div>
+        <div className="text-[9px] uppercase tracking-wider text-sidebar-muted2 mb-2">
+          공개 데이터 6 source
+        </div>
         <ul className="space-y-0.5 text-[10px] text-sidebar-muted leading-relaxed">
           <li>GDELT 글로벌 뉴스</li>
           <li>EIA 미국 재고</li>
           <li>OPEC 월간 보고서</li>
           <li>한국은행 환율</li>
+          <li>OPINET 종가</li>
           <li>OilPriceAPI 시세</li>
         </ul>
+        <p className="mt-2 text-[10px] text-sidebar-muted2 italic leading-snug">
+          Bloomberg · Platts 유료 시스템 없이 무료 동일 인텔리전스.
+        </p>
       </div>
 
       {/* Admin — 데이터 갱신 */}
