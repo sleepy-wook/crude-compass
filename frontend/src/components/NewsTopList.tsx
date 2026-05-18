@@ -84,12 +84,16 @@ export function NewsTopList({ limit = 12 }: { limit?: number }) {
 
   return (
     <section className="mb-10">
-      <div className="flex items-baseline justify-between mb-5">
+      <div className="flex items-baseline justify-between mb-2">
         <h3 className="font-display text-lg font-semibold tracking-tight text-ink-1">
           주요 보도
         </h3>
         <span className="text-[11px] text-ink-3">최근 7일</span>
       </div>
+      <p className="text-[11px] text-ink-3 mb-4 leading-relaxed">
+        GDELT 글로벌 뉴스 키워드 burst — 매니저용으로 톤·중요도·보도 횟수를 시그널화해{" "}
+        <span className="text-ink-2 font-medium">선행 (Leading)</span> 시그널에 합산됩니다.
+      </p>
 
       {isLoading && (
         <div className="space-y-2">

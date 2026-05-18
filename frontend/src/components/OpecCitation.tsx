@@ -133,11 +133,41 @@ export function OpecCitation() {
               </div>
               {latest.supply_demand_gap_kbbl_d != null && (
                 <div className="text-[11px] font-mono text-ink-3" title="수요 - OPEC 공급 (M b/d 단위, 음수 = OPEC 공급 부족)">
-                  수급 gap {(latest.supply_demand_gap_kbbl_d / 1000).toFixed(1)}M b/d
+                  수급 차 {(latest.supply_demand_gap_kbbl_d / 1000).toFixed(1)}M b/d
                 </div>
               )}
             </div>
           </div>
+
+          {/* Plain-language interpretation — 매니저용 한 줄 풀이 */}
+          {latest.market_balance && (
+            <div className="mt-4 pt-3 border-t border-line-1 text-[12px] leading-relaxed text-ink-2">
+              <span className="text-[10px] uppercase tracking-wider text-ink-3 mr-2">해석</span>
+              {latest.market_balance === "undersupply" && (
+                <>
+                  수요가 OPEC 공급보다{" "}
+                  <span className="font-medium text-crisis-700">
+                    {Math.abs((latest.supply_demand_gap_kbbl_d ?? 0) / 1000).toFixed(1)}M b/d 많음
+                  </span>{" "}
+                  → 비OPEC이 메우거나 가격 상승 압력. <span className="text-ink-3">Term 비중 ↑ 신호.</span>
+                </>
+              )}
+              {latest.market_balance === "oversupply" && (
+                <>
+                  OPEC 공급이 수요보다{" "}
+                  <span className="font-medium text-opportunity-700">
+                    {Math.abs((latest.supply_demand_gap_kbbl_d ?? 0) / 1000).toFixed(1)}M b/d 많음
+                  </span>{" "}
+                  → 재고 누적·가격 하방. <span className="text-ink-3">Spot 비중 ↑ 신호.</span>
+                </>
+              )}
+              {latest.market_balance === "balanced" && (
+                <>
+                  수급 균형. <span className="text-ink-3">평시 비중 유지 신호.</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
     </section>

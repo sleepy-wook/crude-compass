@@ -43,11 +43,62 @@ function buildPath(
     .join(" ");
 }
 
+// Local extrema 추출 — 6년 시계열의 위기/기회 peak/trough를 marker로 표시.
+// 시나리오 §6: "1년 1-2 위기 + 분기 1-2 기회 + 매주 미세 조정" narrative 시각화.
+type Extremum = { date: string; score: number; idx: number; kind: "crisis" | "opportunity" };
+
+function findExtrema(history: PatternHistory[]): Extremum[] {
+  const out: Extremum[] = [];
+  // window 60일 — 위기/기회는 보통 수 주~수개월 단위. noise 컷.
+  const WIN = 60;
+  const seenIdx = new Set<number>();
+  for (let i = WIN; i < history.length - WIN; i++) {
+    const cur = history[i].pattern_score ?? 50;
+    // crisis peak: 90+ 이고 ±60일 윈도우 내 maximum
+    if (cur >= 90) {
+      let isMax = true;
+      for (let j = i - WIN; j <= i + WIN; j++) {
+        if (j === i) continue;
+        if ((history[j]?.pattern_score ?? 50) > cur) {
+          isMax = false;
+          break;
+        }
+      }
+      if (isMax && !seenIdx.has(i)) {
+        out.push({ date: history[i].date, score: cur, idx: i, kind: "crisis" });
+        // 이웃 60일에 다른 peak 안 잡히게 mark
+        for (let k = i - WIN; k <= i + WIN; k++) seenIdx.add(k);
+      }
+    }
+    // opportunity trough: 10- 이고 ±60일 윈도우 내 minimum
+    if (cur <= 10) {
+      let isMin = true;
+      for (let j = i - WIN; j <= i + WIN; j++) {
+        if (j === i) continue;
+        if ((history[j]?.pattern_score ?? 50) < cur) {
+          isMin = false;
+          break;
+        }
+      }
+      if (isMin && !seenIdx.has(i)) {
+        out.push({ date: history[i].date, score: cur, idx: i, kind: "opportunity" });
+        for (let k = i - WIN; k <= i + WIN; k++) seenIdx.add(k);
+      }
+    }
+  }
+  return out;
+}
+
 export function PatternScoreLine({ days = 30, variant = "mini" }: Props) {
   const { data, isLoading, isError } = usePatternHistory(days);
   const history = useMemo(
     () => (data?.history ?? []).filter((h) => h.pattern_score != null),
     [data],
+  );
+
+  const extrema = useMemo(
+    () => (variant === "long" ? findExtrema(history) : []),
+    [history, variant],
   );
 
   const H = variant === "long" ? LONG_H : MINI_H;
@@ -69,6 +120,9 @@ export function PatternScoreLine({ days = 30, variant = "mini" }: Props) {
       ? "호르무즈 봉우리 + 작은 봉우리들 (OPEC 회의, EIA 재고, 허리케인). 매주 작은 시그널 종합 = 일상 도구."
       : "70+ 위험방어 · 30- 기회포착 · 중간 관망";
 
+  const crisisCount = extrema.filter((e) => e.kind === "crisis").length;
+  const oppCount = extrema.filter((e) => e.kind === "opportunity").length;
+
   return (
     <section className="mb-8">
       <div className="flex items-baseline justify-between mb-2">
@@ -82,7 +136,23 @@ export function PatternScoreLine({ days = 30, variant = "mini" }: Props) {
         </span>
       </div>
       {variant === "long" && (
-        <p className="text-xs text-ink-3 mb-3">{subtitle}</p>
+        <div className="mb-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <p className="text-xs text-ink-3 flex-1 min-w-0">{subtitle}</p>
+          <div className="flex items-center gap-3 text-[11px] text-ink-3">
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block w-2 h-2 rounded-full bg-crisis-500" />
+              <span>
+                위기 peak <span className="text-ink-1 font-medium tabular-nums">{crisisCount}</span>
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block w-2 h-2 rounded-full bg-opportunity-500" />
+              <span>
+                기회 trough <span className="text-ink-1 font-medium tabular-nums">{oppCount}</span>
+              </span>
+            </span>
+          </div>
+        </div>
       )}
 
       <div className="rounded-xl border border-line-1 bg-panel">
@@ -187,6 +257,33 @@ export function PatternScoreLine({ days = 30, variant = "mini" }: Props) {
               strokeLinecap="round"
             />
           )}
+
+          {/* Decision marker — 위기 peak / 기회 trough에 매니저 의사결정 cue */}
+          {extrema.map((ex) => {
+            const x = PAD_L + (ex.idx / Math.max(1, history.length - 1)) * innerW;
+            const y = PAD_T + ((100 - ex.score) / 100) * innerH;
+            const color = ex.kind === "crisis" ? "#FF3621" : "#10B981";
+            const label = ex.kind === "crisis" ? "위기" : "기회";
+            // 위기는 위로 spike, 기회는 아래로 spike
+            const dir = ex.kind === "crisis" ? -1 : 1;
+            return (
+              <g key={`${ex.kind}-${ex.idx}`}>
+                <line
+                  x1={x}
+                  y1={y}
+                  x2={x}
+                  y2={y + dir * 14}
+                  stroke={color}
+                  strokeWidth="1.5"
+                  opacity="0.6"
+                />
+                <circle cx={x} cy={y + dir * 14} r="3" fill={color} />
+                <title>
+                  {`${label} 시점 · ${ex.date} · 위기 강도 ${Math.round(ex.score / 10)}/10`}
+                </title>
+              </g>
+            );
+          })}
 
           {/* Last point */}
           {last && (
