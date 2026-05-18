@@ -25,6 +25,12 @@ export interface PivotEntry {
   pattern_score_at: number;
 }
 
+export interface SupplierAllocation {
+  supplier_name: string;
+  delta_bpd: number;
+  rationale: string;
+}
+
 export interface Mission {
   mission_id: string;
   mission_type: MissionType;
@@ -43,6 +49,9 @@ export interface Mission {
   completed_at: string | null;
   pivot_history: PivotEntry[];
   version: number;
+  // Sub-A — actionable recommendations (옵션, backward compat)
+  cycle?: string | null;
+  supplier_mix?: SupplierAllocation[];
 }
 
 export interface PatternScoreCurrent {

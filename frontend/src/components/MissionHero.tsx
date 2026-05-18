@@ -306,8 +306,20 @@ function MissionCard({
   // Simulation ROI — 시뮬레이션 (시연용 예시 시나리오)
   const roiEntries = Object.entries(mission.simulation_roi || {});
 
+  // Sub-A — Decision cycle + supplier mix (backward compat: 옵션 필드)
+  const cycle = mission.cycle ?? null;
+  const supplierMix = mission.supplier_mix ?? [];
+  const totalDeltaBpd = supplierMix.reduce((s, x) => s + x.delta_bpd, 0);
+
   return (
     <div className="bg-panel border border-line-1 rounded-2xl p-8 md:p-10">
+      {/* Decision cycle label (있을 때만) */}
+      {cycle && (
+        <div className="inline-flex items-center px-2.5 py-1 rounded-md bg-line-1 text-ink-2 text-[11px] font-medium mb-3">
+          {cycle}
+        </div>
+      )}
+
       {/* Headline */}
       <div className="text-[13px] text-ink-3 mb-3">
         오늘 {crude} {action} <span className="text-ink-3/70">· 평시 {baseline}%</span>
@@ -325,6 +337,58 @@ function MissionCard({
           <Stat label="신뢰도" value={formatConfidence(confidence)} />
         )}
       </div>
+
+      {/* Supplier mix 권고 — Sub-A actionable (있을 때만) */}
+      {supplierMix.length > 0 && (
+        <div className="mb-8 pb-8 border-b border-line-1">
+          <div className="flex items-baseline justify-between mb-3">
+            <div className="text-[11px] uppercase tracking-wider text-ink-3">
+              Supplier 분배 권고
+            </div>
+            <span className="text-[10px] text-ink-3 italic">
+              시연 example
+            </span>
+          </div>
+          <div className="space-y-2.5">
+            {supplierMix.map((alloc, i) => (
+              <div
+                key={`${alloc.supplier_name}-${i}`}
+                className="flex items-baseline gap-3 text-[13px]"
+              >
+                <span className="font-medium text-ink-1 min-w-[200px]">
+                  {alloc.supplier_name}
+                </span>
+                <span
+                  className={`font-display font-semibold tabular-nums ${
+                    alloc.delta_bpd > 0
+                      ? "text-opportunity-700"
+                      : alloc.delta_bpd < 0
+                        ? "text-crisis-700"
+                        : "text-ink-1"
+                  }`}
+                >
+                  {alloc.delta_bpd > 0 ? "+" : ""}
+                  {alloc.delta_bpd.toLocaleString()} b/d
+                </span>
+                <span className="text-ink-3 text-[12px] truncate flex-1">
+                  {alloc.rationale}
+                </span>
+              </div>
+            ))}
+            <div className="pt-2 mt-2 border-t border-line-1 flex items-baseline gap-3 text-[12px]">
+              <span className="text-ink-3">총 변화</span>
+              <span className="font-display font-semibold text-ink-1 tabular-nums">
+                {totalDeltaBpd > 0 ? "+" : ""}
+                {totalDeltaBpd.toLocaleString()} b/d
+              </span>
+            </div>
+          </div>
+          <p className="text-[11px] text-ink-3 mt-3 leading-relaxed">
+            📌 실제 분배는 매니저가 매월 Saudi Aramco OSP + ADNOC OSP 공식 발표 후
+            자사 portfolio 기반 결정합니다.
+          </p>
+        </div>
+      )}
 
       {/* Simulation ROI strip — 시연용 예시 시나리오 (정직성 disclaimer) */}
       {roiEntries.length > 0 && (

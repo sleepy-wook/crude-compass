@@ -87,6 +87,12 @@ class MissionPlanOutput(BaseModel):
     target_pct: int | None = None
     duration_days: int = 28
 
+    # 의사결정 cycle label (LLM이 current_date 기반 추론)
+    cycle: str | None = None  # "6월 Term 갱신 (월말)" 등
+
+    # Supplier mix 권고 — 시연 example (실제는 매니저 OSP allocation 기반)
+    supplier_mix: list["SupplierAllocation"] = Field(default_factory=list)
+
 
 class SignalContext(BaseModel):
     """Mission Plan Agent input — 최근 90일 top 시그널."""
@@ -117,6 +123,70 @@ class MarketContext(BaseModel):
     headline_titles: list[str] = Field(default_factory=list)
 
 
+class SupplierInfo(BaseModel):
+    """K-Petroleum supplier universe — 한국 정유 2024 import portfolio 정합."""
+
+    name: str                # "ARAMCO Arab Light"
+    region: str              # "Saudi" / "US" / "UAE" / "Kuwait" / "Iraq"
+    grade: str               # "Arab Light" / "WTI" / "Murban" / "Kuwait Export" / "Basra Light"
+    portfolio_share_pct: float  # 2024 KNOC 비중 (Saudi 32, US 16.4, UAE 14 etc)
+    role: str                # "Term 중심" / "Term+Spot"
+    osp_cycle: str | None    # "월간 발표 (월초)" 등
+
+
+# K-Petroleum 5 supplier (KNOC 2024 통계 정합)
+K_PETROLEUM_SUPPLIER_UNIVERSE: list[SupplierInfo] = [
+    SupplierInfo(
+        name="ARAMCO Arab Light",
+        region="Saudi",
+        grade="Arab Light",
+        portfolio_share_pct=32.0,
+        role="Term 중심",
+        osp_cycle="월간 발표 (월초)",
+    ),
+    SupplierInfo(
+        name="US WTI/Bakken/Eagle Ford",
+        region="US",
+        grade="WTI/Bakken",
+        portfolio_share_pct=16.4,
+        role="Term+Spot",
+        osp_cycle="floating (Brent linked)",
+    ),
+    SupplierInfo(
+        name="ADNOC Murban",
+        region="UAE",
+        grade="Murban",
+        portfolio_share_pct=14.0,
+        role="Term 중심",
+        osp_cycle="월간 발표",
+    ),
+    SupplierInfo(
+        name="KOC Kuwait Export",
+        region="Kuwait",
+        grade="Kuwait Export",
+        portfolio_share_pct=8.0,
+        role="Term 중심",
+        osp_cycle="월간 발표 (Saudi benchmark)",
+    ),
+    SupplierInfo(
+        name="KPC Basra Light",
+        region="Iraq",
+        grade="Basra Light",
+        portfolio_share_pct=6.0,
+        role="Term 중심",
+        osp_cycle="월간 발표 (Saudi benchmark)",
+    ),
+]
+
+
+class SupplierAllocation(BaseModel):
+    """LLM 권고에 포함되는 supplier 분배 — 시연 example."""
+
+    supplier_name: str       # "ARAMCO Arab Light"
+    delta_bpd: int           # +25,000 (b/d 단위 추가/감소)
+    rationale: str           # "Saudi OSP +$0.50 예상 + 호르무즈 우회 위험"
+
+
 class MissionPlanInput(BaseModel):
     """Mission Plan Agent input."""
 
@@ -134,3 +204,9 @@ class MissionPlanInput(BaseModel):
 
     # 시장 컨텍스트 — LLM이 가격·환율·뉴스 종합 판단용
     market_context: MarketContext | None = None
+
+    # K-Petroleum supplier universe — LLM이 supplier mix 권고에 참조
+    supplier_universe: list[SupplierInfo] = Field(default_factory=list)
+
+    # 현재 ISO date — LLM이 의사결정 cycle 추론 ("6월 Term 갱신" 등)
+    current_date: str | None = None

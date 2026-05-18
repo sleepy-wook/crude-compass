@@ -552,6 +552,10 @@ async def recommend_now(body: RecommendNowRequest = RecommendNowRequest()) -> di
     # 시장 컨텍스트 — 가격·환율·헤드라인 fetch (Warehouse 1회 호출, 실패 시 None)
     market_context = await asyncio.to_thread(_fetch_market_context)
 
+    # K-Petroleum supplier universe + current_date (LLM이 cycle / supplier_mix 추론)
+    from app.schemas.mission import K_PETROLEUM_SUPPLIER_UNIVERSE
+    from datetime import date as _date
+
     payload = MissionPlanInput(
         pattern_score=pattern_score,
         bullish_score=bullish_score,
@@ -561,6 +565,8 @@ async def recommend_now(body: RecommendNowRequest = RecommendNowRequest()) -> di
         top_signals=top_signals,
         active_mission=active_mission,
         market_context=market_context,
+        supplier_universe=K_PETROLEUM_SUPPLIER_UNIVERSE,
+        current_date=_date.today().isoformat(),
     )
 
     # 기존 recommend logic 재사용

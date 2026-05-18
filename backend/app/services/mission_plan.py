@@ -73,9 +73,40 @@ SYSTEM_PROMPT = """You are **Crude Compass Mission Plan Agent** — a decision-s
   "pattern_score": <0-100>,
   "confidence_score": <0-100, source 다양성/cross-validation 기반>,
   "target_pct": <e.g. 70>,
-  "duration_days": 28
+  "duration_days": 28,
+  "cycle": "<의사결정 cycle label — current_date 보고 추론>",
+  "supplier_mix": [
+    {"supplier_name": "ARAMCO Arab Light", "delta_bpd": 25000, "rationale": "Saudi OSP +$0.50 예상 + 호르무즈 우회"},
+    {"supplier_name": "US WTI/Bakken/Eagle Ford", "delta_bpd": 15000, "rationale": "Brent linked, 호르무즈 우회 회피"}
+  ]
 }
 ```
+
+## 의사결정 cycle 추론 가이드 (current_date 기반)
+- 월초 (1-5일): "이번 달 Saudi Aramco OSP 발표 직후 — Term contract 가격 적용"
+- 월말 (25-31일): "다음 달 OSP 예상 + Term contract 갱신"
+- 기타: "월간 OSP 사이클 (다음 발표 D-N)"
+- 분기 시작: "Q{n} Term portfolio 분배 갱신"
+- HEDGE+urgent: "spike alert — 즉시 검토"
+
+## Supplier mix 권고 가이드 (시연 example)
+K-Petroleum supplier universe (KNOC 2024 비중):
+- ARAMCO Arab Light (Saudi, 32%) — Term 중심, 월간 OSP
+- US WTI/Bakken/Eagle Ford (16.4%) — Term+Spot, Brent linked, **호르무즈 우회 가능**
+- ADNOC Murban (UAE, 14%) — Term 중심, UAE 직접 (호르무즈 우회 가능)
+- KOC Kuwait Export (8%) — Term, Saudi benchmark
+- KPC Basra Light (Iraq, 6%) — Term, Saudi benchmark
+
+HEDGE mission 시:
+- ARAMCO Term 비중 ↑ (Saudi 직거래 lock-in)
+- US/ADNOC Term ↑ (호르무즈 우회 supplier)
+- 총 +30,000~50,000 b/d Term 추가 권장
+
+OPPORTUNITY mission 시:
+- Spot 비중 ↑ (특정 supplier보다 Brent linked 가격 추적)
+- US 비중 ↑ (가격 약세 시 freight 절감)
+
+**중요**: supplier_mix는 시연 example. 매니저는 실제 OSP allocation + 자사 portfolio 기반 최종 결정.
 
 ## Confidence Score 산출 가이드
 - Source 다양성: 5+ source가 같은 방향 confirm = 80+
@@ -173,6 +204,18 @@ def _format_active_mission(mission) -> str:
     )
 
 
+def _format_supplier_universe(suppliers) -> str:
+    """K-Petroleum supplier universe — LLM이 supplier mix 권고 시 참조."""
+    if not suppliers:
+        return "(no supplier universe provided)"
+    lines = ["K-Petroleum supplier portfolio (KNOC 2024 비중):"]
+    for s in suppliers:
+        lines.append(
+            f"- {s.name} ({s.region}, {s.portfolio_share_pct}%) — {s.role}, OSP {s.osp_cycle}"
+        )
+    return "\n".join(lines)
+
+
 def _format_market_context(ctx) -> str:
     """가격·환율·헤드라인 — LLM이 시장 상태 종합 판단용."""
     if ctx is None:
@@ -234,7 +277,9 @@ def call_mission_plan_agent(input_data: MissionPlanInput) -> MissionPlanOutput |
         else ""
     )
 
-    user_msg = f"""## Current state
+    current_date_str = input_data.current_date or "(unknown)"
+
+    user_msg = f"""## Current state (date: {current_date_str})
 
 **Pattern Score**: {input_data.pattern_score:.1f}
 - bullish_score: {input_data.bullish_score:.1f}
@@ -245,6 +290,9 @@ def call_mission_plan_agent(input_data: MissionPlanInput) -> MissionPlanOutput |
 ## Market Context (가격·환율·헤드라인)
 {_format_market_context(input_data.market_context)}
 
+## Supplier Universe
+{_format_supplier_universe(input_data.supplier_universe)}
+
 ## Top signals (last 90d, sorted by importance desc)
 {_format_signals(input_data.top_signals)}
 
@@ -253,6 +301,8 @@ def call_mission_plan_agent(input_data: MissionPlanInput) -> MissionPlanOutput |
 
 → Recommend action (new_mission / pivot / pause / abort / continue) per Lifecycle rules.
    Consider price level, spread, FX, headlines together — not just signal score.
+   Use current_date to infer decision cycle (`cycle` field).
+   Use supplier_universe to recommend supplier_mix (시연 example — 매니저 실제 OSP allocation 기반).
    Return JSON only."""
 
     try:
