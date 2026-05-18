@@ -1,24 +1,24 @@
 /**
  * Sidebar — 좌측 nav (Stripe/Linear 풍).
  *
- * 3 nav items + K-Petroleum brand + 기술 스택 + 데이터 출처.
+ * 4-tab nav: 오늘 / 시장 데이터 / AI 도우미 / 내 결정 기록
+ * 하단 admin 영역: 데이터 갱신 button만 minimal하게 (기술 스택 / source 목록 / glossary cut)
  */
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { GlossaryModal } from "./Glossary";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
 import { queryKeys } from "../lib/queries";
 
 const navItems = [
   { to: "/", label: "오늘", desc: "시장 메모리 + 시그널" },
-  { to: "/missions", label: "내 결정", desc: "행동 기록" },
-  { to: "/ask", label: "AI에게 묻기", desc: "Multi-Agent" },
+  { to: "/market", label: "시장 데이터", desc: "가격 · 환율 · 공급 · 뉴스" },
+  { to: "/ask", label: "AI 도우미", desc: "Multi-Agent" },
+  { to: "/missions", label: "내 결정 기록", desc: "행동 기록" },
 ];
 
 export function Sidebar() {
-  const [glossaryOpen, setGlossaryOpen] = useState(false);
   const qc = useQueryClient();
   const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
 
@@ -77,50 +77,8 @@ export function Sidebar() {
 
       <div className="flex-1" />
 
-      {/* Tech stack */}
+      {/* Footer — admin refresh only */}
       <div className="px-5 py-4 border-t border-sidebar-bg2">
-        <div className="text-[9px] uppercase tracking-wider text-sidebar-muted2 mb-2.5">
-          기술 스택
-        </div>
-        <ul className="space-y-1.5 text-[11px]">
-          <li className="flex items-center justify-between">
-            <span className="text-white/90">Databricks Apps</span>
-          </li>
-          <li className="flex items-center justify-between">
-            <span className="text-white/90">Lakebase</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-ok" />
-          </li>
-          <li className="flex items-center justify-between">
-            <span className="text-white/90">Genie</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-ok" />
-          </li>
-          <li className="flex items-center justify-between">
-            <span className="text-white/90">Agent Bricks</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-ok" />
-          </li>
-        </ul>
-      </div>
-
-      {/* Data sources — Open Data Democratization */}
-      <div className="px-5 py-4 border-t border-sidebar-bg2">
-        <div className="text-[9px] uppercase tracking-wider text-sidebar-muted2 mb-2">
-          공개 데이터 6 source
-        </div>
-        <ul className="space-y-0.5 text-[10px] text-sidebar-muted leading-relaxed">
-          <li>GDELT 글로벌 뉴스</li>
-          <li>EIA 미국 재고</li>
-          <li>OPEC 월간 보고서</li>
-          <li>한국은행 환율</li>
-          <li>OPINET 종가</li>
-          <li>OilPriceAPI 시세</li>
-        </ul>
-        <p className="mt-2 text-[10px] text-sidebar-muted2 italic leading-snug">
-          Bloomberg · Platts 유료 시스템 없이 무료 동일 인텔리전스.
-        </p>
-      </div>
-
-      {/* Admin — 데이터 갱신 */}
-      <div className="px-5 py-3 border-t border-sidebar-bg2">
         <button
           type="button"
           onClick={() => refreshMut.mutate()}
@@ -134,18 +92,6 @@ export function Sidebar() {
           <div className="text-[10px] text-sidebar-muted2 mt-1.5 leading-snug">{refreshMsg}</div>
         )}
       </div>
-
-      {/* Glossary */}
-      <button
-        type="button"
-        onClick={() => setGlossaryOpen(true)}
-        className="text-left w-full px-5 py-3 border-t border-sidebar-bg2 text-[11px] text-sidebar-muted hover:text-white hover:bg-sidebar-bg2 transition-colors flex items-center justify-between"
-      >
-        <span>핵심 용어 보기</span>
-        <span className="text-[10px] text-sidebar-muted2">→</span>
-      </button>
-
-      <GlossaryModal open={glossaryOpen} onClose={() => setGlossaryOpen(false)} />
     </aside>
   );
 }
