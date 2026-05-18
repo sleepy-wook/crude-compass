@@ -232,7 +232,8 @@ async def recommend(payload: MissionPlanInput) -> dict:
     """LLM Mission Plan Agent — Pattern Score + signals → recommend mission."""
     result = call_mission_plan_agent(payload)
     if result is None:
-        raise HTTPException(status_code=500, detail={"code": "LLM_CALL_FAILED"})
+        from app.services.mission_plan import last_llm_error
+        raise HTTPException(status_code=500, detail={"code": "LLM_CALL_FAILED", "error": last_llm_error()})
 
     # action_type이 new_mission이면 store에 proposed로 저장 + broadcast
     if result.action_type == "new_mission":
@@ -572,7 +573,8 @@ async def recommend_now(body: RecommendNowRequest = RecommendNowRequest()) -> di
     # 기존 recommend logic 재사용
     result = call_mission_plan_agent(payload)
     if result is None:
-        raise HTTPException(status_code=500, detail={"code": "LLM_CALL_FAILED"})
+        from app.services.mission_plan import last_llm_error
+        raise HTTPException(status_code=500, detail={"code": "LLM_CALL_FAILED", "error": last_llm_error()})
 
     # Mission uniqueness 강제 — LLM이 active 있는데 new_mission 권장했으면 modify로 강등
     if active_mission is not None and result.action_type == "new_mission":

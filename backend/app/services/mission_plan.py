@@ -345,4 +345,17 @@ def call_mission_plan_agent(input_data: MissionPlanInput) -> MissionPlanOutput |
         logger = logging.getLogger(__name__)
         logger.error("Mission Plan Agent failed: %s: %s", type(e).__name__, e)
         logger.error("traceback: %s", traceback.format_exc())
+        # D-4 hotfix: expose error class + first 200 chars to caller for diagnosis.
+        # (production-safe: no secrets, only error type and short message)
+        global _LAST_ERROR
+        _LAST_ERROR = f"{type(e).__name__}: {str(e)[:200]}"
         return None
+
+
+# Hot debug — last LLM call error, exposed via recommend_now response when result is None.
+_LAST_ERROR: str | None = None
+
+
+def last_llm_error() -> str | None:
+    """Last call_mission_plan_agent error (for /recommend_now 500 detail)."""
+    return _LAST_ERROR
