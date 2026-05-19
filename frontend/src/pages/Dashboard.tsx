@@ -55,7 +55,7 @@ export function Dashboard() {
   }, [lastEvent, lastEventAt]);
 
   return (
-    <div className="max-w-7xl mx-auto px-8 py-10">
+    <div className="max-w-6xl mx-auto px-8 py-10">
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {/* PAGE HEADER — enterprise SaaS 풍 짧은 카피                     */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
@@ -151,7 +151,7 @@ function MissionSummaryCard({
 
   if (!mission) {
     return (
-      <div className="bg-panel border border-line-1 rounded-2xl p-8">
+      <div className="bg-panel border border-line-1 rounded-2xl p-6 min-h-[280px] flex flex-col justify-center">
         <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-2">Case File</div>
         <div className="text-base text-ink-1 mb-3">현재 열린 case 없음 — 평시 비중 유지</div>
         <p className="text-[13px] text-ink-3 leading-relaxed mb-5">
@@ -174,7 +174,7 @@ function MissionSummaryCard({
   const target = mission.target_pct ?? (mission.mission_type === "HEDGE" ? 75 : 70);
 
   return (
-    <div className="bg-panel border border-line-1 rounded-2xl p-8 flex flex-col">
+    <div className="bg-panel border border-line-1 rounded-2xl p-6 flex flex-col">
       <div className="flex items-center gap-2 mb-4">
         <MissionTypePill type={mission.mission_type} />
         <StatusPill status={mission.status} />

@@ -9,7 +9,7 @@
  */
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
 import { queryKeys } from "../lib/queries";
@@ -20,6 +20,27 @@ const navItems = [
   { to: "/ask", label: "Investigation", desc: "Supervisor 조사 콘솔" },
   { to: "/missions", label: "Case File", desc: "결정 기록 + 재편" },
 ];
+
+// Prefetch on hover — tab 클릭 전 미리 fetch → tab switch instant.
+// 각 페이지 critical fetch만 (전체 prefetch X — over-fetch 방지).
+function prefetchForRoute(qc: QueryClient, to: string): void {
+  const prefetch = (key: readonly unknown[], fn: () => Promise<unknown>, staleTime = 120_000) =>
+    qc.prefetchQuery({ queryKey: key, queryFn: fn, staleTime });
+  if (to === "/") {
+    prefetch(queryKeys.missionsActive, () => api.missionsActive());
+    prefetch(queryKeys.patternCurrent, () => api.patternCurrent(), 300_000);
+  } else if (to === "/market") {
+    prefetch(queryKeys.patternCurrent, () => api.patternCurrent(), 300_000);
+    prefetch(queryKeys.newsTop(5), () => api.newsTop(5), 300_000);
+    prefetch(queryKeys.opecLatest, () => api.opecLatest(), 3_600_000);
+    prefetch(queryKeys.pricesWide(90), () => api.pricesWide(90), 300_000);
+    prefetch(queryKeys.fxHistory(90), () => api.fxHistory(90), 300_000);
+  } else if (to === "/ask") {
+    prefetch(queryKeys.patternCurrent, () => api.patternCurrent(), 300_000);
+  } else if (to === "/missions") {
+    prefetch(queryKeys.missionsActive, () => api.missionsActive());
+  }
+}
 
 export function Sidebar() {
   const qc = useQueryClient();
@@ -63,6 +84,8 @@ export function Sidebar() {
             key={item.to}
             to={item.to}
             end={item.to === "/"}
+            onMouseEnter={() => prefetchForRoute(qc, item.to)}
+            onFocus={() => prefetchForRoute(qc, item.to)}
             className={({ isActive }) =>
               cn(
                 "block px-3 py-2.5 mb-1 rounded-md transition-colors",

@@ -29,8 +29,8 @@ export function useMissionsActive() {
   return useQuery({
     queryKey: queryKeys.missionsActive,
     queryFn: () => api.missionsActive(),
-    staleTime: 5_000,
-    refetchInterval: 30_000,
+    staleTime: 120_000, // 2분 — tab switch 시 instant render
+    refetchInterval: 60_000, // 1분마다 background refetch (UI block X)
   });
 }
 
@@ -51,8 +51,8 @@ export function useMissionActivity(id: string | undefined, options?: { enabled?:
     queryKey: queryKeys.missionActivity(id || ""),
     queryFn: () => api.missionActivity(id!),
     enabled: !!id && (options?.enabled ?? true),
-    staleTime: 10_000,
-    refetchInterval: 30_000,
+    staleTime: 60_000, // 1분 — manager action 시 mutation hook이 invalidate (실시간성 유지)
+    refetchInterval: 60_000,
   });
 }
 
@@ -60,7 +60,7 @@ export function usePatternCurrent() {
   return useQuery({
     queryKey: queryKeys.patternCurrent,
     queryFn: () => api.patternCurrent(),
-    staleTime: 60_000,
+    staleTime: 300_000, // 5분 — TopBar / Decision Room core, frequent re-render 방지
   });
 }
 
@@ -105,7 +105,7 @@ export function useSignalContribution() {
   return useQuery({
     queryKey: queryKeys.signalContribution,
     queryFn: () => api.signalContribution(),
-    staleTime: 60_000,
+    staleTime: 300_000, // 5분 — daily 갱신이라 자주 fetch X
   });
 }
 
@@ -113,7 +113,7 @@ export function usePatternHistory(days: number) {
   return useQuery({
     queryKey: queryKeys.patternHistory(days),
     queryFn: () => api.patternHistory(days),
-    staleTime: 60_000,
+    staleTime: 600_000, // 10분 — long history는 거의 변동 X
   });
 }
 
@@ -155,7 +155,7 @@ export function useNewsTop(limit: number) {
   return useQuery({
     queryKey: queryKeys.newsTop(limit),
     queryFn: () => api.newsTop(limit),
-    staleTime: 120_000,
+    staleTime: 300_000, // 5분 — GDELT 15분 cron이라 더 자주 fetch X
   });
 }
 
