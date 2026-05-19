@@ -290,7 +290,7 @@ function OspCycleChip() {
 
 function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="mt-20 mb-6 pb-4 border-b border-line-1">
+    <div className="mt-16 mb-6 pb-4 border-b border-line-1">
       <h2 className="font-display text-xl font-semibold text-ink-1 tracking-tight mb-0.5">
         {title}
       </h2>

@@ -71,9 +71,9 @@ const GLOSSARY: Record<string, { label: string; definition: string }> = {
       "Global Database of Events, Language and Tone — 무료 글로벌 뉴스 mention + tone score API. 15분 cron으로 17 query (호르무즈/이란/OPEC 등) 모니터링.",
   },
   CONFIDENCE_SCORE: {
-    label: "AI 자신감",
+    label: "권고 자신감",
     definition:
-      "AI 권고의 자신감 (0~100). 시그널 cross-validation + 최신성 + 구조 일관성 기반. 화면에 항상 노출 (투명성).",
+      "Supervisor 권고의 자신감 (0~100). 시그널 교차검증 + 최신성 + 구조 일관성 기반. 화면에 항상 노출 (투명성).",
   },
 };
 
@@ -183,7 +183,7 @@ export function GlossaryModal({ open, onClose }: GlossaryModalProps) {
         </div>
         <footer className="border-t border-line-1 px-6 py-3 text-xs text-ink-3 leading-relaxed">
           K-Petroleum은 데모용 가상 정유사 · 100% open data · Slack ↔ Apps 5초 sync ·
-          양방향 Mission (위기+기회). <kbd className="px-1.5 py-0.5 ml-1 bg-line-1 rounded text-[10px] font-mono">ESC</kbd> 또는 배경 클릭으로 닫기.
+          양방향 case (위기+기회). <kbd className="px-1.5 py-0.5 ml-1 bg-line-1 rounded text-[10px] font-mono">ESC</kbd> 또는 배경 클릭으로 닫기.
         </footer>
       </div>
     </div>

@@ -152,7 +152,15 @@ export function AgentActivityTimeline({
   const { data, isLoading, isError } = useMissionActivity(missionId);
 
   // Lakebase 미연동 시 events:[] — 의도된 graceful.
-  const all: ActivityEvent[] = data?.events ?? [];
+  const allRaw: ActivityEvent[] = data?.events ?? [];
+  // Hide noise: supervisor:synthesized with no tool calls (e.g., ping/warmup that
+  // returns generic English LLM intro). Keep meaningful synthesized events that
+  // actually orchestrated subagents.
+  const all = allRaw.filter((e) => {
+    if (e.actor !== "supervisor" || e.action !== "synthesized") return true;
+    const toolCount = (e.metadata as { tool_count?: number } | null)?.tool_count;
+    return typeof toolCount === "number" && toolCount > 0;
+  });
   // backend는 occurred_at DESC. timeline은 chronological이 자연 — UI에서 reverse.
   const events = [...all].reverse();
   const display = mode === "compact" ? events.slice(-limit) : events;

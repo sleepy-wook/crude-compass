@@ -97,7 +97,7 @@ export function SimilarPastWidget({ cur }: Props) {
             >
               {formatPct(data.summary.avg_dubai_change_30d_pct, 1)}
             </span>{" "}
-            변동, AI 추천을 따랐다면 평균{" "}
+            변동, Supervisor 권고를 따랐다면 평균{" "}
             <span
               className={`font-semibold tabular-nums ${
                 (data.summary.avg_saving_30d_pct ?? 0) > 0

@@ -18,7 +18,7 @@ const navItems = [
   { to: "/", label: "Decision Room", desc: "오늘 운영 case + Agent" },
   { to: "/market", label: "Market Watch", desc: "가격 · 환율 · 뉴스 근거" },
   { to: "/ask", label: "Investigation", desc: "Supervisor 조사 콘솔" },
-  { to: "/missions", label: "Case File", desc: "결정 기록 + revision" },
+  { to: "/missions", label: "Case File", desc: "결정 기록 + 재편" },
 ];
 
 export function Sidebar() {

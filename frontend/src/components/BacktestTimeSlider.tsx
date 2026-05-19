@@ -34,7 +34,7 @@ export function BacktestTimeSlider() {
         <div>
           <h3 className="font-display text-lg font-semibold text-ink-1">과거 권고 검증</h3>
           <p className="text-xs text-ink-3 mt-0.5">
-            과거 시점에서 AI 권고와 실제 결과를 비교합니다
+            과거 시점에서 Supervisor 권고와 실제 결과를 비교합니다
           </p>
         </div>
         <span className="text-ink-3 text-sm">{expanded ? "접기" : "펼치기"}</span>
@@ -88,7 +88,7 @@ export function BacktestTimeSlider() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-line-1">
                   <div>
                     <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-2">
-                      AI 권고 (그 날)
+                      Supervisor 권고 (그 날)
                     </div>
                     <div className="font-display text-base font-semibold text-ink-1">
                       {current.action_type === "new_mission"

@@ -30,7 +30,7 @@ const EXAMPLES_GENERIC: SampleQuery[] = [
   {
     text: "호르무즈 긴장 누적될 때 평균 가격 반영은?",
     routes: ["genie", "knowledge"],
-    preview: "호르무즈 봉쇄 우려 시기 두바이 평균 +8~12% (30일), Term 비중 75%로 hedge한 케이스 절감 효과 유의",
+    preview: "호르무즈 봉쇄 우려 시기 두바이 평균 +8~12% (30일), Term 비중 75%로 방어한 case 절감 효과 유의",
   },
   {
     text: "OPEC 사우디 최근 공급 추세 알려줘",
@@ -49,7 +49,7 @@ const EXAMPLES_CASE_BOUND: SampleQuery[] = [
   {
     text: "왜 이 case가 열렸지?",
     routes: ["genie", "knowledge", "mission_plan"],
-    preview: "Pattern Score + 핵심 시그널 + structured + document evidence 종합 — Supervisor가 case open 결정한 이유",
+    preview: "위기 강도 + 핵심 시그널 + 구조화 데이터 + 문서 근거 종합 — Supervisor가 case 개시한 이유",
   },
   {
     text: "OPEC 근거만 보여줘 (사우디 공급 + 수요 전망)",
@@ -57,19 +57,19 @@ const EXAMPLES_CASE_BOUND: SampleQuery[] = [
     preview: "Knowledge Assistant가 MOMR PDF에서 사우디 production / demand forecast / market balance citation",
   },
   {
-    text: "structured 데이터와 document evidence가 충돌하나?",
+    text: "구조화 데이터와 문서 근거가 충돌하나?",
     routes: ["genie", "knowledge"],
-    preview: "Genie (가격/재고/환율) vs Knowledge (OPEC 보고 톤) 일치 / 불일치 분석",
+    preview: "Genie (가격/재고/환율) vs Knowledge Assistant (OPEC 보고 톤) 일치 / 불일치 분석",
   },
   {
     text: "유사 과거 사례와 비교해줘",
     routes: ["genie", "mission_plan"],
-    preview: "Pattern Score ±10 zone 7년 backtest analog 4-7건 + 그때 AI 권고 적중률",
+    preview: "위기 강도 ±1 zone 7년 backtest analog 4-7건 + 그때 Supervisor 권고 적중률",
   },
   {
-    text: "approve보다 keep watching이 더 나은 이유는?",
+    text: "지금 채택하기보다 모니터링이 더 나은 이유는?",
     routes: ["mission_plan", "knowledge"],
-    preview: "현재 confidence 자신감 + monitoring 트리거 조건 + 다음 발표 D-N 비교",
+    preview: "현재 confidence + 모니터링 트리거 조건 + 다음 발표 D-N 비교",
   },
   {
     text: "다음 review에서 무엇을 기다리는 중이지?",
@@ -182,7 +182,7 @@ export function AskPage() {
             `현재 위기 점수 ${score.toFixed(0)} (${missionType ?? "관망"} zone).\n` +
             `지난 7년 비슷한 시그널 조합이 ${sim.summary.n}건 발견됨.\n` +
             `평균 30일 후 두바이 가격 변동 ${(sim.summary.avg_dubai_change_30d_pct ?? 0).toFixed(1)}%, ` +
-            `AI 추천 적중률 ${(sim.summary.hit_rate_pct ?? 0).toFixed(0)}%, ` +
+            `Supervisor 권고 적중률 ${(sim.summary.hit_rate_pct ?? 0).toFixed(0)}%, ` +
             `평균 절감 ${(sim.summary.avg_saving_30d_pct ?? 0).toFixed(2)}%.\n\n` +
             `[매니저 질문]\n`;
         }
@@ -246,7 +246,7 @@ export function AskPage() {
               </span>
               {" · "}
               <span className="text-ink-2">
-                Pattern Score {currentCase.pattern_score.toFixed(0)} · 긴급도 {currentCase.urgency} · {currentCase.status}
+                위기 강도 {Math.round(currentCase.pattern_score / 10)}/10 · 긴급도 {currentCase.urgency} · {currentCase.status}
               </span>
             </div>
           </div>
@@ -290,7 +290,7 @@ export function AskPage() {
             className="w-full text-sm p-2 focus:outline-none resize-none placeholder:text-ink-3"
           />
           <div className="flex items-center justify-between mt-1 pt-2 border-t border-line-1">
-            <div className="text-[11px] text-ink-3">자연어 질의는 Multi-Agent를 통해 응답됩니다</div>
+            <div className="text-[11px] text-ink-3">자연어 질의는 Agent Bricks Supervisor가 sub-agent를 라우팅해 응답합니다</div>
             <button
               type="button"
               onClick={() => submit()}
@@ -501,7 +501,7 @@ function ChatTurnView({ turn }: { turn: ChatTurn }) {
         <div className="bg-panel border border-line-1 rounded-lg px-5 py-4">
           <div className="flex items-center gap-2 text-sm text-ink-3">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-crisis-500 animate-pulse" />
-            <span>Multi-Agent가 분석 중...</span>
+            <span>Supervisor가 sub-agent 호출 중...</span>
           </div>
         </div>
       )}

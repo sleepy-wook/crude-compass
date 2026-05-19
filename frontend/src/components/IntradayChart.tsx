@@ -24,8 +24,12 @@ const PAD_R = 12;
 const PAD_T = 12;
 const PAD_B = 24;
 
-function fmtPrice(p: number): string {
-  return `$${p.toFixed(0)}`;
+function fmtPrice(p: number, range: number): string {
+  // Adaptive precision: narrow range needs more decimals to be readable.
+  // 5분 intraday 데이터는 보통 $0.5~$5 폭이라 정수 toFixed(0)이면 모든 tick이
+  // 같은 정수로 collapse돼 보일 위험 (UI/UX agent 발견 — $1/$1/$0/$0 round-off bug).
+  const decimals = range < 1 ? 3 : range < 10 ? 2 : range < 50 ? 1 : 0;
+  return `$${p.toFixed(decimals)}`;
 }
 
 function fmtTime(iso: string): string {
@@ -169,7 +173,7 @@ export function IntradayChart({ hours = 24 }: Props) {
                   fill="#7A8A91"
                   textAnchor="end"
                 >
-                  {fmtPrice(tv)}
+                  {fmtPrice(tv, yMax - yMin)}
                 </text>
               </g>
             );

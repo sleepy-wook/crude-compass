@@ -113,11 +113,11 @@ export function MissionSplitBar({
         )}
       </div>
 
-      {/* AI 권고 (target) */}
+      {/* Supervisor 권고 (target) */}
       <div className="mb-3">
         <div className="flex items-baseline justify-between mb-1.5">
           <div className="text-[11px] uppercase tracking-wider text-ink-3 font-medium">
-            AI 권고 비중
+            Supervisor 권고 비중
           </div>
           <div className="flex items-baseline gap-3 text-[12px]">
             <span className="text-ink-1 font-display font-semibold tabular-nums">
@@ -133,14 +133,14 @@ export function MissionSplitBar({
           <div
             className={`flex items-center justify-end px-2 text-[11px] font-medium text-white tabular-nums ${termAccent}`}
             style={{ width: `${s.termTarget}%` }}
-            title={`AI 권고 Term (장기 계약) ${s.termTarget}%`}
+            title={`Supervisor 권고 Term (장기 계약) ${s.termTarget}%`}
           >
             {s.termTarget >= 15 && `${s.termTarget}%`}
           </div>
           <div
             className={`flex items-center justify-start px-2 text-[11px] font-medium text-white tabular-nums ${spotAccent}`}
             style={{ width: `${s.spotTarget}%` }}
-            title={`AI 권고 Spot (즉시 매입) ${s.spotTarget}%`}
+            title={`Supervisor 권고 Spot (즉시 매입) ${s.spotTarget}%`}
           >
             {s.spotTarget >= 15 && `${s.spotTarget}%`}
           </div>

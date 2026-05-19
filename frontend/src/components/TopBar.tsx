@@ -88,7 +88,7 @@ export function TopBar() {
         <Divider />
 
         {/* Active missions */}
-        <KpiChip label="진행 임무" value={`${activeCount}건`} />
+        <KpiChip label="진행 case" value={`${activeCount}건`} />
 
         <Divider />
 
@@ -111,7 +111,7 @@ export function TopBar() {
             />
             <span>실시간</span>
           </div>
-          <div className="flex items-center gap-1.5" title="Slack에서도 임무 처리 가능">
+          <div className="flex items-center gap-1.5" title="Slack에서도 case 처리 가능">
             <span className="w-1.5 h-1.5 rounded-full bg-opportunity-500" />
             <span>Slack</span>
           </div>

@@ -110,7 +110,7 @@ export function MissionsPage() {
         <div className="flex-1 overflow-y-auto">
           {isLoading && <div className="p-6 text-sm text-ink-3">불러오는 중...</div>}
           {!isLoading && filtered.length === 0 && (
-            <div className="p-6 text-sm text-ink-3">해당 상태의 임무가 없습니다.</div>
+            <div className="p-6 text-sm text-ink-3">해당 상태의 case가 없습니다.</div>
           )}
           {filtered.map((m) => (
             <button
@@ -151,7 +151,7 @@ export function MissionsPage() {
         {/* Slack note */}
         <div className="px-6 py-3 border-t border-line-1 text-[11px] text-ink-3 leading-relaxed bg-line-1/30">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-opportunity-500 mr-1.5 align-middle" />
-          모든 임무는 Slack에서도 채택/거절/방향 전환할 수 있습니다.
+          모든 case는 Slack에서도 채택/거절/방향 전환할 수 있습니다.
         </div>
       </div>
 
@@ -161,7 +161,7 @@ export function MissionsPage() {
           <MissionDetail missionId={selectedId} />
         ) : (
           <div className="h-full flex items-center justify-center text-sm text-ink-3">
-            왼쪽에서 임무를 선택하세요.
+            왼쪽에서 case를 선택하세요.
           </div>
         )}
       </div>
@@ -183,7 +183,7 @@ function MissionDetail({ missionId }: { missionId: string }) {
   const [modifyReason, setModifyReason] = useState("");
 
   if (isLoading) return <div className="p-10 text-sm text-ink-3">불러오는 중...</div>;
-  if (!m) return <div className="p-10 text-sm text-ink-3">임무를 찾을 수 없습니다.</div>;
+  if (!m) return <div className="p-10 text-sm text-ink-3">case를 찾을 수 없습니다.</div>;
 
   const canAct = ["proposed", "active", "on_track", "at_risk"].includes(m.status);
   // baseline은 시나리오 §4 K-Petroleum default (Term 60 / Spot 40)으로 강제.
@@ -218,6 +218,9 @@ function MissionDetail({ missionId }: { missionId: string }) {
 
   return (
     <div className="max-w-3xl px-10 py-10">
+      {/* Page overline — cross-page IA 일관성 (DECISION ROOM / MARKET WATCH / INVESTIGATION / CASE FILE) */}
+      <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-2">Case File</div>
+
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
         <MissionTypePill type={m.mission_type} />
@@ -511,7 +514,7 @@ function MissionDetail({ missionId }: { missionId: string }) {
             매니저 조정 — {m.mission_type === "HEDGE" ? "Term" : "Spot"} 비중
           </div>
           <div className="text-[12px] text-ink-3 mb-4">
-            AI 권고는 {target}%. 매니저 판단으로 조정해서 기록할 수 있습니다.
+            Supervisor 권고는 {target}%. 매니저 판단으로 조정해서 기록할 수 있습니다.
           </div>
 
           <div className="flex items-baseline gap-3 mb-3">
@@ -531,7 +534,7 @@ function MissionDetail({ missionId }: { missionId: string }) {
 
           {modifyTarget != null && modifyTarget !== target && (
             <div className="text-[12px] text-ink-2 mb-3">
-              AI 권고 {target}% → 매니저 조정 {modifyTarget}%{" "}
+              Supervisor 권고 {target}% → 매니저 조정 {modifyTarget}%{" "}
               <span className={modifyTarget < target ? "text-opportunity-700" : "text-crisis-700"}>
                 ({modifyTarget > target ? "+" : ""}
                 {modifyTarget - target}%p)
@@ -542,7 +545,7 @@ function MissionDetail({ missionId }: { missionId: string }) {
           <textarea
             value={modifyReason}
             onChange={(e) => setModifyReason(e.target.value)}
-            placeholder="조정 사유 (선택) — 예: AI 권고보다 보수적으로, OSP 발표 직후 확정 예정"
+            placeholder="조정 사유 (선택) — 예: Supervisor 권고보다 보수적으로, OSP 발표 직후 확정 예정"
             rows={2}
             className="w-full text-sm p-3 border border-line-2 rounded-md focus:outline-none focus:border-ink-3 mb-3 resize-none"
           />
@@ -657,8 +660,8 @@ function DecisionChainPanel({ mission }: { mission: Mission }) {
   // 각 단계 상태 — mission.status에 따라 어디까지 도달했는지 시뮬레이션
   const steps: { label: string; sub: string; state: "done" | "current" | "pending" }[] = [
     {
-      label: "AI 권고 생성",
-      sub: `Mission Plan Agent · ${mission.created_at.slice(0, 10)}`,
+      label: "Supervisor 권고 생성",
+      sub: `Mission Plan (FMA) · ${mission.created_at.slice(0, 10)}`,
       state: "done",
     },
     {

@@ -61,7 +61,7 @@ export function MarketDataPage() {
       {/* Intraday 5분 — Reactive trigger surface */}
       <SoWhat
         actor="Reactive Trigger"
-        text="Brent/WTI/Dubai 5분 spike → case re-evaluation 자동 trigger (Lakebase에 reactive 이벤트 기록)"
+        text="Brent/WTI/Dubai 5분 spike → case 재평가 자동 trigger"
       />
       <IntradayTicker />
       <IntradayChart hours={24} />
@@ -95,7 +95,7 @@ export function MarketDataPage() {
       </div>
 
       {/* Long-term timeline */}
-      <SectionHeader title="Pattern Score 7년 시계열" subtitle="1년 1-2 위기 · 분기 1-2 기회 — current case의 historical 위치" />
+      <SectionHeader title="위기 신호 점수 7년 시계열" subtitle="1년 1-2회 위기 · 분기 1-2회 기회 — 현재 case의 과거 위치" />
       <SoWhat
         actor="weighted_signal (UC Function)"
         text="양방향 시간 감쇠 score 계산 — 90일 window. backtest 75% hit rate 검증된 동일 함수"
@@ -119,7 +119,7 @@ export function MarketDataPage() {
 
 function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="mt-12 mb-4 pb-4 border-b border-line-1">
+    <div className="mt-16 mb-6 pb-4 border-b border-line-1">
       <h2 className="font-display text-xl font-semibold text-ink-1 tracking-tight mb-0.5">
         {title}
       </h2>
