@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
+from typing import Any
 
 from databricks.sdk import WorkspaceClient
 from fastapi import APIRouter, HTTPException
@@ -21,6 +23,86 @@ def _client() -> WorkspaceClient:
         return WorkspaceClient(profile=profile)
     except Exception:
         return WorkspaceClient()
+
+
+@router.post("/setup-agent-activity")
+async def setup_agent_activity_events() -> dict[str, Any]:
+    """One-off: agent_activity_events table 생성 + 권한 grant + 기존 mission backfill.
+
+    Apps SP가 owner 되어 이후 INSERT/SELECT 자유. user (workspace admin)는 missions
+    table owner지만 별도 admin endpoint 없이 자동 setup 위한 1회 path.
+
+    실패할 수 있는 statement (e.g., ALTER, GRANT)는 step-level try/except로 isolation.
+    멱등 (모두 NOT EXISTS 가드).
+    """
+    sql_path = Path(__file__).resolve().parent.parent.parent.parent / "scripts" / "setup_agent_activity_events.sql"
+    if not sql_path.exists():
+        # repo layout 다르면 fallback
+        for candidate in (
+            Path("/app/python/source_code/scripts/setup_agent_activity_events.sql"),
+            Path.cwd() / "scripts" / "setup_agent_activity_events.sql",
+        ):
+            if candidate.exists():
+                sql_path = candidate
+                break
+    if not sql_path.exists():
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "SQL_FILE_NOT_FOUND", "tried": str(sql_path)},
+        )
+
+    sql_text = sql_path.read_text(encoding="utf-8")
+    # Strip line comments + split by ;
+    lines = [ln for ln in sql_text.splitlines() if not ln.strip().startswith("--")]
+    clean = "\n".join(lines)
+    stmts = [s.strip() for s in clean.split(";") if s.strip()]
+
+    results: list[dict[str, Any]] = []
+    try:
+        import asyncio
+        from app.db.lakebase import acquire
+
+        def _run() -> list[dict[str, Any]]:
+            out: list[dict[str, Any]] = []
+            with acquire() as conn:
+                for i, stmt in enumerate(stmts, 1):
+                    preview = stmt.splitlines()[0][:80] if stmt else ""
+                    item: dict[str, Any] = {"idx": i, "preview": preview}
+                    try:
+                        with conn.cursor() as cur:
+                            cur.execute(stmt)
+                            if stmt.lstrip().upper().startswith("SELECT"):
+                                rows = cur.fetchall()
+                                cols = [d.name for d in (cur.description or [])]
+                                item["select_result"] = [
+                                    dict(zip(cols, [str(v) for v in r])) for r in rows[:20]
+                                ]
+                            else:
+                                item["rowcount"] = cur.rowcount
+                        conn.commit()
+                        item["status"] = "ok"
+                    except Exception as e:
+                        item["status"] = "fail"
+                        item["error"] = str(e)
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+                    out.append(item)
+            return out
+
+        results = await asyncio.to_thread(_run)
+    except Exception as e:
+        logger.warning("setup-agent-activity outer fail: %s", e)
+        raise HTTPException(status_code=500, detail={"code": "SETUP_FAIL", "error": str(e)})
+
+    ok_count = sum(1 for r in results if r.get("status") == "ok")
+    return {
+        "total_statements": len(results),
+        "ok": ok_count,
+        "fail": len(results) - ok_count,
+        "results": results,
+    }
 
 
 @router.post("/refresh-curation")
