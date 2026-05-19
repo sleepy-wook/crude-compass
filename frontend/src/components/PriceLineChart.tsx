@@ -9,11 +9,11 @@ import { useMemo } from "react";
 import { usePricesWide } from "../lib/queries";
 
 const VIEW_W = 720;
-const VIEW_H = 200;
+const VIEW_H = 260; // D-2 사용자 요청: 차트 높이 ↑
 const PAD_L = 40;
 const PAD_R = 8;
 const PAD_T = 16;
-const PAD_B = 22;
+const PAD_B = 28;
 
 const COLORS = {
   dubai: "#1B3139",     // ink (primary — 한국 정유사 baseline)
@@ -80,7 +80,6 @@ export function PriceLineChart({ days = 90 }: { days?: number }) {
   const pathWti = buildPath(points, "wti_usd", innerW, innerH, yMin, yMax);
 
   const latest = points[points.length - 1];
-  const first = points[0];
 
   return (
     <section className="mb-8">
@@ -182,28 +181,37 @@ export function PriceLineChart({ days = 90 }: { days?: number }) {
             </text>
           )}
 
-          {/* X axis date labels */}
+          {/* X axis date ticks — 5 points (0/25/50/75/100%) */}
           {points.length > 1 && (
             <>
-              <text
-                x={PAD_L}
-                y={VIEW_H - 6}
-                fontSize="9"
-                fontFamily="JetBrains Mono"
-                fill="#7A8A91"
-              >
-                {first?.trade_date}
-              </text>
-              <text
-                x={PAD_L + innerW}
-                y={VIEW_H - 6}
-                fontSize="9"
-                fontFamily="JetBrains Mono"
-                fill="#7A8A91"
-                textAnchor="end"
-              >
-                {latest?.trade_date}
-              </text>
+              {[0, 0.25, 0.5, 0.75, 1].map((f, i) => {
+                const idx = Math.round(f * (points.length - 1));
+                const tick = points[idx]?.trade_date;
+                if (!tick) return null;
+                const x = PAD_L + f * innerW;
+                return (
+                  <g key={f}>
+                    <line
+                      x1={x}
+                      y1={PAD_T + innerH}
+                      x2={x}
+                      y2={PAD_T + innerH + 3}
+                      stroke="#CFCFC8"
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={x}
+                      y={VIEW_H - 6}
+                      fontSize="9"
+                      fontFamily="JetBrains Mono"
+                      fill="#7A8A91"
+                      textAnchor={i === 0 ? "start" : i === 4 ? "end" : "middle"}
+                    >
+                      {tick.slice(5)}
+                    </text>
+                  </g>
+                );
+              })}
             </>
           )}
         </svg>

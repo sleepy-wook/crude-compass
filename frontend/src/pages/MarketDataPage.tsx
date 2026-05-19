@@ -8,6 +8,7 @@
  * D-2: daily chart 기간 toggle (7/30/90/180일) — 단기 변동 vs 중기 trend 양쪽 검증.
  */
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { TimeHorizonBreakdown } from "../components/TimeHorizonBreakdown";
 import { PatternScoreLine } from "../components/PatternScoreLine";
 import { OpecCitation } from "../components/OpecCitation";
@@ -113,9 +114,17 @@ export function MarketDataPage() {
         actor="Knowledge Assistant"
         text="MOMR PDF: 사우디 공급 / 수요 전망 / market balance. GDELT: 호르무즈·이란 키워드 burst (D-7 leading)"
       />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-3">
         <OpecCitation />
         <NewsTopList limit={5} />
+      </div>
+      <div className="mb-10 text-right">
+        <Link
+          to="/evidence"
+          className="text-[12px] text-ink-2 hover:text-ink-1 underline underline-offset-2 decoration-line-2 hover:decoration-ink-2"
+        >
+          OPEC + 주요 보도 게시판 자세히 보기 →
+        </Link>
       </div>
 
       {/* Long-term timeline */}

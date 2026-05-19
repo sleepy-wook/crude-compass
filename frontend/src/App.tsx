@@ -6,6 +6,8 @@ import { Dashboard } from "./pages/Dashboard";
 import { MarketDataPage } from "./pages/MarketDataPage";
 import { MissionsPage } from "./pages/MissionsPage";
 import { AskPage } from "./pages/AskPage";
+import { EvidenceBoardPage } from "./pages/EvidenceBoardPage";
+import { BacktestPage } from "./pages/BacktestPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,6 +29,9 @@ function App() {
             <Route path="missions" element={<MissionsPage />} />
             <Route path="missions/:id" element={<MissionsPage />} />
             <Route path="ask" element={<AskPage />} />
+            {/* D-2: sub-pages (no sidebar tab — 4탭 IA 유지) */}
+            <Route path="evidence" element={<EvidenceBoardPage />} />
+            <Route path="backtest" element={<BacktestPage />} />
             {/* Legacy redirects */}
             <Route path="what-if" element={<Navigate to="/ask" replace />} />
           </Route>

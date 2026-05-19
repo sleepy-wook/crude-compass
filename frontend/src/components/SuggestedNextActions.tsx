@@ -102,12 +102,18 @@ export function SuggestedNextActions({
     {
       key: "keep_watching",
       label: "Keep Watching",
-      desc: `모니터링 ${baseDays + 7}일로 연장`,
+      desc: "권고 보류 — paused 상태로 모니터링만",
       variant: "neutral",
-      disabled: isTerminated || modifyMut.isPending,
-      loading: modifyMut.isPending,
+      disabled: isTerminated || pivotMut.isPending,
+      loading: pivotMut.isPending,
+      // pivot:pause → status='paused' (mission 자체는 active 안 되지만 시그널 계속 추적)
       handler: () =>
-        modifyMut.mutate({ id, version, duration_days: baseDays + 7 }),
+        pivotMut.mutate({
+          id,
+          version,
+          pivot_action: "pause",
+          reason: "매니저: 모니터링 유지 (수동 보류)",
+        }),
     },
     {
       key: "ask_more",
@@ -120,10 +126,11 @@ export function SuggestedNextActions({
     {
       key: "recheck_later",
       label: "Re-check Later",
-      desc: `${baseDays + 14}일 후 재검토`,
+      desc: `${baseDays + 14}일 후 재검토 (기간 연장)`,
       variant: "neutral",
       disabled: isTerminated || modifyMut.isPending,
       loading: modifyMut.isPending,
+      // modify:duration_days 연장 → status는 그대로 (방어 권고 active 유지)
       handler: () =>
         modifyMut.mutate({ id, version, duration_days: baseDays + 14 }),
     },

@@ -10,7 +10,6 @@ import { useSearchParams, Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import type { SubAgentCall, SupervisorQueryResponse } from "../lib/types";
-import { BacktestTimeSlider } from "../components/BacktestTimeSlider";
 import { useMission, usePatternCurrent } from "../lib/queries";
 
 // 각 sample 질문에 어떤 sub-agent 주로 호출되는지 hint (평가위원/매니저 demo).
@@ -264,17 +263,48 @@ export function AskPage() {
         </div>
       )}
 
-      {/* Chat turns */}
-      {turns.length === 0 && (
-        <EmptyStateGuide examples={examples} onPick={submit} caseBound={!!caseId} />
+      {/* Orchestration diagram chip — always visible at top (collapsible) */}
+      <EmptyStateGuide examples={[]} onPick={() => undefined} caseBound={!!caseId} />
+
+      {/* Chat turns OR empty welcome */}
+      {turns.length === 0 ? (
+        <div className="py-12 text-center">
+          <div className="font-display text-lg text-ink-2 mb-2">
+            {caseId ? "이 case 조사 시작" : "자연어로 시장 시그널 묻기"}
+          </div>
+          <p className="text-[13px] text-ink-3 max-w-md mx-auto leading-relaxed">
+            아래 입력창에 질문을 쓰거나 예시 chip을 누르세요.
+            Supervisor가 자동으로 sub-agent를 라우팅합니다.
+          </p>
+        </div>
+      ) : (
+        turns.map((t, i) => <ChatTurnView key={i} turn={t} />)
       )}
 
-      {turns.map((t, i) => (
-        <ChatTurnView key={i} turn={t} />
-      ))}
+      {/* Sample chips — 채팅방 형식 input 바로 위 (ChatGPT 풍) */}
+      {turns.length === 0 && (
+        <div className="mb-3">
+          <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-2">
+            {caseId ? "이 case에 대한 조사 질문" : "예시 질문"}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {examples.map((ex) => (
+              <button
+                key={ex.text}
+                type="button"
+                onClick={() => submit(ex.text)}
+                className="px-3 py-1.5 text-[12px] text-ink-2 bg-panel border border-line-2 rounded-full hover:border-ink-3 hover:bg-line-1 transition-colors text-left"
+                title={ex.preview}
+              >
+                {ex.text}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
-      {/* Input */}
-      <div className="sticky bottom-4 mt-8">
+      {/* Input — sticky bottom */}
+      <div className="sticky bottom-4 mt-3">
         <div className="bg-panel border border-line-1 rounded-xl shadow-sm p-3">
           <textarea
             value={question}
@@ -303,10 +333,15 @@ export function AskPage() {
         </div>
       </div>
 
-      {/* Backtest slider */}
-      <div className="mt-12">
-        <h2 className="font-display text-lg font-semibold text-ink-1 mb-4">과거 권고 검증</h2>
-        <BacktestTimeSlider />
+      {/* Backtest link — D-2 별도 페이지로 분리 (이전엔 inline collapsible) */}
+      <div className="mt-12 pt-6 border-t border-line-1 text-[12px] text-ink-3 flex items-center justify-between">
+        <span>과거 권고가 어떻게 됐는지 검증하고 싶으면 →</span>
+        <Link
+          to="/backtest"
+          className="text-ink-2 hover:text-ink-1 underline underline-offset-2 decoration-line-2 hover:decoration-ink-2"
+        >
+          과거 권고 검증 페이지 보기 →
+        </Link>
       </div>
 
       <div className="h-20" />
@@ -442,7 +477,8 @@ function EmptyStateGuide({
       </div>
       )}
 
-      {/* Sample chip — hover로 다이어그램 강조, click으로 즉시 실행 */}
+      {/* Sample chip section — examples.length === 0 면 hide (sample은 input 위로 이동) */}
+      {examples.length > 0 && (
       <div className="bg-panel border border-line-1 rounded-xl p-6 mb-6">
         <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-4">
           {caseBound ? "이 case에 대한 조사 질문" : "예시 질문"}
@@ -479,6 +515,7 @@ function EmptyStateGuide({
           ))}
         </div>
       </div>
+      )}
     </>
   );
 }

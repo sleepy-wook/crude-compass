@@ -344,38 +344,37 @@ export function PatternScoreLine({ days = 30, variant = "mini" }: Props) {
             </text>
           )}
 
-          {/* X axis date labels (first / mid / last) */}
+          {/* X axis date ticks — variant별 tick 수 (long=7개 / mini=3개) */}
           {history.length > 1 && (
             <>
-              <text
-                x={PAD_L}
-                y={H - 6}
-                fontSize="9"
-                fontFamily="JetBrains Mono"
-                fill="#7A8A91"
-              >
-                {first?.date.slice(0, 7)}
-              </text>
-              <text
-                x={PAD_L + innerW / 2}
-                y={H - 6}
-                fontSize="9"
-                fontFamily="JetBrains Mono"
-                fill="#7A8A91"
-                textAnchor="middle"
-              >
-                {history[Math.floor(history.length / 2)]?.date.slice(0, 7)}
-              </text>
-              <text
-                x={PAD_L + innerW}
-                y={H - 6}
-                fontSize="9"
-                fontFamily="JetBrains Mono"
-                fill="#7A8A91"
-                textAnchor="end"
-              >
-                {last?.date.slice(0, 7)}
-              </text>
+              {(variant === "long" ? [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1] : [0, 0.5, 1]).map((f, i, arr) => {
+                const idx = Math.round(f * (history.length - 1));
+                const tick = history[idx]?.date;
+                if (!tick) return null;
+                const x = PAD_L + f * innerW;
+                return (
+                  <g key={f}>
+                    <line
+                      x1={x}
+                      y1={PAD_T + innerH}
+                      x2={x}
+                      y2={PAD_T + innerH + 3}
+                      stroke="#CFCFC8"
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={x}
+                      y={H - 6}
+                      fontSize="9"
+                      fontFamily="JetBrains Mono"
+                      fill="#7A8A91"
+                      textAnchor={i === 0 ? "start" : i === arr.length - 1 ? "end" : "middle"}
+                    >
+                      {tick.slice(0, 7)}
+                    </text>
+                  </g>
+                );
+              })}
             </>
           )}
         </svg>
