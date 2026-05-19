@@ -1,7 +1,10 @@
 /**
  * Sidebar — 좌측 nav (Stripe/Linear 풍).
  *
- * 4-tab nav: 오늘 / 시장 데이터 / AI 도우미 / 내 결정 기록
+ * 4-tab IA (codex P0): Decision Room / Market Watch / Investigation / Case File.
+ * Korean track demo이지만 codex narrative (Agent Bricks orchestration) 용어를 label로
+ * 노출해 5-sec 인상에서 "decision room"으로 읽히게 함. desc는 한글로 부연.
+ *
  * 하단 admin 영역: 데이터 갱신 button만 minimal하게 (기술 스택 / source 목록 / glossary cut)
  */
 import { useState } from "react";
@@ -12,10 +15,10 @@ import { api } from "../lib/api";
 import { queryKeys } from "../lib/queries";
 
 const navItems = [
-  { to: "/", label: "오늘", desc: "시장 메모리 + 시그널" },
-  { to: "/market", label: "시장 데이터", desc: "가격 · 환율 · 공급 · 뉴스" },
-  { to: "/ask", label: "AI 도우미", desc: "Multi-Agent" },
-  { to: "/missions", label: "내 결정 기록", desc: "행동 기록" },
+  { to: "/", label: "Decision Room", desc: "오늘 운영 case + Agent" },
+  { to: "/market", label: "Market Watch", desc: "가격 · 환율 · 뉴스 근거" },
+  { to: "/ask", label: "Investigation", desc: "Supervisor 조사 콘솔" },
+  { to: "/missions", label: "Case File", desc: "결정 기록 + revision" },
 ];
 
 export function Sidebar() {

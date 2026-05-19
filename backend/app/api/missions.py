@@ -97,6 +97,33 @@ async def get_mission(mission_id: UUID) -> dict:
     return m.model_dump(mode="json")
 
 
+@router.get("/{mission_id}/activity")
+async def get_mission_activity(mission_id: UUID) -> dict:
+    """Agent Bricks orchestration activity timeline.
+
+    Returns latest 50 events for the mission (occurred_at DESC).
+    Lakebase 미연동 환경에서는 empty list 반환 (graceful).
+    """
+    import asyncio
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    if not getattr(settings, "use_lakebase", False) and __import__("os").getenv("USE_LAKEBASE", "false").lower() != "true":
+        return {"events": []}
+
+    def _read() -> list[dict]:
+        try:
+            from app.db.lakebase import acquire
+            from app.db.repositories import agent_activity as activity_repo
+            with acquire() as conn:
+                return activity_repo.list_for_mission(conn, mission_id)
+        except Exception:
+            return []
+
+    events = await asyncio.to_thread(_read)
+    return {"events": events}
+
+
 # ────────────────────────────────────────────────────────────────────────
 # Confirm / Reject / Pivot / Modify (write — with optimistic concurrency)
 # ────────────────────────────────────────────────────────────────────────

@@ -29,6 +29,7 @@ from app.schemas.mission import (
     SimulationScenario,
     SupplierAllocation,
 )
+from app.db.repositories import agent_activity
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -126,7 +127,13 @@ def _row_to_mission(row: dict[str, Any]) -> Mission:
 # CRUD operations
 # ──────────────────────────────────────────────────────────────────────────
 def insert(conn: psycopg.Connection, mission: Mission) -> Mission:
-    """Insert a new mission. mission_id 는 caller가 생성 (uuid4) 또는 None이면 DB default."""
+    """Insert a new mission. mission_id 는 caller가 생성 (uuid4) 또는 None이면 DB default.
+
+    Agent Bricks 활동 이력도 같은 transaction에 3 event 기록:
+      1. weighted_signal_uc:score_computed  — Pattern Score 계산 (UC Function)
+      2. supervisor:case_opened             — Agent Bricks Supervisor가 case 열기로 결정
+      3. mission_plan_fma:draft_generated   — Mission Plan Agent (FMA) draft 생성
+    """
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
@@ -173,6 +180,35 @@ def insert(conn: psycopg.Connection, mission: Mission) -> Mission:
             },
         )
         row = cur.fetchone()
+
+        # ── Agent Bricks orchestration events (same transaction) ──
+        type_kr = "위험방어" if mission.mission_type == MissionType.HEDGE else "기회포착"
+        # 시간순: score_computed → case_opened → draft_generated (BIGSERIAL id로 ordering 보장)
+        agent_activity.insert_event(
+            conn,
+            mission_id=mission.mission_id,
+            actor="weighted_signal_uc",
+            action="score_computed",
+            result_preview=f"양방향 가중 Pattern Score {mission.pattern_score:.0f} 계산 (90일 window)",
+            metadata={"pattern_score": mission.pattern_score, "urgency": mission.urgency.value},
+        )
+        agent_activity.insert_event(
+            conn,
+            mission_id=mission.mission_id,
+            actor="supervisor",
+            action="case_opened",
+            result_preview=f"{type_kr} case 개시 — Pattern Score {mission.pattern_score:.0f}, 긴급도 {mission.urgency.value}",
+            metadata={"mission_type": mission.mission_type.value, "urgency": mission.urgency.value},
+        )
+        agent_activity.insert_event(
+            conn,
+            mission_id=mission.mission_id,
+            actor="mission_plan_fma",
+            action="draft_generated",
+            result_preview=f"{type_kr} 권고 — {mission.target_pct}% / {mission.duration_days}일",
+            metadata={"target_pct": mission.target_pct, "duration_days": mission.duration_days},
+        )
+
         conn.commit()
     return _row_to_mission(row)
 
@@ -215,8 +251,14 @@ def _update_with_version_check(
     expected_version: int,
     set_clause: str,
     set_params: dict[str, Any],
+    *,
+    activity_event: dict[str, Any] | None = None,
 ) -> Mission | None:
-    """Generic UPDATE with version check + RETURNING."""
+    """Generic UPDATE with version check + RETURNING.
+
+    activity_event: optional dict { actor, action, result_preview, metadata }
+                    UPDATE 성공 시 같은 transaction에 agent_activity 1 event insert.
+    """
     params = {"mission_id": mission_id, "expected_version": expected_version, **set_params}
     sql = f"""
         UPDATE missions
@@ -228,6 +270,15 @@ def _update_with_version_check(
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(sql, params)
         row = cur.fetchone()
+        if row and activity_event:
+            agent_activity.insert_event(
+                conn,
+                mission_id=mission_id,
+                actor=activity_event.get("actor", "manager"),
+                action=activity_event["action"],
+                result_preview=activity_event.get("result_preview"),
+                metadata=activity_event.get("metadata"),
+            )
         conn.commit()
     return _row_to_mission(row) if row else None
 
@@ -246,6 +297,12 @@ def confirm(
                       confirmed_by = %(confirmed_by)s,
                       confirmed_via = %(via)s""",
         set_params={"confirmed_by": confirmed_by, "via": via},
+        activity_event={
+            "actor": "manager",
+            "action": "confirmed",
+            "result_preview": f"매니저 승인 (via {via})",
+            "metadata": {"by": confirmed_by, "via": via},
+        },
     )
 
 
@@ -263,6 +320,12 @@ def reject(
                       confirmed_by = %(confirmed_by)s,
                       confirmed_via = %(via)s""",
         set_params={"confirmed_by": confirmed_by, "via": via},
+        activity_event={
+            "actor": "manager",
+            "action": "rejected",
+            "result_preview": f"매니저 기각 (via {via})",
+            "metadata": {"by": confirmed_by, "via": via},
+        },
     )
 
 
@@ -334,6 +397,24 @@ def pivot(
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(sql, params)
         row = cur.fetchone()
+        if row:
+            # pivot_action에 따라 event 구분: pivoted / paused / aborted / continued
+            if pivot_action == "pivot" and new_pivot:
+                preview = f"매니저 재편 — {new_pivot['from_type']} → {new_pivot['to_type']} ({reason[:80]})"
+            elif pivot_action == "pause":
+                preview = f"매니저 모니터링 보류 ({reason[:80]})"
+            elif pivot_action == "abort":
+                preview = f"매니저 종결 ({reason[:80]})"
+            else:
+                preview = f"매니저 계속 진행 ({reason[:80]})"
+            agent_activity.insert_event(
+                conn,
+                mission_id=mission_id,
+                actor="manager",
+                action=f"{pivot_action}d" if pivot_action in ("pivot", "pause") else pivot_action,
+                result_preview=preview,
+                metadata={"pivot_action": pivot_action, "reason": reason},
+            )
         conn.commit()
     return _row_to_mission(row) if row else None
 
@@ -357,8 +438,22 @@ def modify(
         m = get(conn, mission_id)
         return m if (m and m.version == expected_version) else None
 
+    # modify event preview
+    parts = []
+    if target_pct is not None:
+        parts.append(f"비중 {target_pct}%")
+    if duration_days is not None:
+        parts.append(f"기간 {duration_days}일")
+    preview = "매니저 조정 — " + ", ".join(parts) if parts else "매니저 조정"
+
     return _update_with_version_check(
         conn, mission_id, expected_version,
         set_clause=", ".join(sets),
         set_params=params,
+        activity_event={
+            "actor": "manager",
+            "action": "modified",
+            "result_preview": preview,
+            "metadata": {"target_pct": target_pct, "duration_days": duration_days},
+        },
     )

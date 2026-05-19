@@ -10,6 +10,7 @@ export const queryKeys = {
   missionsActive: ["missions", "active"] as const,
   missionsAll: ["missions", "all"] as const,
   mission: (id: string) => ["missions", id] as const,
+  missionActivity: (id: string) => ["missions", id, "activity"] as const,
   patternCurrent: ["pattern", "current"] as const,
   patternHistory: (days: number) => ["pattern", "history", days] as const,
   backtestResults: ["backtest", "results"] as const,
@@ -38,6 +39,20 @@ export function useMission(id: string | undefined) {
     queryKey: queryKeys.mission(id || ""),
     queryFn: () => api.missionGet(id!),
     enabled: !!id,
+  });
+}
+
+/**
+ * Agent Bricks orchestration activity timeline.
+ * Lakebase `agent_activity_events` table read. Lakebase 미연동 시 events=[].
+ */
+export function useMissionActivity(id: string | undefined, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: queryKeys.missionActivity(id || ""),
+    queryFn: () => api.missionActivity(id!),
+    enabled: !!id && (options?.enabled ?? true),
+    staleTime: 10_000,
+    refetchInterval: 30_000,
   });
 }
 
@@ -163,6 +178,8 @@ export function useMissionConfirm() {
     onSuccess: (m) => {
       qc.invalidateQueries({ queryKey: queryKeys.missionsActive });
       qc.setQueryData(queryKeys.mission(m.mission_id), m);
+      // Agent Bricks activity timeline 즉시 갱신 (Lakebase에 새 event row 기록됨)
+      qc.invalidateQueries({ queryKey: queryKeys.missionActivity(m.mission_id) });
     },
   });
 }
@@ -175,6 +192,8 @@ export function useMissionReject() {
     onSuccess: (m) => {
       qc.invalidateQueries({ queryKey: queryKeys.missionsActive });
       qc.setQueryData(queryKeys.mission(m.mission_id), m);
+      // Agent Bricks activity timeline 즉시 갱신 (Lakebase에 새 event row 기록됨)
+      qc.invalidateQueries({ queryKey: queryKeys.missionActivity(m.mission_id) });
     },
   });
 }
@@ -195,6 +214,8 @@ export function useMissionPivot() {
     onSuccess: (m) => {
       qc.invalidateQueries({ queryKey: queryKeys.missionsActive });
       qc.setQueryData(queryKeys.mission(m.mission_id), m);
+      // Agent Bricks activity timeline 즉시 갱신 (Lakebase에 새 event row 기록됨)
+      qc.invalidateQueries({ queryKey: queryKeys.missionActivity(m.mission_id) });
     },
   });
 }
@@ -216,6 +237,8 @@ export function useMissionModify() {
     onSuccess: (m) => {
       qc.invalidateQueries({ queryKey: queryKeys.missionsActive });
       qc.setQueryData(queryKeys.mission(m.mission_id), m);
+      // Agent Bricks activity timeline 즉시 갱신 (Lakebase에 새 event row 기록됨)
+      qc.invalidateQueries({ queryKey: queryKeys.missionActivity(m.mission_id) });
     },
   });
 }

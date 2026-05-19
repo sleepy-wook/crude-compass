@@ -9,7 +9,7 @@ export function cn(...inputs: ClassValue[]) {
 // ────────────────────────────────────────────────────────────────────
 // Scenario label normalizer — LLM이 schema placeholder를 literal key로
 // 흘리거나 underscore 자연어 라벨로 만들 때 사람이 보기 좋게 변환.
-// MissionHero, MissionsPage detail 둘 다 사용.
+// MissionsPage detail (Case File)에서 사용.
 // ────────────────────────────────────────────────────────────────────
 const SCENARIO_POSITION_LABEL = ["낙관 시나리오", "기본 시나리오", "비관 시나리오"];
 const RAW_KEY_OVERRIDES: Record<string, string> = {
@@ -97,16 +97,22 @@ export function relativeTime(iso: string | null | undefined): string {
   return `${Math.floor(diff / 86400)}일 전`;
 }
 
-/** Mission status → human label */
+/**
+ * Mission status → human label.
+ * codex P0: Mission Status → Case State semantic shift.
+ * - proposed → "검토 대기"  (recommendation 느낌 ↓, case-pending 느낌 ↑)
+ * - pivoted → "재편됨"      (Revision suggested 톤)
+ * - paused → "모니터링"     (Keep Watching framing)
+ */
 export function statusLabel(status: string): string {
   const map: Record<string, string> = {
-    proposed: "제안됨",
+    proposed: "검토 대기",
     active: "진행 중",
     on_track: "정상",
     at_risk: "주의",
-    paused: "일시중지",
-    pivoted: "전환됨",
-    aborted: "중단",
+    paused: "모니터링",
+    pivoted: "재편됨",
+    aborted: "기각",
     completed: "완료",
   };
   return map[status] || status;

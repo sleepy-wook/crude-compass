@@ -98,6 +98,20 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  /** Agent Bricks orchestration activity timeline (Lakebase `agent_activity_events`). */
+  missionActivity: (id: string) =>
+    request<{
+      events: {
+        id: number;
+        mission_id: string | null;
+        occurred_at: string;
+        actor: string;
+        action: string;
+        result_preview: string | null;
+        metadata: Record<string, unknown> | null;
+      }[];
+    }>(`/api/missions/${id}/activity`),
+
   // pattern score
   patternCurrent: () =>
     request<{ current: PatternScoreCurrent | null; history: PatternHistory[] }>(

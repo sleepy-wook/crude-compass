@@ -1,7 +1,7 @@
 # Crude Compass P0 실행 계획 (compact-safe note)
 
-> 날짜: 2026-05-19
-> 목적: codex 4개 문서 (agentic_redesign_review / frontend_restructure_proposal / frontend_component_mapping / frontend_p0_execution_order) 평가 + 우리 코드 base 실제 검토 결과 정리.
+> 날짜: 2026-05-19 (1차 작성) → 2026-05-19 update (Supervisor/endpoint 실 상태 반영)
+> 목적: codex 4개 문서 평가 + 우리 코드 base 실제 검토 + Databricks 4기능 reality check 결과.
 > 다음 대화 compact 후에도 이 파일만 읽으면 즉시 동기화 가능하도록 설계.
 > 참고:
 > - 진단서: `docs/agentic_redesign_review.md`
@@ -9,6 +9,45 @@
 > - 컴포넌트 매핑: `docs/frontend_component_mapping.md`
 > - 실행 순서: `docs/frontend_p0_execution_order.md`
 > - 검증표: `docs/home_validation_checklist.md`
+
+---
+
+## 0. 2026-05-19 update — Databricks 4기능 reality check
+
+### Hackathon 공식 정보 (research agent 확정)
+- **Track 2개** (Social Impact / Business Impact) × 3 언어. "Track 3/4" 오해.
+- **심사 5개 criteria × 각 20%**: Business Applicability / Creativity / UX / **Technical Capability (4기능)** / Data Storytelling
+- **제출물**: 5분 데모 영상 (사실상 유일 deliverable, AngelHack portal 확인 필요)
+- **1등 상금**: USD 4,000 + DAIS 2027 ticket + USD 3,000 training coupon
+
+### Workspace 실 상태 (D-1 확인)
+- **Supervisor Agent ✅ 이미 등록**: `crude-compass-supervisor` (Multi-Agent)
+- **Endpoint URL**: `https://dbc-437c7d62-5826.cloud.databricks.com/serving-endpoints/mas-ba3fbcb5-endpoint/invocations`
+- **3 subagent**:
+  - `Crude Oil Market Analysis` (Genie Space)
+  - `crude-compass-ka` (Knowledge Assistant — OPEC MOMR 2019~2026 / Saudi production / demand forecast / supply-demand balance / OPEC+ compliance / 지정학 risk / 재고/정유 분석)
+  - `mission_plan_advice` (UC Function — `ai_query('databricks-claude-haiku-4-5', concat(...))` Bidirectional decision framework)
+- **Agent Bricks 자산 2개**: Supervisor + KA (사용자 (b) confirm)
+
+### Backend wiring (코드 verify, D-1 deploy 완료)
+- `services/supervisor.py`: Responses API + `databricks_options.return_trace=true` + tools_used 파싱 + `_clean_answer()` 디버깅 흔적 (D-1 00:22 KST log)
+- `api/supervisor.py`: `/query` + `/health` + Genie fallback
+- ENV gate: `SUPERVISOR_ENDPOINT_NAME`
+- **이미 production 수준** — 새로 작성할 backend 코드 없음
+
+### narrative 정직성 검증 (research agent 보고)
+- ❌ ~~"Mission Plan FMA = Agent Bricks"~~ — 부정확. FMA chat completion은 Mosaic AI Model Serving.
+- ✅ **`mission_plan_advice` UC Function** = 동일 로직을 SQL UC Function으로 wrap. Supervisor의 valid subagent type. **narrative 정직**.
+- ✅ Direct path (recommend_now) + Supervisor path (investigation) — 둘 다 명확하고 정직
+
+### 최종 narrative 한 줄 (확정)
+> Databricks **Apps** 위 manager-facing decision room.
+> **Agent Bricks Supervisor** (`crude-compass-supervisor`)가 **Genie** (Crude Oil Market Analysis) + **Knowledge Assistant** (`crude-compass-ka`, OPEC document evidence) + **UC Function** (`mission_plan_advice`, Bidirectional decision advisor) 3개 subagent를 orchestration해 case를 운영하고,
+> **Lakebase**에 case state / approval / monitoring을 기록하면서 human-in-the-loop workflow를 이어간다.
+
+### Agent Bricks Supervisor Agent 사실 정정
+- Supervisor Agent **2026-02-10 GA** (Beta 아님). 심사위원 친숙.
+- 5 subagent type: Genie / Knowledge Assistant / Model Serving / **UC Functions** / MCP servers. UC Function이 valid type.
 
 ---
 
@@ -25,11 +64,11 @@
 - ✅ **Visible text + nav label + StatusPill display + 페이지 헤더만 rename** — 매니저/judge 시각으로 70%+ shift 달성
 - 코드 식별자 (`Mission` interface, `mission_id`, `mission_type`, `/api/missions/*`, `useMissionConfirm`) 모두 그대로
 
-### Dead code 정리 (5분, P0 손쉬운 win)
-- `frontend/src/components/MissionHero.tsx` (572 LOC, import 0)
-- `frontend/src/components/SupervisorChat.tsx` (130 LOC, import 0)
-- `frontend/src/components/OpenDataBadge.tsx` (105 LOC, import 0)
-- 총 807 LOC 삭제 가능. grep 결과 깔끔.
+### Dead code 정리 ✅ 완료 (2026-05-19)
+- ~~`frontend/src/components/MissionHero.tsx`~~ (572 LOC) → 삭제
+- ~~`frontend/src/components/SupervisorChat.tsx`~~ (130 LOC) → 삭제
+- ~~`frontend/src/components/OpenDataBadge.tsx`~~ (105 LOC) → 삭제
+- 총 807 LOC removed. `utils.ts` 안 comment 1줄 정리.
 
 ---
 

@@ -201,10 +201,16 @@ def acquire() -> Iterator[psycopg.Connection]:
 
 
 def migrate_d4() -> bool:
-    """D-4 schema migration — Sub-A/B 새 컬럼 추가.
+    """D-4/D-3 schema migration — Sub-A/B 컬럼 + agent_activity_events table.
 
     Idempotent (IF NOT EXISTS). Lakebase 미연동 환경에서는 silent skip.
     backend startup 시 한 번 호출.
+
+    D-4 (2026-05-15): cycle / supplier_mix / simulation_scenarios
+    D-3 (2026-05-18): delta_vs_previous
+    D-3 (2026-05-19): agent_activity_events — Agent Bricks orchestration timeline persistence
+                       (시나리오: Supervisor / Genie / KA / UC Function / manager / reactive 각 actor
+                        호출/액션을 mission lifecycle 따라 row insert. frontend timeline에서 read)
 
     Returns: True if applied (or already applied), False if Lakebase 미연동.
     """
@@ -220,12 +226,174 @@ def migrate_d4() -> bool:
                 cur.execute(
                     "ALTER TABLE missions ADD COLUMN IF NOT EXISTS simulation_scenarios JSONB NOT NULL DEFAULT '[]'::jsonb"
                 )
-                # D-3: delta_vs_previous (AI Agent 어제 vs 오늘 변동 narrative)
+                # D-3 첫 추가: delta_vs_previous (AI Agent 어제 vs 오늘 변동 narrative)
                 cur.execute(
                     "ALTER TABLE missions ADD COLUMN IF NOT EXISTS delta_vs_previous JSONB"
                 )
+                # D-3 둘째 추가: agent_activity_events
+                # mission_id NULL 허용 (system-wide events, 예: 정기 monitoring trigger)
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS agent_activity_events (
+                        id           BIGSERIAL PRIMARY KEY,
+                        mission_id   UUID NULL,
+                        occurred_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        actor        VARCHAR(64) NOT NULL,
+                        action       VARCHAR(64) NOT NULL,
+                        result_preview TEXT,
+                        metadata     JSONB
+                    )
+                    """
+                )
+                cur.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_agent_activity_mission
+                        ON agent_activity_events(mission_id, occurred_at DESC)
+                    """
+                )
+
+                # ── Backfill: 기존 missions에 대해 누락 event 채우기 (idempotent) ──
+                # 각 event type별 NOT EXISTS 가드로 신규 missions에는 영향 X,
+                # 기존 missions에만 누락 event 보충.
+
+                # 1) weighted_signal_uc:score_computed (created_at - 15s)
+                cur.execute(
+                    """
+                    INSERT INTO agent_activity_events
+                        (mission_id, occurred_at, actor, action, result_preview, metadata)
+                    SELECT
+                        m.mission_id,
+                        m.created_at - interval '15 seconds',
+                        'weighted_signal_uc',
+                        'score_computed',
+                        '양방향 가중 Pattern Score ' || ROUND(m.pattern_score) || ' 계산 (90일 window)',
+                        jsonb_build_object(
+                            'pattern_score', m.pattern_score,
+                            'urgency', m.urgency
+                        )
+                    FROM missions m
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM agent_activity_events e
+                         WHERE e.mission_id = m.mission_id
+                           AND e.actor = 'weighted_signal_uc'
+                           AND e.action = 'score_computed'
+                    )
+                    """
+                )
+
+                # 2) supervisor:case_opened (created_at - 10s)
+                cur.execute(
+                    """
+                    INSERT INTO agent_activity_events
+                        (mission_id, occurred_at, actor, action, result_preview, metadata)
+                    SELECT
+                        m.mission_id,
+                        m.created_at - interval '10 seconds',
+                        'supervisor',
+                        'case_opened',
+                        (CASE WHEN m.mission_type = 'HEDGE' THEN '위험방어' ELSE '기회포착' END)
+                        || ' case 개시 — Pattern Score ' || ROUND(m.pattern_score)
+                        || ', 긴급도 ' || m.urgency,
+                        jsonb_build_object(
+                            'mission_type', m.mission_type,
+                            'urgency', m.urgency
+                        )
+                    FROM missions m
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM agent_activity_events e
+                         WHERE e.mission_id = m.mission_id
+                           AND e.actor = 'supervisor'
+                           AND e.action = 'case_opened'
+                    )
+                    """
+                )
+
+                # 3) mission_plan_fma:draft_generated (created_at - 5s)
+                cur.execute(
+                    """
+                    INSERT INTO agent_activity_events
+                        (mission_id, occurred_at, actor, action, result_preview, metadata)
+                    SELECT
+                        m.mission_id,
+                        m.created_at - interval '5 seconds',
+                        'mission_plan_fma',
+                        'draft_generated',
+                        (CASE WHEN m.mission_type = 'HEDGE' THEN '위험방어' ELSE '기회포착' END)
+                        || ' 권고 — ' || m.target_pct || '% / ' || m.duration_days || '일',
+                        jsonb_build_object(
+                            'target_pct', m.target_pct,
+                            'duration_days', m.duration_days
+                        )
+                    FROM missions m
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM agent_activity_events e
+                         WHERE e.mission_id = m.mission_id
+                           AND e.actor = 'mission_plan_fma'
+                           AND e.action = 'draft_generated'
+                    )
+                    """
+                )
+
+                # 4) manager:confirmed (confirmed_at) — confirmed_at가 있는 mission
+                cur.execute(
+                    """
+                    INSERT INTO agent_activity_events
+                        (mission_id, occurred_at, actor, action, result_preview, metadata)
+                    SELECT
+                        m.mission_id,
+                        m.confirmed_at,
+                        'manager',
+                        'confirmed',
+                        '매니저 승인 (via ' || COALESCE(m.confirmed_via, 'apps') || ')',
+                        jsonb_build_object(
+                            'by', COALESCE(m.confirmed_by, 'unknown'),
+                            'via', COALESCE(m.confirmed_via, 'apps')
+                        )
+                    FROM missions m
+                    WHERE m.confirmed_at IS NOT NULL
+                      AND m.status IN ('active', 'on_track', 'at_risk', 'paused', 'pivoted', 'completed')
+                      AND NOT EXISTS (
+                          SELECT 1 FROM agent_activity_events e
+                           WHERE e.mission_id = m.mission_id
+                             AND e.actor = 'manager'
+                             AND e.action = 'confirmed'
+                      )
+                    """
+                )
+
+                # 5) manager:rejected (completed_at) — aborted mission
+                cur.execute(
+                    """
+                    INSERT INTO agent_activity_events
+                        (mission_id, occurred_at, actor, action, result_preview, metadata)
+                    SELECT
+                        m.mission_id,
+                        m.completed_at,
+                        'manager',
+                        'rejected',
+                        '매니저 기각 (via ' || COALESCE(m.confirmed_via, 'apps') || ')',
+                        jsonb_build_object(
+                            'by', COALESCE(m.confirmed_by, 'unknown'),
+                            'via', COALESCE(m.confirmed_via, 'apps')
+                        )
+                    FROM missions m
+                    WHERE m.completed_at IS NOT NULL
+                      AND m.status = 'aborted'
+                      AND NOT EXISTS (
+                          SELECT 1 FROM agent_activity_events e
+                           WHERE e.mission_id = m.mission_id
+                             AND e.actor = 'manager'
+                             AND e.action = 'rejected'
+                      )
+                    """
+                )
+
             conn.commit()
-        logger.info("Lakebase migrate_d4 applied (cycle + supplier_mix + simulation_scenarios + delta_vs_previous)")
+        logger.info(
+            "Lakebase migrate_d4 applied "
+            "(cycle + supplier_mix + simulation_scenarios + delta_vs_previous "
+            "+ agent_activity_events + backfill)"
+        )
         return True
     except Exception as e:
         logger.warning("Lakebase migrate_d4 skipped: %s", e)

@@ -150,6 +150,35 @@ export interface Mission {
 **Response 200**: `Mission`
 **Response 404**: `{ error: { code: "MISSION_NOT_FOUND" } }`
 
+### 2.2b `GET /api/missions/{mission_id}/activity`
+Agent Bricks orchestration activity timeline (Lakebase `agent_activity_events` table).
+
+해당 mission의 lifecycle 동안 발생한 agent activity event 50건 (최신순).
+
+**Event source paths**:
+- mission create → `weighted_signal_uc:score_computed` + `supervisor:case_opened` + `mission_plan_fma:draft_generated` (3 events, atomic in INSERT transaction)
+- confirm / reject / modify / pivot / pause / abort → `manager:<action>` (1 event per call)
+- POST /api/supervisor/query with mission_id → 각 sub-agent `<actor>:invoked` + 최종 `supervisor:synthesized`
+
+**Response 200**:
+```json
+{
+  "events": [
+    {
+      "id": 12,
+      "mission_id": "uuid",
+      "occurred_at": "2026-05-19T08:15:00+00:00",
+      "actor": "supervisor" | "genie" | "knowledge_assistant" | "mission_plan_fma" | "mission_plan_uc" | "weighted_signal_uc" | "manager" | "reactive",
+      "action": "case_opened" | "score_computed" | "draft_generated" | "confirmed" | "rejected" | "modified" | "pivoted" | "paused" | "aborted" | "invoked" | "synthesized" | "trigger_fired",
+      "result_preview": "위험방어 case 개시 — Pattern Score 82, 긴급도 urgent",
+      "metadata": { "...": "..." }
+    }
+  ]
+}
+```
+
+**Response 200 (Lakebase 미연동 시)**: `{ "events": [] }`
+
 ### 2.3 `POST /api/missions/{mission_id}/confirm`
 매니저가 proposed mission을 active로 전환.
 

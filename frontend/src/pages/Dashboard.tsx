@@ -17,6 +17,8 @@ import { Bidirectional3Zone } from "../components/Bidirectional3Zone";
 import { SimilarPastWidget } from "../components/SimilarPastWidget";
 import { MissionSplitBar } from "../components/MissionSplitBar";
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
+import { AgentActivityTimeline } from "../components/AgentActivityTimeline";
+import { SuggestedNextActions } from "../components/SuggestedNextActions";
 import type { Mission } from "../lib/types";
 
 export function Dashboard() {
@@ -59,9 +61,9 @@ export function Dashboard() {
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <header className="mb-8 flex items-baseline justify-between flex-wrap gap-3">
         <div>
-          <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">오늘의 결정</div>
+          <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">Decision Room</div>
           <h1 className="font-display text-[28px] md:text-[32px] font-semibold tracking-tight text-ink-1 leading-tight">
-            원유 조달 의사결정 코파일럿
+            오늘의 결정실 — 원유 조달 코파일럿
           </h1>
         </div>
         <OspCycleChip />
@@ -94,6 +96,27 @@ export function Dashboard() {
           isLoading={pattern.isLoading || missions.isLoading}
         />
       </div>
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {/* AGENT BRICKS 활동 — Supervisor orchestration timeline       */}
+      {/* (Lakebase agent_activity_events) — codex P0 핵심 narrative   */}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {topMission && (
+        <>
+          <SectionHeader
+            title="Agent Bricks 활동"
+            subtitle={`Supervisor · Genie · Knowledge Assistant · Mission Plan — 현재 ${
+              topMission.status === "proposed" ? "검토 대기" : "진행 중"
+            } case의 실시간 활동 기록`}
+          />
+          <AgentActivityTimeline
+            missionId={topMission.mission_id}
+            mode="compact"
+            limit={6}
+            showHeader={false}
+          />
+        </>
+      )}
 
       <div className="h-12" />
     </div>
@@ -129,17 +152,17 @@ function MissionSummaryCard({
   if (!mission) {
     return (
       <div className="bg-panel border border-line-1 rounded-2xl p-8">
-        <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-2">매니저 결정 기록</div>
-        <div className="text-base text-ink-1 mb-3">현재 AI 권고 없음 — 평시 비중 유지</div>
+        <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-2">Case File</div>
+        <div className="text-base text-ink-1 mb-3">현재 열린 case 없음 — 평시 비중 유지</div>
         <p className="text-[13px] text-ink-3 leading-relaxed mb-5">
-          시그널 조합이 평시 임계 안에 있어 별도 권고를 생성하지 않았습니다. 매니저 결정 기록은
-          별도 페이지에서 확인할 수 있습니다.
+          시그널 조합이 평시 임계 안이라 Supervisor가 case를 열지 않았습니다. 과거 case 기록은
+          Case File에서 확인할 수 있습니다.
         </p>
         <Link
           to="/missions"
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-1 hover:text-ink-2 transition-colors"
         >
-          내 결정 기록 보기 <span aria-hidden>→</span>
+          Case File 보기 <span aria-hidden>→</span>
         </Link>
       </div>
     );
@@ -161,7 +184,7 @@ function MissionSummaryCard({
           </span>
         )}
         <span className="ml-auto text-[10px] text-ink-3">
-          {isProposed ? "AI 권고 · 검토 대기" : "진행 중"}
+          {isProposed ? "Supervisor 권고 · 검토 대기" : "진행 중"}
         </span>
       </div>
 
@@ -194,12 +217,17 @@ function MissionSummaryCard({
         <MiniStat label="시뮬레이션" value={`${Object.keys(mission.simulation_roi || {}).length}건`} />
       </div>
 
+      {/* 매니저의 다음 행동 — codex P0 SuggestedNextActions (6 agentic options) */}
+      <div className="mb-5">
+        <SuggestedNextActions mission={mission} compact />
+      </div>
+
       <div className="mt-auto">
         <Link
           to={`/missions/${mission.mission_id}`}
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-1 hover:text-ink-2 transition-colors"
         >
-          내 결정으로 기록하기 <span aria-hidden>→</span>
+          상세 보기 (Case File) <span aria-hidden>→</span>
         </Link>
       </div>
     </div>

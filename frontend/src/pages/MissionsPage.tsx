@@ -17,6 +17,8 @@ import {
 } from "../lib/queries";
 import { MissionSplitBar } from "../components/MissionSplitBar";
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
+import { AgentActivityTimeline } from "../components/AgentActivityTimeline";
+import { SuggestedNextActions } from "../components/SuggestedNextActions";
 import type { Mission } from "../lib/types";
 import {
   formatDate,
@@ -74,8 +76,8 @@ export function MissionsPage() {
       <div className="w-[380px] border-r border-line-1 flex flex-col">
         {/* Page header */}
         <div className="px-6 py-5 border-b border-line-1">
-          <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">내 결정</div>
-          <h1 className="font-display text-xl font-semibold text-ink-1 mb-3">매니저 결정 기록</h1>
+          <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">Case File</div>
+          <h1 className="font-display text-xl font-semibold text-ink-1 mb-3">결정 케이스 기록</h1>
           {/* Filter tabs */}
           <div className="flex gap-1 text-[12px]">
             {(["all", "proposed", "active"] as Filter[]).map((f) => (
@@ -441,6 +443,13 @@ function MissionDetail({ missionId }: { missionId: string }) {
 
       {/* 의사결정 chain — AI 권고가 단순 1-click이 아닌 회사 결정 흐름의 input임을 명시 */}
       <DecisionChainPanel mission={m} />
+
+      {/* 매니저의 다음 행동 — codex P0 SuggestedNextActions (6 agentic options) */}
+      <SuggestedNextActions mission={m} />
+
+      {/* Agent Bricks 활동 timeline (Lakebase agent_activity_events 실 기록) — codex P0 */}
+      <AgentActivityTimeline missionId={m.mission_id} mode="full" />
+
 
       {/* Actions */}
       {canAct && !showPivot && !showModify && (
