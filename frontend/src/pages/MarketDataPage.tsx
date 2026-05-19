@@ -1,8 +1,9 @@
 /**
- * MarketDataPage — /market
+ * MarketDataPage — /market (Market Watch)
  *
- * 시장 데이터 종합: 가격 · 환율 · 공급 · 뉴스 + 시그널 분석 + 장기 시계열.
- * Dashboard에서 옮긴 차트/breakdown 컴포넌트를 한 곳에 모음.
+ * codex P0: data dashboard → Agent Bricks reasoning evidence board.
+ * 각 chart 위에 "So what for current case?" sub-label 부착 — 단순 차트 전시가 아닌
+ * Supervisor / Genie / Knowledge Assistant가 참조한 evidence 검증 surface로 reframe.
  */
 import { TimeHorizonBreakdown } from "../components/TimeHorizonBreakdown";
 import { PatternScoreLine } from "../components/PatternScoreLine";
@@ -35,10 +36,14 @@ export function MarketDataPage() {
     <div className="max-w-7xl mx-auto px-8 py-10">
       <header className="mb-8 flex items-baseline justify-between flex-wrap gap-3">
         <div>
-          <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">시장 데이터</div>
+          <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">Market Watch</div>
           <h1 className="font-display text-[28px] md:text-[32px] font-semibold tracking-tight text-ink-1 leading-tight">
-            가격 · 환율 · 공급 · 뉴스
+            Agent Bricks 근거판 — 현재 case 검증
           </h1>
+          <p className="text-[13px] text-ink-3 mt-2 leading-relaxed">
+            Supervisor가 참조한 원천 데이터. Genie · Knowledge Assistant · UC Function이 어떤 evidence를
+            본 후 case를 운영하는지 검증할 수 있는 surface.
+          </p>
         </div>
         {/* 종합 한 줄 — 카드 X, 헤더 우측 inline */}
         <div className="text-[12px] text-ink-2 flex items-center gap-2">
@@ -53,30 +58,58 @@ export function MarketDataPage() {
         </div>
       </header>
 
-      {/* Intraday 5분 — ticker + chart 통합 한 묶음 */}
+      {/* Intraday 5분 — Reactive trigger surface */}
+      <SoWhat
+        actor="Reactive Trigger"
+        text="Brent/WTI/Dubai 5분 spike → case re-evaluation 자동 trigger (Lakebase에 reactive 이벤트 기록)"
+      />
       <IntradayTicker />
       <IntradayChart hours={24} />
 
-      {/* Price + FX (daily) */}
+      {/* Price + FX (daily) — Genie evidence */}
+      <SectionHeader
+        title="Structured market evidence"
+        subtitle="Genie가 참조하는 구조화 데이터 — 가격 추세 + 환율 비용 압력"
+      />
+      <SoWhat
+        actor="Genie"
+        text="가격 trend (90일) + USD/KRW 환율 → Mission Plan UC Function의 target_pct 계산 input"
+      />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <PriceLineChart days={90} />
         <FxLineChart days={90} />
       </div>
 
-      {/* OPEC + News */}
+      {/* OPEC + News — Knowledge Assistant + GDELT evidence */}
+      <SectionHeader
+        title="Document & event evidence"
+        subtitle="Knowledge Assistant (OPEC MOMR PDF) + GDELT 키워드 burst (leading signal)"
+      />
+      <SoWhat
+        actor="Knowledge Assistant"
+        text="MOMR PDF: 사우디 공급 / 수요 전망 / market balance. GDELT: 호르무즈·이란 키워드 burst (D-7 leading)"
+      />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
         <OpecCitation />
         <NewsTopList limit={5} />
       </div>
 
       {/* Long-term timeline */}
-      <SectionHeader title="6년 시계열" subtitle="1년 1-2 위기 · 분기 1-2 기회" />
+      <SectionHeader title="Pattern Score 7년 시계열" subtitle="1년 1-2 위기 · 분기 1-2 기회 — current case의 historical 위치" />
+      <SoWhat
+        actor="weighted_signal (UC Function)"
+        text="양방향 시간 감쇠 score 계산 — 90일 window. backtest 75% hit rate 검증된 동일 함수"
+      />
       <div className="mb-10">
         <PatternScoreLine days={2200} variant="long" />
       </div>
 
       {/* Time-horizon breakdown */}
-      <SectionHeader title="시간 지평별 시그널" subtitle="선행 · 구조 · 확인" />
+      <SectionHeader title="시간 지평별 시그널" subtitle="선행 (D-7) · 구조 (D-30) · 확인 (D-1)" />
+      <SoWhat
+        actor="Supervisor"
+        text="3개 lead time category 통합 — leading + structural + fundamentals 일치할 때 confidence ↑"
+      />
       <TimeHorizonBreakdown />
 
       <div className="h-20" />
@@ -86,11 +119,23 @@ export function MarketDataPage() {
 
 function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="mt-12 mb-6 pb-4 border-b border-line-1">
+    <div className="mt-12 mb-4 pb-4 border-b border-line-1">
       <h2 className="font-display text-xl font-semibold text-ink-1 tracking-tight mb-0.5">
         {title}
       </h2>
       <p className="text-xs text-ink-3">{subtitle}</p>
+    </div>
+  );
+}
+
+/** "So what for current case?" — 각 section의 reasoning relevance 1줄. */
+function SoWhat({ actor, text }: { actor: string; text: string }) {
+  return (
+    <div className="mb-3 px-3 py-2 rounded-md bg-line-1/30 border-l-2 border-ink-3 flex items-baseline gap-2 flex-wrap">
+      <span className="text-[10px] uppercase tracking-wider text-ink-3 font-medium shrink-0">
+        {actor} 참조
+      </span>
+      <span className="text-[12px] text-ink-2 leading-snug">{text}</span>
     </div>
   );
 }
