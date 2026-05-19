@@ -5,12 +5,13 @@
  * 자연어 질의 → Supervisor → 3 sub-agent → 응답 trace.
  * 하단 collapsible: 과거 권고 검증 (Backtest slider).
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useSearchParams, Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import type { SubAgentCall, SupervisorQueryResponse } from "../lib/types";
 import { BacktestTimeSlider } from "../components/BacktestTimeSlider";
-import { usePatternCurrent } from "../lib/queries";
+import { useMission, usePatternCurrent } from "../lib/queries";
 
 // 각 sample 질문에 어떤 sub-agent 주로 호출되는지 hint (평가위원/매니저 demo).
 interface SampleQuery {
@@ -19,7 +20,8 @@ interface SampleQuery {
   preview: string; // cached one-line example response
 }
 
-const EXAMPLES: SampleQuery[] = [
+// 일반 (case_id 없음) 모드 — 시장 전반 조사 질문
+const EXAMPLES_GENERIC: SampleQuery[] = [
   {
     text: "지금 같은 시장 상황은 과거에 어떻게 됐어?",
     routes: ["genie", "mission_plan"],
@@ -39,6 +41,40 @@ const EXAMPLES: SampleQuery[] = [
     text: "지금 추세에서 30일 후 가격 예측은?",
     routes: ["mission_plan", "genie"],
     preview: "위기 강도 10/10 + 호르무즈 신호 누적 → Brent 130 시나리오 580억 절감 가능 (보수적)",
+  },
+];
+
+// case_id 있을 때 — codex docs Investigation 8.3 case-bound 조사 질문 set
+const EXAMPLES_CASE_BOUND: SampleQuery[] = [
+  {
+    text: "왜 이 case가 열렸지?",
+    routes: ["genie", "knowledge", "mission_plan"],
+    preview: "Pattern Score + 핵심 시그널 + structured + document evidence 종합 — Supervisor가 case open 결정한 이유",
+  },
+  {
+    text: "OPEC 근거만 보여줘 (사우디 공급 + 수요 전망)",
+    routes: ["knowledge"],
+    preview: "Knowledge Assistant가 MOMR PDF에서 사우디 production / demand forecast / market balance citation",
+  },
+  {
+    text: "structured 데이터와 document evidence가 충돌하나?",
+    routes: ["genie", "knowledge"],
+    preview: "Genie (가격/재고/환율) vs Knowledge (OPEC 보고 톤) 일치 / 불일치 분석",
+  },
+  {
+    text: "유사 과거 사례와 비교해줘",
+    routes: ["genie", "mission_plan"],
+    preview: "Pattern Score ±10 zone 7년 backtest analog 4-7건 + 그때 AI 권고 적중률",
+  },
+  {
+    text: "approve보다 keep watching이 더 나은 이유는?",
+    routes: ["mission_plan", "knowledge"],
+    preview: "현재 confidence 자신감 + monitoring 트리거 조건 + 다음 발표 D-N 비교",
+  },
+  {
+    text: "다음 review에서 무엇을 기다리는 중이지?",
+    routes: ["knowledge", "genie"],
+    preview: "다음 OPEC MOMR / EIA 주간 재고 / Aramco OSP 발표 일정 + 그게 case 결정에 미치는 영향",
   },
 ];
 
@@ -79,9 +115,21 @@ export function AskPage() {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const pattern = usePatternCurrent();
 
+  // URL `?case_id=...` — case-bound Investigation 모드
+  const [searchParams] = useSearchParams();
+  const caseId = searchParams.get("case_id") ?? undefined;
+  const caseQuery = useMission(caseId);
+  const currentCase = caseQuery.data ?? null;
+
+  // case_id 있으면 case-bound EXAMPLES, 없으면 generic
+  const examples = useMemo(
+    () => (caseId ? EXAMPLES_CASE_BOUND : EXAMPLES_GENERIC),
+    [caseId],
+  );
+
   const mut = useMutation({
     mutationFn: ({ enriched }: { original: string; enriched: string }) =>
-      api.supervisorQuery(enriched),
+      api.supervisorQuery(enriched, caseId),  // caseId → agent_activity_events 연결
     onSuccess: (data, { original }) => {
       setTurns((prev) => updateTurn(prev, original, { response: data, pending: false, error: false }));
     },
@@ -143,7 +191,20 @@ export function AskPage() {
       }
     }
 
-    const enriched = contextPrefix + q;
+    // case-bound 모드면 case context도 prefix에 주입 (Supervisor가 어느 case인지 인지)
+    let caseContextPrefix = "";
+    if (currentCase) {
+      const typeKr = currentCase.mission_type === "HEDGE" ? "위험방어" : "기회포착";
+      caseContextPrefix =
+        `[현재 조사 중인 case]\n` +
+        `mission_id: ${currentCase.mission_id}\n` +
+        `direction: ${typeKr} (${currentCase.mission_type})\n` +
+        `Pattern Score: ${currentCase.pattern_score.toFixed(0)} · 긴급도 ${currentCase.urgency}\n` +
+        `권고: target ${currentCase.target_pct}% / ${currentCase.duration_days}일\n` +
+        `상태: ${currentCase.status}\n\n`;
+    }
+
+    const enriched = caseContextPrefix + contextPrefix + q;
 
     setTurns((prev) => [
       ...prev,
@@ -164,15 +225,48 @@ export function AskPage() {
     <div className="max-w-4xl mx-auto px-8 py-10">
       {/* Page intro */}
       <header className="mb-8">
-        <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">AI에게 묻기</div>
+        <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">Investigation</div>
         <h1 className="font-display text-[28px] md:text-[32px] font-semibold tracking-tight text-ink-1 leading-tight">
-          Multi-Agent에 자연어로 질문
+          {currentCase ? "이 case 조사" : "Agent Bricks Supervisor 조사 콘솔"}
         </h1>
+        <p className="text-[13px] text-ink-3 mt-1.5 leading-relaxed">
+          Supervisor가 Genie (Crude Oil Market) · Knowledge Assistant (OPEC MOMR) · mission_plan_advice (UC Function)를
+          자동 라우팅. 응답 + 호출된 tool trace를 Lakebase activity에 기록.
+        </p>
       </header>
+
+      {/* Case context badge — case-bound mode */}
+      {caseId && currentCase && (
+        <div className="mb-6 px-4 py-3 rounded-lg bg-line-1/40 border border-line-2 flex items-baseline justify-between flex-wrap gap-2">
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-0.5">현재 조사 중 case</div>
+            <div className="text-[13px] text-ink-1">
+              <span className="font-medium">
+                {currentCase.mission_type === "HEDGE" ? "위험방어" : "기회포착"}
+              </span>
+              {" · "}
+              <span className="text-ink-2">
+                Pattern Score {currentCase.pattern_score.toFixed(0)} · 긴급도 {currentCase.urgency} · {currentCase.status}
+              </span>
+            </div>
+          </div>
+          <Link
+            to={`/missions/${currentCase.mission_id}`}
+            className="text-[11px] text-ink-2 hover:text-ink-1"
+          >
+            Case File로 이동 →
+          </Link>
+        </div>
+      )}
+      {caseId && !currentCase && !caseQuery.isLoading && (
+        <div className="mb-6 px-4 py-3 rounded-lg bg-crisis-50 border border-crisis-100 text-[12px] text-crisis-700">
+          case_id={caseId} 를 찾을 수 없습니다 — 일반 조사 모드로 진행됩니다.
+        </div>
+      )}
 
       {/* Chat turns */}
       {turns.length === 0 && (
-        <EmptyStateGuide examples={EXAMPLES} onPick={submit} />
+        <EmptyStateGuide examples={examples} onPick={submit} caseBound={!!caseId} />
       )}
 
       {turns.map((t, i) => (
@@ -234,30 +328,32 @@ const AGENT_META: Record<
 > = {
   genie: {
     name: "Genie",
-    role: "데이터 조회 (SQL)",
-    source: "Unity Catalog · gold/silver tables",
+    role: "structured market specialist",
+    source: "Crude Oil Market Analysis · gold/silver UC tables",
     icon: "▤",
   },
   knowledge: {
-    name: "Knowledge",
-    role: "뉴스·MOMR 검색",
-    source: "GDELT + OPEC MOMR PDF + bronze.news",
+    name: "Knowledge Assistant",
+    role: "document evidence agent",
+    source: "crude-compass-ka · OPEC MOMR PDF 2019~2026",
     icon: "✦",
   },
   mission_plan: {
     name: "Mission Plan",
-    role: "권고 산출 (FMA)",
-    source: "Claude Haiku 4.5 · target_pct + simulation",
-    icon: "◆",
+    role: "decision advisor (UC Function)",
+    source: "mission_plan_advice · ai_query(claude-haiku-4-5)",
+    icon: "◇",
   },
 };
 
 function EmptyStateGuide({
   examples,
   onPick,
+  caseBound = false,
 }: {
   examples: SampleQuery[];
   onPick: (q: string) => void;
+  caseBound?: boolean;
 }) {
   const [hoveredRoutes, setHoveredRoutes] = useState<AgentKey[] | null>(null);
 
@@ -266,7 +362,7 @@ function EmptyStateGuide({
       {/* Multi-Agent flow diagram — hover/active routes 강조 */}
       <div className="bg-panel border border-line-1 rounded-xl p-6 mb-6">
         <div className="flex items-baseline justify-between mb-4">
-          <div className="text-[11px] uppercase tracking-wider text-ink-3">Multi-Agent 흐름</div>
+          <div className="text-[11px] uppercase tracking-wider text-ink-3">Agent Bricks Supervisor orchestration</div>
           <span className="text-[10px] text-ink-3">예시 hover로 routing 확인</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-[110px_24px_1fr] gap-3 md:gap-4 items-stretch">
@@ -331,7 +427,9 @@ function EmptyStateGuide({
 
       {/* Sample chip — hover로 다이어그램 강조, click으로 즉시 실행 */}
       <div className="bg-panel border border-line-1 rounded-xl p-6 mb-6">
-        <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-4">예시 질문</div>
+        <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-4">
+          {caseBound ? "이 case에 대한 조사 질문" : "예시 질문"}
+        </div>
         <div className="space-y-2.5">
           {examples.map((ex) => (
             <button

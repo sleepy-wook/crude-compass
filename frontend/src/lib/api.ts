@@ -224,11 +224,12 @@ export const api = {
       body: JSON.stringify({ question, conversation_id: conversationId ?? null }),
     }),
 
-  // Agent Bricks Supervisor Agent — Multi-Agent orchestration (Genie + KA + FMA Mission Plan)
-  supervisorQuery: (question: string) =>
+  // Agent Bricks Supervisor Agent — Multi-Agent orchestration (Genie + KA + UC Function mission_plan_advice)
+  // missionId 전달 시 agent_activity_events에 그 case의 tools_used + synthesized 기록.
+  supervisorQuery: (question: string, missionId?: string) =>
     request<SupervisorQueryResponse>("/api/supervisor/query", {
       method: "POST",
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({ question, mission_id: missionId }),
     }),
 
   // Mission Plan Agent — '지금 새 추천 생성' demo wrapper
