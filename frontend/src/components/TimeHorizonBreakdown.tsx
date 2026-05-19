@@ -79,10 +79,13 @@ export function TimeHorizonBreakdown() {
     <section className="bg-panel border border-line-1 rounded-xl p-6">
       <div className="mb-5">
         <h3 className="font-display text-base font-semibold text-ink-1">
-          이번 권고의 시간 지평별 근거
+          시그널은 언제 미리 알 수 있는가
         </h3>
-        <p className="text-[11px] text-ink-3 mt-0.5">
-          데이터 소스마다 시장 반영까지 걸리는 시간이 다릅니다. 단일 적중률이 아닌 시간 지평별 종합 신호.
+        <p className="text-[12px] text-ink-2 mt-1 leading-relaxed">
+          가격이 움직이기 <span className="font-medium text-crisis-700">7일 전</span>에 잡히는 시그널 (선행),
+          <span className="font-medium"> 30일 전</span> 구조적 변화 (구조),
+          <span className="font-medium text-opportunity-700"> 1일 후</span> 실제 수치 검증 (확인) —
+          세 시간 지평이 모두 같은 방향을 가리킬 때 Supervisor 자신감이 가장 높습니다.
         </p>
       </div>
 

@@ -3,3 +3,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 드래그 선택 색 — Databricks 기본 주황 vs Crude Compass 톤 매치
+   inkdotcolor token 사용 → 차분한 청록/그레이로 통일 */
+::selection {
+  background: rgba(27, 49, 57, 0.18);
+  color: #1B3139;
+}
+::-moz-selection {
+  background: rgba(27, 49, 57, 0.18);
+  color: #1B3139;
+}

@@ -212,9 +212,18 @@ function MissionSummaryCard({
         <MiniStat
           label="위기 강도"
           value={`${Math.round(mission.pattern_score / 10)}/10`}
+          hint="양방향 가중 Pattern Score (0~100) ÷ 10 — Supervisor가 case open 결정한 1차 지표"
         />
-        <MiniStat label="기간" value={`${mission.duration_days}일`} />
-        <MiniStat label="시뮬레이션" value={`${Object.keys(mission.simulation_roi || {}).length}건`} />
+        <MiniStat
+          label="기간"
+          value={`${mission.duration_days}일`}
+          hint="Supervisor가 권고하는 비중 유지 기간 — 다음 review trigger까지"
+        />
+        <MiniStat
+          label="시뮬레이션"
+          value={`${Object.keys(mission.simulation_roi || {}).length}건`}
+          hint="낙관 / 기본 / 비관 시나리오별 절감·손실 추정 (Brent 가격대별 ROI). Case File에서 detail."
+        />
       </div>
 
       {/* 매니저의 다음 행동 — codex P0 SuggestedNextActions (6 agentic options) */}
@@ -234,10 +243,13 @@ function MissionSummaryCard({
   );
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
+function MiniStat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div>
-      <div className="text-[10px] uppercase tracking-widest text-ink-3 mb-1">{label}</div>
+    <div title={hint} className={hint ? "cursor-help" : undefined}>
+      <div className="text-[10px] uppercase tracking-widest text-ink-3 mb-1 flex items-center gap-1">
+        {label}
+        {hint && <span className="text-ink-3/60 text-[9px]" aria-hidden>ⓘ</span>}
+      </div>
       <div className="font-display text-lg font-semibold text-ink-1 tabular-nums">{value}</div>
     </div>
   );

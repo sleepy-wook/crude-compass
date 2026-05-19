@@ -142,9 +142,16 @@ export function SuggestedNextActions({
             매니저의 다음 행동
           </h3>
           <p className="text-[10px] text-ink-3 mt-0.5">
-            Supervisor가 제안하는 6가지 선택지 — approve 외에도 keep watching / ask
-            for more / re-check later 등 agentic next step
+            Supervisor가 현재 시그널 강도 기반으로 추천한 6가지 — approve 외에도 추가 조사 / 모니터링 /
+            재검토 등 매니저가 1건 선택
           </p>
+        </div>
+      )}
+      {compact && (
+        <div className="mb-2">
+          <h4 className="text-[11px] font-semibold text-ink-2 tracking-tight">
+            Supervisor 권고 — 다음 행동 6가지
+          </h4>
         </div>
       )}
       <div

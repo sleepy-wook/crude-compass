@@ -25,11 +25,22 @@ export function OpecCitation() {
 
   return (
     <section className="mb-8">
-      <div className="flex items-baseline justify-between mb-3">
+      <div className="flex items-baseline justify-between mb-3 gap-2 flex-wrap">
         <h3 className="font-display text-lg font-semibold tracking-tight text-ink-1">
           OPEC 월간 보고서
         </h3>
-        <span className="text-[11px] text-ink-3">PDF 자동 파싱</span>
+        <div className="flex items-center gap-3 text-[11px]">
+          <span className="text-ink-3">PDF 자동 파싱</span>
+          <a
+            href="https://momr.opec.org/pdf-download/"
+            target="_blank"
+            rel="noreferrer"
+            className="text-ink-2 hover:text-ink-1 underline underline-offset-2 decoration-line-2 hover:decoration-ink-2"
+            title="OPEC 공식 사이트에서 과거 MOMR PDF 다운로드"
+          >
+            과거 PDF 보기 →
+          </a>
+        </div>
       </div>
 
       {isLoading && (

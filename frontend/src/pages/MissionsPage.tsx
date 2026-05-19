@@ -29,6 +29,15 @@ import {
   termSpotLabel,
 } from "../lib/utils";
 type Filter = "all" | "active" | "proposed";
+type DateRange = "all" | "7d" | "30d" | "90d";
+
+const DAYS: Record<DateRange, number> = { all: Infinity, "7d": 7, "30d": 30, "90d": 90 };
+const RANGE_LABEL: Record<DateRange, string> = {
+  all: "전체",
+  "7d": "7일",
+  "30d": "30일",
+  "90d": "90일",
+};
 
 // confirmed_by raw 값 → 매니저용 표시 라벨.
 // service principal UUID (예: "72770060767895@74746565268093800") 또는 빈 값이면 hide,
@@ -48,6 +57,7 @@ export function MissionsPage() {
   const { data, isLoading } = useMissionsActive();
   const missions = data?.missions || [];
   const [filter, setFilter] = useState<Filter>("all");
+  const [dateRange, setDateRange] = useState<DateRange>("all");
   const [selectedId, setSelectedId] = useState<string | null>(routeId ?? null);
 
   // Auto-select first mission on load
@@ -65,8 +75,12 @@ export function MissionsPage() {
   }, [selectedId, routeId, navigate]);
 
   const filtered = missions.filter((m) => {
-    if (filter === "active") return ["active", "on_track", "at_risk"].includes(m.status);
-    if (filter === "proposed") return m.status === "proposed";
+    if (filter === "active" && !["active", "on_track", "at_risk"].includes(m.status)) return false;
+    if (filter === "proposed" && m.status !== "proposed") return false;
+    if (dateRange !== "all") {
+      const ageDays = (Date.now() - new Date(m.created_at).getTime()) / 86_400_000;
+      if (ageDays > DAYS[dateRange]) return false;
+    }
     return true;
   });
 
@@ -78,8 +92,8 @@ export function MissionsPage() {
         <div className="px-6 py-5 border-b border-line-1">
           <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">Case File</div>
           <h1 className="font-display text-xl font-semibold text-ink-1 mb-3">결정 케이스 기록</h1>
-          {/* Filter tabs */}
-          <div className="flex gap-1 text-[12px]">
+          {/* Status filter tabs */}
+          <div className="flex gap-1 text-[12px] mb-2">
             {(["all", "proposed", "active"] as Filter[]).map((f) => (
               <button
                 key={f}
@@ -101,6 +115,24 @@ export function MissionsPage() {
                           ["active", "on_track", "at_risk"].includes(m.status),
                         ).length}
                 </span>
+              </button>
+            ))}
+          </div>
+          {/* Date range filter — 최근 N일 (case 누적 시 narrow 가능) */}
+          <div className="flex gap-1 text-[11px]">
+            <span className="px-1 py-1 text-ink-3 uppercase tracking-wider">기간</span>
+            {(["all", "90d", "30d", "7d"] as DateRange[]).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setDateRange(r)}
+                className={
+                  dateRange === r
+                    ? "px-2 py-1 rounded bg-line-2 text-ink-1 font-medium"
+                    : "px-2 py-1 rounded text-ink-3 hover:text-ink-2 hover:bg-line-1"
+                }
+              >
+                {RANGE_LABEL[r]}
               </button>
             ))}
           </div>

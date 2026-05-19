@@ -29,6 +29,7 @@ function modeLabel(mode: Mode): string {
 function formatRelativeDate(dateStr: string | undefined): string {
   if (!dateStr) return "—";
   try {
+    // daily_curation cron이 매일 06:30 KST 실행 — 그 시각 anchor
     const then = new Date(`${dateStr}T06:30:00+09:00`).getTime();
     const now = Date.now();
     const diffMs = now - then;
@@ -37,10 +38,10 @@ function formatRelativeDate(dateStr: string | undefined): string {
     const diffHours = Math.floor(diffMs / 3_600_000);
     const diffDays = Math.floor(diffMs / 86_400_000);
     if (diffMin < 60) return "방금 갱신";
-    if (diffHours < 24) return `${diffHours}시간 전 갱신`;
-    if (diffDays === 1) return "어제 갱신";
-    if (diffDays < 7) return `${diffDays}일 전 갱신`;
-    return `${dateStr.slice(5).replace("-", "/")} 갱신`;
+    if (diffHours < 24) return `${diffHours}시간 전 갱신 · 06:30`;
+    if (diffDays === 1) return "어제 06:30 갱신";
+    if (diffDays < 7) return `${diffDays}일 전 06:30 갱신`;
+    return `${dateStr.slice(5).replace("-", "/")} 06:30 갱신`;
   } catch {
     return "—";
   }
@@ -97,8 +98,11 @@ export function TopBar() {
 
         <Divider />
 
-        {/* Open Data Track 1 tagline */}
-        <KpiChip label="Track 1" value="6 source · 무료" />
+        {/* Open Data Track 1 tagline — dim된 narrative anchor (judge 5초 hint) */}
+        <div className="flex items-center gap-1.5 opacity-60">
+          <span className="text-[10px] uppercase tracking-wider text-ink-3">Track 1</span>
+          <span className="font-display text-[11px] text-ink-2 tabular-nums">6 source · 무료</span>
+        </div>
 
 
         <div className="flex-1" />

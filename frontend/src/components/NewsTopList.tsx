@@ -122,14 +122,16 @@ export function NewsTopList({ limit = 12 }: { limit?: number }) {
             return (
               <li
                 key={`${n.event_date}-${idx}`}
-                className="rounded-lg border border-line-1 bg-panel hover:bg-line-1/30 transition-colors"
+                className="rounded-lg border border-line-1 bg-panel"
               >
-                {n.url ? (
+                {/* GDELT internal protocol URL (gdelt://...)이거나 null이면 외부 link X
+                    → wrapper div로 표시. 외부 https/http만 anchor. */}
+                {n.url && /^https?:\/\//i.test(n.url) ? (
                   <a
                     href={n.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="block p-3"
+                    className="block p-3 hover:bg-line-1/30 transition-colors"
                   >
                     <NewsItemContent
                       title={n.title}
@@ -143,7 +145,7 @@ export function NewsTopList({ limit = 12 }: { limit?: number }) {
                     />
                   </a>
                 ) : (
-                  <div className="block p-3">
+                  <div className="block p-3" title="GDELT signal aggregate — 개별 기사 link 없음">
                     <NewsItemContent
                       title={n.title}
                       source={n.source}
