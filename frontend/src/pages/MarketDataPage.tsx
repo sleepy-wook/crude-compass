@@ -4,7 +4,10 @@
  * codex P0: data dashboard → Agent Bricks reasoning evidence board.
  * 각 chart 위에 "So what for current case?" sub-label 부착 — 단순 차트 전시가 아닌
  * Supervisor / Genie / Knowledge Assistant가 참조한 evidence 검증 surface로 reframe.
+ *
+ * D-2: daily chart 기간 toggle (7/30/90/180일) — 단기 변동 vs 중기 trend 양쪽 검증.
  */
+import { useState } from "react";
 import { TimeHorizonBreakdown } from "../components/TimeHorizonBreakdown";
 import { PatternScoreLine } from "../components/PatternScoreLine";
 import { OpecCitation } from "../components/OpecCitation";
@@ -15,9 +18,12 @@ import { IntradayTicker } from "../components/IntradayTicker";
 import { IntradayChart } from "../components/IntradayChart";
 import { usePatternCurrent } from "../lib/queries";
 
+type DailyRange = 7 | 30 | 90 | 180;
+
 export function MarketDataPage() {
   const pattern = usePatternCurrent();
   const cur = pattern.data?.current ?? null;
+  const [dailyDays, setDailyDays] = useState<DailyRange>(90);
   const score10 = cur?.pattern_score != null ? Math.round(cur.pattern_score / 10) : null;
   const mode =
     cur?.mission_type === "HEDGE"
@@ -73,11 +79,29 @@ export function MarketDataPage() {
       />
       <SoWhat
         actor="Genie"
-        text="가격 trend (90일) + USD/KRW 환율 → Mission Plan UC Function의 target_pct 계산 input"
+        text={`가격 trend (${dailyDays}일) + USD/KRW 환율 → Mission Plan UC Function의 target_pct 계산 input`}
       />
+      {/* Daily range toggle — 7/30/90/180일 */}
+      <div className="flex items-center gap-1.5 mb-4 text-[11px]">
+        <span className="text-ink-3 uppercase tracking-wider mr-1">기간</span>
+        {([7, 30, 90, 180] as DailyRange[]).map((d) => (
+          <button
+            key={d}
+            type="button"
+            onClick={() => setDailyDays(d)}
+            className={
+              dailyDays === d
+                ? "px-2.5 py-1 rounded bg-ink-1 text-paper font-medium"
+                : "px-2.5 py-1 rounded text-ink-3 hover:text-ink-1 hover:bg-line-1 border border-line-2"
+            }
+          >
+            {d}일
+          </button>
+        ))}
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <PriceLineChart days={90} />
-        <FxLineChart days={90} />
+        <PriceLineChart days={dailyDays} />
+        <FxLineChart days={dailyDays} />
       </div>
 
       {/* OPEC + News — Knowledge Assistant + GDELT evidence */}

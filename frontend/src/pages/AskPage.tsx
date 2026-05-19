@@ -356,10 +356,26 @@ function EmptyStateGuide({
   caseBound?: boolean;
 }) {
   const [hoveredRoutes, setHoveredRoutes] = useState<AgentKey[] | null>(null);
+  // D-2: 다이어그램 default collapsed (ChatGPT 풍 focus). Agent Bricks narrative는 헤더 chip + 펼치기로 access.
+  const [showDiagram, setShowDiagram] = useState(false);
 
   return (
     <>
-      {/* Multi-Agent flow diagram — hover/active routes 강조 */}
+      {/* Multi-Agent flow diagram — collapsed default, click to expand */}
+      {!showDiagram && (
+        <button
+          type="button"
+          onClick={() => setShowDiagram(true)}
+          className="w-full mb-4 px-4 py-2.5 bg-line-1/30 hover:bg-line-1/60 border border-line-2 rounded-lg flex items-center justify-between text-left transition-colors group"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wider text-ink-3">Agent Bricks Supervisor</span>
+            <span className="text-[12px] text-ink-2">매니저 질문 → Genie · Knowledge Assistant · Mission Plan 자동 라우팅</span>
+          </div>
+          <span className="text-[10px] text-ink-3 group-hover:text-ink-1">오케스트레이션 펼치기 ▾</span>
+        </button>
+      )}
+      {showDiagram && (
       <div className="bg-panel border border-line-1 rounded-xl p-6 mb-6">
         <div className="flex items-baseline justify-between mb-4">
           <div className="text-[11px] uppercase tracking-wider text-ink-3">Agent Bricks Supervisor orchestration</div>
@@ -424,6 +440,7 @@ function EmptyStateGuide({
           </div>
         </div>
       </div>
+      )}
 
       {/* Sample chip — hover로 다이어그램 강조, click으로 즉시 실행 */}
       <div className="bg-panel border border-line-1 rounded-xl p-6 mb-6">
