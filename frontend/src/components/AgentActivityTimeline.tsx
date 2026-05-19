@@ -122,7 +122,7 @@ function actionLabel(action: string): string {
 // Props + types
 // ────────────────────────────────────────────────────────────────────
 export type ActivityEvent = {
-  id: number;
+  id: string | number;
   mission_id: string | null;
   occurred_at: string;
   actor: string;

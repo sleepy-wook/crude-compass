@@ -42,11 +42,12 @@ def insert_event(
     result_preview: str | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> bool:
-    """Insert single activity event. exception swallow → False return.
+    """Insert single activity event. exception swallow → False return + full traceback log.
 
     Caller가 conn.commit()을 별도 처리하거나, transaction 안에서 호출.
     여기서 commit X (caller가 main flow commit과 함께 묶을 수 있도록).
     """
+    import traceback
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -66,7 +67,10 @@ def insert_event(
             )
         return True
     except Exception as e:
-        logger.warning("agent_activity insert_event failed (actor=%s action=%s): %s", actor, action, e)
+        logger.warning(
+            "agent_activity insert_event FAIL (actor=%s action=%s): %s\n%s",
+            actor, action, e, traceback.format_exc(),
+        )
         return False
 
 
@@ -128,8 +132,10 @@ def _serialize(row: dict[str, Any]) -> dict[str, Any]:
     occurred_at = row.get("occurred_at")
     if isinstance(occurred_at, datetime):
         occurred_at = occurred_at.isoformat()
+    # id is UUID (D-3 변경 — BIGSERIAL에서 변경)
+    raw_id = row.get("id")
     return {
-        "id": row.get("id"),
+        "id": str(raw_id) if raw_id is not None else None,
         "mission_id": str(row["mission_id"]) if row.get("mission_id") else None,
         "occurred_at": occurred_at,
         "actor": row.get("actor"),

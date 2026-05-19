@@ -102,7 +102,7 @@ export const api = {
   missionActivity: (id: string) =>
     request<{
       events: {
-        id: number;
+        id: string | number;
         mission_id: string | null;
         occurred_at: string;
         actor: string;
