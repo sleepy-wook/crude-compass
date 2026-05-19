@@ -254,13 +254,12 @@ def _seed_demo_in_lakebase() -> None:
                         "Lakebase seed cleanup: %d placeholder missions → aborted",
                         len(placeholder_ids),
                     )
-                # 3. 한글 seed가 이미 있는지 확인
+                # 3. 한글 seed가 이미 있는지 확인 — % escape: psycopg parameter placeholder 충돌 방지
                 cur.execute(
-                    """
-                    SELECT COUNT(*) FROM missions
-                    WHERE status = 'proposed'
-                      AND (goal_text LIKE '사전 위험방어%' OR goal_text LIKE '사전 기회포착%')
-                    """
+                    "SELECT COUNT(*) FROM missions "
+                    "WHERE status = 'proposed' "
+                    "AND (goal_text LIKE %s OR goal_text LIKE %s)",
+                    ('사전 위험방어%', '사전 기회포착%'),
                 )
                 ko_count = cur.fetchone()[0]
                 if ko_count >= 2:
