@@ -148,25 +148,31 @@ export function Bidirectional3Zone({ cur, topMission }: Props) {
             오늘 가장 강한 시그널 Top 3
           </div>
           <div className="space-y-1.5">
-            {topContribs.map((s, i) => (
-              <div key={`${s.signal_type}-${i}`} className="flex items-center gap-2 text-[12px]">
-                <span
-                  className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
-                    s.direction === "bullish"
-                      ? "bg-crisis-500"
-                      : s.direction === "bearish"
-                        ? "bg-opportunity-500"
-                        : "bg-ink-3/40"
-                  }`}
-                />
-                <span className="text-ink-1 flex-1 truncate">
-                  {SIGNAL_LABEL[s.signal_type] ?? s.signal_type}
-                </span>
-                <span className="text-ink-3 text-[11px] tabular-nums">
-                  {s.share_pct.toFixed(1)}%
-                </span>
-              </div>
-            ))}
+            {topContribs.map((s, i) => {
+              const dirLabel =
+                s.direction === "bullish" ? "위기" : s.direction === "bearish" ? "안정" : "중립";
+              const dirCls =
+                s.direction === "bullish"
+                  ? "bg-crisis-50 text-crisis-700"
+                  : s.direction === "bearish"
+                    ? "bg-opportunity-50 text-opportunity-700"
+                    : "bg-line-1 text-ink-3";
+              return (
+                <div key={`${s.signal_type}-${i}`} className="flex items-center gap-2 text-[12px]">
+                  <span
+                    className={`shrink-0 inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[9px] font-medium uppercase tracking-wider ${dirCls}`}
+                  >
+                    {dirLabel}
+                  </span>
+                  <span className="text-ink-1 flex-1 truncate">
+                    {SIGNAL_LABEL[s.signal_type] ?? s.signal_type}
+                  </span>
+                  <span className="text-ink-3 text-[11px] tabular-nums">
+                    {s.share_pct.toFixed(1)}%
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

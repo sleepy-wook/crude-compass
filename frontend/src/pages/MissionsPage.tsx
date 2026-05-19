@@ -28,6 +28,18 @@ import {
 } from "../lib/utils";
 type Filter = "all" | "active" | "proposed";
 
+// confirmed_by raw 값 → 매니저용 표시 라벨.
+// service principal UUID (예: "72770060767895@74746565268093800") 또는 빈 값이면 hide,
+// email/사람 이름이면 @ 앞부분만, 그 외 raw 그대로.
+function prettyActor(raw: string | null | undefined): string {
+  if (!raw) return "매니저";
+  // SP UUID 패턴: 숫자만 또는 long@long
+  if (/^\d+@\d+$/.test(raw) || /^[0-9a-f-]{30,}/.test(raw)) return "매니저";
+  // email 패턴
+  if (raw.includes("@")) return raw.split("@")[0];
+  return raw;
+}
+
 export function MissionsPage() {
   const { id: routeId } = useParams<{ id?: string }>();
   const navigate = useNavigate();
@@ -232,11 +244,7 @@ function MissionDetail({ missionId }: { missionId: string }) {
       {/* Decision trace — 채택 후 표시 */}
       {m.confirmed_at && (
         <div className="text-[11px] text-ink-3 mb-4 -mt-2">
-          {m.confirmed_by && (
-            <span>
-              <span className="text-ink-2 font-medium">{m.confirmed_by}</span>이 결정 기록 ·{" "}
-            </span>
-          )}
+          <span className="text-ink-2 font-medium">{prettyActor(m.confirmed_by)}</span>이 결정 기록 ·{" "}
           {formatDate(m.confirmed_at)} · {m.confirmed_via === "slack" ? "Slack" : "Apps"} 채널
         </div>
       )}

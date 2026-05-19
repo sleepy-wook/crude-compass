@@ -346,12 +346,15 @@ async def intraday_prices(hours: int = 24) -> dict:
     }
 
     def _fetch():
+        # price_usd sanity: WTI/Brent/Dubai 정상 범위 $30-$250.
+        # 그 밖이면 outlier (적재 noise) — chart 가독성 위해 필터.
         sql = f"""
             SELECT ticker, price_usd, fetched_at
             FROM crude_compass.bronze.oil_prices
             WHERE fetched_at >= CURRENT_TIMESTAMP() - INTERVAL {h} HOURS
               AND ticker IN ('DUBAI_CRUDE_USD', 'BRENT_CRUDE_USD', 'WTI_USD')
               AND price_usd IS NOT NULL
+              AND price_usd BETWEEN 30 AND 250
             ORDER BY fetched_at ASC
         """
         rows = _q(sql, timeout="20s")
@@ -383,10 +386,26 @@ async def intraday_prices(hours: int = 24) -> dict:
                 {"price_usd": float(r[1]), "fetched_at": ts}
             )
 
+        # ticker별 IQR outlier filter — Q1-1.5*IQR ~ Q3+1.5*IQR 밖이면 drop.
+        # WTI noise가 일부 5분 row에 비정상 값으로 적재되는 케이스 대응.
+        def _iqr_filter(pts: list[dict]) -> list[dict]:
+            if len(pts) < 10:
+                return pts
+            sorted_p = sorted(p["price_usd"] for p in pts)
+            n = len(sorted_p)
+            q1 = sorted_p[n // 4]
+            q3 = sorted_p[(3 * n) // 4]
+            iqr = q3 - q1
+            if iqr <= 0:
+                return pts
+            lo = q1 - 1.5 * iqr
+            hi = q3 + 1.5 * iqr
+            return [p for p in pts if lo <= p["price_usd"] <= hi]
+
         return {
             "hours": h,
             "series": [
-                {"ticker": tk, "points": pts}
+                {"ticker": tk, "points": _iqr_filter(pts)}
                 for tk, pts in by_ticker.items()
             ],
         }

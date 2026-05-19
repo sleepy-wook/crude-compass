@@ -180,11 +180,21 @@ function MissionSummaryCard({
         />
       </div>
 
-      <p className="text-[13px] text-ink-2 leading-relaxed mb-6 line-clamp-3">
+      <p className="text-[13px] text-ink-2 leading-relaxed mb-5 line-clamp-3">
         {mission.reasoning}
       </p>
 
-      <div className="mt-auto pt-5 border-t border-line-1">
+      {/* Stat row — 빈 공간 채움 + 정보 dense */}
+      <div className="grid grid-cols-3 gap-4 py-4 border-y border-line-1 mb-5">
+        <MiniStat
+          label="위기 강도"
+          value={`${Math.round(mission.pattern_score / 10)}/10`}
+        />
+        <MiniStat label="기간" value={`${mission.duration_days}일`} />
+        <MiniStat label="시뮬레이션" value={`${Object.keys(mission.simulation_roi || {}).length}건`} />
+      </div>
+
+      <div className="mt-auto">
         <Link
           to={`/missions/${mission.mission_id}`}
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-1 hover:text-ink-2 transition-colors"
@@ -192,6 +202,15 @@ function MissionSummaryCard({
           내 결정으로 기록하기 <span aria-hidden>→</span>
         </Link>
       </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-widest text-ink-3 mb-1">{label}</div>
+      <div className="font-display text-lg font-semibold text-ink-1 tabular-nums">{value}</div>
     </div>
   );
 }
