@@ -17,7 +17,7 @@ from app.core.config import get_settings
 from app.services.slack_bus_subscriber import run_slack_subscriber
 from app.services.slack_notify import get_notifier
 from app.store import get_bus, get_store
-from app.ws import missions as ws_missions
+from app.ws import missions as ws_missions, pulse as ws_pulse
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +91,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_api.router)
     app.include_router(pulse_api.router)
     app.include_router(ws_missions.router)
+    app.include_router(ws_pulse.router)
 
     # Demo router — DEMO_MODE=true 일 때만 mount (production 보호)
     settings = get_settings()
