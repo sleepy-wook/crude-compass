@@ -18,6 +18,7 @@ import { SimilarPastWidget } from "../components/SimilarPastWidget";
 import { MissionSplitBar } from "../components/MissionSplitBar";
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
 import { AgentActivityTimeline } from "../components/AgentActivityTimeline";
+import { LivePulseStrip } from "../components/LivePulseStrip";
 import { SuggestedNextActions } from "../components/SuggestedNextActions";
 import type { Mission } from "../lib/types";
 
@@ -77,9 +78,16 @@ export function Dashboard() {
       </header>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {/* HERO ★ — Market Memory                                       */}
+      {/* HERO ★ — Market Memory + Live AI Pulse                       */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <SimilarPastWidget cur={cur} />
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 mb-4">
+        <div className="lg:col-span-3">
+          <SimilarPastWidget cur={cur} />
+        </div>
+        <div className="lg:col-span-2">
+          <LivePulseStrip />
+        </div>
+      </div>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {/* SIGNAL — Bidirectional + Mission 요약 (좌 360 / 우 1fr)        */}
