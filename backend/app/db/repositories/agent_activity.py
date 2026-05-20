@@ -127,6 +127,47 @@ def list_for_mission(
         return []
 
 
+def list_recent_all(
+    conn: psycopg.Connection,
+    *,
+    limit: int = 100,
+    since: datetime | None = None,
+) -> list[dict[str, Any]]:
+    """Cross-mission 전역 stream — Live AI Pulse 용.
+
+    mission_id NULL인 system event (job/reactive)도 포함.
+    occurred_at DESC. since 주어지면 그 시점 이후만.
+    """
+    try:
+        with conn.cursor(row_factory=dict_row) as cur:
+            if since is not None:
+                cur.execute(
+                    """
+                    SELECT id, mission_id, occurred_at, actor, action, result_preview, metadata
+                      FROM agent_activity_events
+                     WHERE occurred_at > %s
+                     ORDER BY occurred_at DESC, id DESC
+                     LIMIT %s
+                    """,
+                    (since, limit),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT id, mission_id, occurred_at, actor, action, result_preview, metadata
+                      FROM agent_activity_events
+                     ORDER BY occurred_at DESC, id DESC
+                     LIMIT %s
+                    """,
+                    (limit,),
+                )
+            rows = cur.fetchall()
+        return [_serialize(r) for r in rows]
+    except Exception as e:
+        logger.warning("agent_activity list_recent_all failed: %s", e)
+        return []
+
+
 def _serialize(row: dict[str, Any]) -> dict[str, Any]:
     """psycopg row → JSON-safe dict."""
     occurred_at = row.get("occurred_at")
