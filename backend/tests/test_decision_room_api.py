@@ -38,3 +38,28 @@ def test_touch_then_get_consistent_shape():
     # Lakebase 연결되면 동일 timestamp 기대. 미연결 시 둘 다 None.
     assert set(touch_resp.json().keys()) == {"last_seen_at", "user_key"}
     assert set(get_resp.json().keys()) == {"last_seen_at", "user_key"}
+
+
+# ────────────────────────────────────────────────────────────────────
+# /queue
+# ────────────────────────────────────────────────────────────────────
+def test_queue_returns_grouped_shape():
+    response = client.get("/api/decision-room/queue")
+    assert response.status_code == 200
+    body = response.json()
+    assert "needs_you" in body and isinstance(body["needs_you"], list)
+    assert "monitoring" in body and isinstance(body["monitoring"], list)
+    assert "counts" in body
+    counts = body["counts"]
+    for k in ("needs_you", "monitoring", "proposed", "at_risk", "active", "on_track", "paused"):
+        assert k in counts and isinstance(counts[k], int)
+
+
+def test_queue_needs_you_proposed_only_in_needs_you():
+    """proposed/at_risk만 needs_you, active/on_track/paused만 monitoring."""
+    response = client.get("/api/decision-room/queue")
+    body = response.json()
+    for m in body["needs_you"]:
+        assert m["status"] in ("proposed", "at_risk")
+    for m in body["monitoring"]:
+        assert m["status"] in ("active", "on_track", "paused")
