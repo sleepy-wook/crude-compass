@@ -33,126 +33,108 @@
 
 ---
 
-### 0:30 ~ 1:30 — Decision Room (Apps + Lakebase + Agent Bricks 동시 visible, 60초)
+### 0:30 ~ 1:00 — Live AI Pulse 30초 dwell (시간 축 narrative, 30초)
 
 **[화면 녹화: /]**
 
-> "첫 화면 — Decision Room. **Databricks Apps** 위 manager-facing decision room으로 정의했습니다."
+> "첫 화면 — Decision Room. **Databricks Apps** 위 manager-facing decision room. 우상단 **Live AI Pulse**를 30초 동안 가만히 보겠습니다."
 
-(스크롤 — top header: "DECISION ROOM" / "오늘의 결정실")
+(LivePulseStrip 스크롤 멈추고 30초 dwell — event 새로 들어오는 거 보여주기)
 
-> "현재 위기 시그널 강함 10/10. **Agent Bricks Supervisor**가 Pattern Score 100을 감지하고 case를 열었습니다."
-
-(MissionSummaryCard 짚기)
-
-> "위험방어 case — 장기계약 비중을 60%에서 75%로 올리라는 권고."
-
-(SuggestedNextActions 6 chip 짚기)
-
-> "여기가 차별화 포인트입니다. **approve/reject 같은 binary가 아닌 6가지 agentic next action**: Approve Draft, Adjust Draft, Dismiss Case, Keep Watching, Ask for More Evidence, Re-check Later."
-
-(스크롤 down — Agent Bricks 활동 section)
-
-> "**가장 중요한 부분 — Agent Bricks 활동 이력**. 이것이 Agent Bricks orchestration이 실제로 작동한 흔적입니다."
-
-(timeline 5+ events 짚기)
-
-> "weighted_signal UC Function이 Pattern Score 계산, Supervisor가 case 개시, Mission Plan UC Function이 draft 생성, 매니저가 승인, 매니저가 조정. **각 event가 Lakebase agent_activity_events table의 row로 영구 persisted**. 단순 frontend 시뮬이 아닙니다."
+> "cross-mission agent stream. supervisor가 case 열고, weighted_signal UC Function이 pattern 계산하고, Knowledge Assistant가 document evidence 끌어오고 — **시스템이 잠시도 멈추지 않는다는 증거**. 각 event는 Lakebase `agent_activity_events`에 즉시 persist."
 
 ---
 
-### 1:30 ~ 2:30 — Investigation (Agent Bricks Supervisor + Genie + KA 동시 visible, 60초)
+### 1:00 ~ 2:00 — Case Thread 풀스크롤 + raw expand (Lakebase memory 증거, 60초)
+
+(MissionSummaryCard 짚기)
+
+> "현재 위기 시그널 강함 10/10. **Agent Bricks Supervisor**가 Pattern Score 100을 감지하고 case를 열었습니다. 위험방어 case — 장기계약 비중 60% → 75%."
+
+(SuggestedNextActions 6 chip 짚기)
+
+> "**approve/reject 같은 binary가 아닌 6가지 agentic next action** — Approve, Adjust, Dismiss, Keep Watching, Ask for More Evidence, Re-check Later."
+
+(스크롤 down — Agent Bricks 활동 section, **Case Thread 끝까지 풀스크롤**)
+
+> "**Case Thread** — 이 case에 일어난 모든 agent event 시계열. weighted_signal → Supervisor case open → Mission Plan draft → 매니저 승인 → 매니저 조정."
+
+(supervisor synthesized event "raw 펼치기" 클릭)
+
+> "각 event를 펼치면 **Reasoning Path** — Supervisor가 왜 Genie를 호출했는지, 왜 KA가 필요했는지 self-narration. 그 아래에 raw metadata JSON. 단순 시뮬이 아닙니다 — `agent_activity_events` table에 row로 영구 기록."
+
+---
+
+### 2:00 ~ 3:00 — Investigation Trace-a-Signal 4-stage (Supervisor + Genie + KA, 60초)
 
 **[Ask for More Evidence 클릭 → /ask?case_id=...]**
 
 > "**Ask for More Evidence** 클릭하면 case context를 그대로 들고 Investigation으로 이동합니다."
 
-(case context badge 짚기)
+(Trace-a-Signal 4-stage forensic view 짚기)
 
-> "현재 조사 중 case 정보가 자동 주입돼 있고, sample query 6개가 case-bound 질문 set으로 자동 교체됩니다."
+> "한 signal을 골라 **Trace-a-Signal Investigation** — bronze.news_articles에서 detected → silver.signal_classified에서 importance·direction scored → silver.signal_events_decayed lambda 감쇠 → gold.signal_contribution_30d 누적 기여. **4개 stage가 동일 signal_id로 join된 forensic view**. Lakehouse medallion이 실제로 어떻게 한 signal을 결정으로 변환하는지 시각화."
 
-(Agent Bricks Supervisor orchestration diagram 짚기)
+(Supervisor orchestration diagram 짚기)
 
-> "여기가 4기능의 정수입니다. **Agent Bricks Supervisor** (`crude-compass-supervisor`)가 3개 subagent를 orchestration합니다:
-> - **Genie** (`Crude Oil Market Analysis`) — structured market specialist
-> - **Knowledge Assistant** (`crude-compass-ka`) — OPEC MOMR document evidence agent
-> - **mission_plan_advice** (UC Function) — Bidirectional decision advisor"
+> "오른쪽 — **Agent Bricks Supervisor** (`mas-ba3fbcb5-endpoint` deployed READY)가 3 subagent orchestration:
+> - **Genie** — structured market specialist
+> - **Knowledge Assistant** — OPEC MOMR document evidence
+> - **mission_plan_advice** UC Function — Bidirectional decision advisor"
 
 (시연: "왜 이 case가 열렸지?" 클릭)
 
-> "Supervisor에게 자연어로 질문하면 — **실제 endpoint 호출**입니다. simulated trace 아닙니다."
-
-(응답 + tools_used 보여주기)
-
-> "응답이 오면 어떤 subagent가 호출됐는지 trace로 보입니다. 그리고 — 이 호출 자체도 Lakebase agent_activity에 4 event 추가됩니다."
-
-(Decision Room으로 돌아가서 timeline 추가된 거 보여주기)
-
-> "보시다시피 방금 한 Investigation이 timeline에 누적됐습니다. Agent가 일했다는 증거가 case memory에 영구 기록됩니다."
+> "자연어로 질문하면 — **실제 endpoint 호출**. 응답 + tools_used trace + reasoning_path. 그리고 이 호출 자체도 Lakebase에 event 4개 추가 — Case Thread에 즉시 누적."
 
 ---
 
-### 2:30 ~ 3:30 — Case File (Lakebase case memory + dossier, 60초)
-
-**[Case File 클릭 → /missions/...]**
-
-> "**Case File** — 이 case의 dossier. Lakebase가 case state·approval·revision·monitoring을 어떻게 잇는지 보여주는 surface."
-
-(detail panel 짚기)
-
-> "Decision Chain 5단계 — AI 권고 → 매니저 회부 → 트레이딩 데스크 검토 → 리스크 위원회 → OSP 실행. AI 권고는 단순 1-click이 아니라 회사 결정 흐름의 input입니다."
-
-(스크롤 down → 매니저의 다음 행동 + full timeline)
-
-> "그리고 여기 **full mode Agent Bricks 활동 이력** — vertical timeline으로 모든 event를 시간 순으로. weighted_signal, Supervisor, Mission Plan, 매니저 승인, 매니저 조정 — **9개 actor 타입**이 색·icon별로 구분됩니다."
-
-(방향 전환 / 조정 demo — optional)
-
-> "case가 진행되다 시그널이 반대로 가면 매니저가 방향 전환할 수 있고, 그 revision도 timeline에 누적됩니다."
-
----
-
-### 3:30 ~ 4:00 — Market Watch (evidence board, 30초)
-
-**[Market Watch 클릭 → /market]**
-
-> "**Market Watch** — 단순 데이터 페이지가 아닙니다. **Agent Bricks 근거판** — Supervisor가 참조한 원천 데이터 surface."
-
-(SoWhat 카드 짚으면서 스크롤)
-
-> "각 차트마다 어떤 agent가 어떻게 참조했는지 명시:
-> - 5분 intraday — Reactive Trigger가 spike 감지하면 case re-eval
-> - 가격 + FX — Genie가 target_pct 계산 input
-> - OPEC MOMR + GDELT — Knowledge Assistant가 document evidence
-> - Pattern Score 7년 — weighted_signal UC Function의 동일 backtest 75% hit rate 검증 함수"
-
----
-
-### 4:00 ~ 4:30 — Slack interactive (optional, 30초)
+### 3:00 ~ 4:00 — Slack interactive + Case File flash (60초)
 
 **[Slack 채널 짚기]**
 
-> "Slack 채널에서도 동일한 6-action workflow를 사용할 수 있습니다."
+> "현장의 결정은 매니저가 책상에서만 하지 않습니다. Slack에서도 동일한 6-action workflow."
 
-(만약 작동하면) Slack에서 Approve 클릭 → Apps에 5초 안 sync 보여주기
+(Slack에서 Approve 클릭 → Apps에 5초 안 sync 보여주기 — Live AI Pulse에 새 event 들어오는 거 강조)
+
+> "Slack Approve 클릭 — **5초 SLA 안에 Apps Decision Room에 sync**. 그리고 그 manager_decision event는 Lakebase agent_activity_events에 row로 기록 — 동일 case memory."
+
+**[Case File 빠르게 짚기 → /missions/...]**
+
+> "**Case File** — 이 case의 dossier. Decision Chain 5단계 — AI 권고 → 매니저 회부 → 트레이딩 데스크 → 리스크 위원회 → OSP 실행. AI 권고는 1-click 결정이 아니라 회사 결정 흐름의 input."
+
+(full timeline 한 번 스크롤)
+
+> "**full Case Thread** — 9개 actor 타입이 색·icon별로 구분, vertical timeline 영구 누적."
 
 ---
 
-### 4:30 ~ 5:00 — Closing (4-feature summary + Track 1 impact, 30초)
+### 4:00 ~ 4:30 — Daily AI Loop dial (시간 축 closure, 30초)
+
+**[Dashboard로 돌아가서 Daily Loop Clock 짚기]**
+
+> "마지막 — **Daily AI Loop**. 24시간 원형 dial. 우상단의 시침을 보세요."
+
+(DailyLoopClock 24h dial 짚기 — 각 시간대 dot 강조)
+
+> "오늘 하루 동안 **12개 Lakeflow Job**이 언제 어떤 결과로 돌았는지 한눈에. gdelt 15분 cron이 96번 success, price 5분 cron, daily curation, OPEC MOMR, EIA — 모든 cron이 자동으로 시스템을 살아있게 유지합니다. **Crude Compass는 매니저가 보지 않을 때도 일하는 시스템**."
+
+---
+
+### 4:30 ~ 5:00 — Closing (Track 1 Social Impact wrap, 30초)
 
 **[슬라이드: 4기능 매핑]**
 
-> "정리하면 — **4 features 모두 정직하게 활용**:
-> - **Databricks Apps** — manager-facing decision room (단순 호스팅 X)
-> - **Lakebase** — operational case memory + agent_activity_events orchestration timeline (단순 DB X)
-> - **Genie** — Supervisor의 structured market specialist subagent (단순 NL2SQL X)
-> - **Agent Bricks** — Supervisor + Knowledge Assistant 등록 + 3 subagent orchestration (단순 이름 X)"
+> "**4 features 모두 정직하게 활용** — Apps (decision room), Lakebase (case memory + agent_activity_events), Genie (Supervisor subagent), Agent Bricks (`mas-ba3fbcb5-endpoint` deployed READY, Supervisor + KA + Genie + UC Function orchestration + reasoning_path self-narration)."
 
-**[슬라이드: closing message]**
+**[슬라이드: Track 1 Social Impact closing]**
 
-> "**Bloomberg 없이도 정유 빅5와 동일한 인텔리전스. 한국 5천만 국민 에너지 안보를 모두에게.**
+> "**Bloomberg 없이도 정유 빅5와 동일한 인텔리전스. 100% 공개 데이터로.**
 >
-> Crude Compass — Databricks Agent Bricks 기반 decision workflow."
+> 중소 정유사, 석화 trading desk, 정책 연구자, 정부 분석관 — 누구나 같은 시스템을 쓸 수 있습니다.
+>
+> **한국 5천만 국민 에너지 안보를 모두에게.** — Track 1 Open Data Democratization.
+>
+> Crude Compass."
 
 (End)
 
