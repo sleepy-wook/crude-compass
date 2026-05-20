@@ -1002,6 +1002,75 @@ SDK 호출 실패 시 `{"runs": [], "summary": {}}` graceful.
 
 ---
 
+## 8.7 Decision Room Endpoints (D-2 추가 — multi-case queue + delta strip)
+
+Decision Room refactor: single-case → multi-case queue + selected detail + delta strip.
+
+### `GET /api/decision-room/last-seen`
+
+사용자 last_seen_at — delta 기준점.
+
+Query: `user_key` (default `"default"`, single-user demo)
+
+Response:
+```json
+{ "last_seen_at": "2026-05-20T08:00:00+00:00", "user_key": "default" }
+```
+
+Lakebase 미연결 시 `{"last_seen_at": null, "user_key": "default"}`.
+
+### `POST /api/decision-room/touch`
+
+`last_seen_at = NOW()`. 사용자 "모두 확인" 누르면 호출.
+
+Query: `user_key` (default `"default"`)
+
+Response: `{ "last_seen_at": "<new ISO>", "user_key": "default" }`. 미연결 시 `last_seen_at: null`.
+
+### `GET /api/decision-room/queue`
+
+Multi-case grouping + 우선순위 sort.
+
+Response:
+```json
+{
+  "needs_you": [Mission, ...],
+  "monitoring": [Mission, ...],
+  "counts": {
+    "needs_you": 2, "monitoring": 3,
+    "proposed": 2, "at_risk": 0,
+    "active": 1, "on_track": 2, "paused": 0
+  }
+}
+```
+
+- `needs_you`: status ∈ {proposed, at_risk}. Sort: urgency DESC → status (proposed first) → created_at ASC.
+- `monitoring`: status ∈ {active, on_track, paused}. Sort: status (on_track first) → confirmed_at|created_at ASC.
+
+### `GET /api/decision-room/delta`
+
+last_seen 이후 case 변화 events.
+
+Query: `user_key` (default `"default"`)
+
+Response:
+```json
+{
+  "since": "2026-05-17T09:00:00+00:00",
+  "events": [
+    {"type": "new_proposed", "case_id": "...", "occurred_at": "...", "summary": "..."},
+    {"type": "status_change", "case_id": "...", "from": null, "to": "confirm", "occurred_at": "...", "summary": "..."},
+    {"type": "pivot", "case_id": "...", "from_type": "HEDGE", "to_type": "OPPORTUNITY", "occurred_at": "...", "summary": "..."}
+  ],
+  "counts": {"new_proposed": 1, "status_change": 1, "pivot": 1, "total": 3}
+}
+```
+
+Source: missions (new_proposed) + decisions (status_change) + pivot_history (pivot).
+last_seen 없으면 최근 3일 fallback. Lakebase 미연결 시 `{since: null, events: [], counts: {…: 0}}`.
+
+---
+
 ## 9. FastAPI Project 구조 (`backend/app/`)
 
 ```

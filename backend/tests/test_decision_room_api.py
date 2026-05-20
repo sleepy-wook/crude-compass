@@ -63,3 +63,28 @@ def test_queue_needs_you_proposed_only_in_needs_you():
         assert m["status"] in ("proposed", "at_risk")
     for m in body["monitoring"]:
         assert m["status"] in ("active", "on_track", "paused")
+
+
+# ────────────────────────────────────────────────────────────────────
+# /delta
+# ────────────────────────────────────────────────────────────────────
+def test_delta_returns_expected_shape():
+    response = client.get("/api/decision-room/delta")
+    assert response.status_code == 200
+    body = response.json()
+    assert "since" in body  # ISO str | None
+    assert "events" in body and isinstance(body["events"], list)
+    assert "counts" in body
+    counts = body["counts"]
+    for k in ("new_proposed", "status_change", "pivot", "total"):
+        assert k in counts and isinstance(counts[k], int)
+
+
+def test_delta_event_types_constrained():
+    """각 event는 알려진 type 중 하나."""
+    response = client.get("/api/decision-room/delta")
+    body = response.json()
+    for ev in body["events"]:
+        assert ev["type"] in ("new_proposed", "status_change", "pivot")
+        assert "case_id" in ev
+        assert "occurred_at" in ev

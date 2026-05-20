@@ -10,6 +10,7 @@ graceful: Lakebase 미연결 시 빈 list / null / 0 반환.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Query
@@ -103,3 +104,106 @@ async def get_queue() -> dict[str, Any]:
         "monitoring": [m.model_dump(mode="json") for m in monitoring],
         "counts": counts,
     }
+
+
+@router.get("/delta")
+async def get_delta(user_key: str = Query(default="default")) -> dict[str, Any]:
+    """last_seen 이후 case 변화 events — new_proposed / status_change / pivot.
+
+    3 tables join: missions (new_proposed) + decisions (status_change) + pivot_history (pivot).
+    Lakebase 미연결 시 graceful: since=None, events=[], counts=0.
+    """
+    empty = {
+        "since": None,
+        "events": [],
+        "counts": {"new_proposed": 0, "status_change": 0, "pivot": 0, "total": 0},
+    }
+    try:
+        from app.db.lakebase import acquire
+        from app.db.repositories import last_seen as _ls_repo
+
+        with acquire() as conn:
+            since = _ls_repo.get_last_seen(conn, user_key)
+            if since is None:
+                # 기준점 없으면 최근 3일 fallback
+                since = datetime.now(timezone.utc) - timedelta(days=3)
+
+            events: list[dict[str, Any]] = []
+
+            # 1) new_proposed — missions.created_at > since
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT mission_id, created_at, goal_text, mission_type
+                      FROM missions
+                     WHERE created_at > %s AND status NOT IN ('aborted', 'completed')
+                     ORDER BY created_at DESC
+                    """,
+                    (since,),
+                )
+                for row in cur.fetchall():
+                    events.append({
+                        "type": "new_proposed",
+                        "case_id": str(row[0]),
+                        "occurred_at": row[1].isoformat(),
+                        "summary": f"신규 {row[3]} 제안 — {(row[2] or '')[:40]}",
+                    })
+
+            # 2) status_change — decisions table
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT d.mission_id, d.action, d.occurred_at, m.goal_text
+                      FROM decisions d
+                      JOIN missions m ON m.mission_id = d.mission_id
+                     WHERE d.occurred_at > %s
+                     ORDER BY d.occurred_at DESC
+                    """,
+                    (since,),
+                )
+                for row in cur.fetchall():
+                    events.append({
+                        "type": "status_change",
+                        "case_id": str(row[0]),
+                        "from": None,
+                        "to": row[1],
+                        "occurred_at": row[2].isoformat(),
+                        "summary": f"{row[1]} — {(row[3] or '')[:40]}",
+                    })
+
+            # 3) pivot — pivot_history table
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT mission_id, from_type, to_type, reason, occurred_at
+                      FROM pivot_history
+                     WHERE occurred_at > %s
+                     ORDER BY occurred_at DESC
+                    """,
+                    (since,),
+                )
+                for row in cur.fetchall():
+                    events.append({
+                        "type": "pivot",
+                        "case_id": str(row[0]),
+                        "from_type": row[1],
+                        "to_type": row[2],
+                        "occurred_at": row[4].isoformat(),
+                        "summary": f"{row[1]} → {row[2]} — {(row[3] or '')[:40]}",
+                    })
+
+        events.sort(key=lambda e: e["occurred_at"], reverse=True)
+        counts = {
+            "new_proposed": sum(1 for e in events if e["type"] == "new_proposed"),
+            "status_change": sum(1 for e in events if e["type"] == "status_change"),
+            "pivot": sum(1 for e in events if e["type"] == "pivot"),
+            "total": len(events),
+        }
+        return {
+            "since": since.isoformat(),
+            "events": events,
+            "counts": counts,
+        }
+    except Exception as e:
+        logger.warning("delta GET failed: %s", e)
+        return empty
