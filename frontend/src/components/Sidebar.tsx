@@ -13,6 +13,7 @@ import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-q
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
 import { queryKeys } from "../lib/queries";
+import { SidebarPulseDot } from "./SidebarPulseDot";
 
 const navItems = [
   { to: "/", label: "Decision Room", desc: "오늘 운영 case + Agent" },
@@ -102,6 +103,9 @@ export function Sidebar() {
       </nav>
 
       <div className="flex-1" />
+
+      {/* Global AI activity presence — Live Pulse mini dot */}
+      <SidebarPulseDot />
 
       {/* Footer — admin refresh only */}
       <div className="px-5 py-4 border-t border-sidebar-bg2">
