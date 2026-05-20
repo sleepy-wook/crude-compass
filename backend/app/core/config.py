@@ -75,6 +75,12 @@ class Settings(BaseModel):
     # Databricks SDK는 환경변수 또는 ~/.databrickscfg 자동 로드
     # (DATABRICKS_HOST + DATABRICKS_TOKEN 또는 PROFILE)
 
+    # SQL Warehouse — statement_execution용. Genie space의 warehouse_id 기본값
+    # (SDK list-spaces로 확인). DATABRICKS_WAREHOUSE_ID env로 override 가능.
+    databricks_warehouse_id: str = Field(
+        default_factory=lambda: os.getenv("DATABRICKS_WAREHOUSE_ID", "da56f72320e22238")
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:

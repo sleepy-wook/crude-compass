@@ -303,6 +303,32 @@ persist용 (현재 미사용, D-2 이후 옵션).
 최근 30일 signal_type × direction 기여도 (`gold.signal_contribution_30d` view).
 시나리오 §6.3 #2 "오늘 점수 82는 호르무즈 35%, 두바이 28% ..." anchor.
 
+### 4.3b `GET /api/signals/{signal_id}/lifecycle`
+단일 signal (news_article)의 4-stage forensic view — Trace-a-Signal Investigation 진입점.
+
+- Path param `signal_id`: 정규식 `^[A-Za-z0-9_-]+$` 위반 시 **400 BAD_SIGNAL_ID**
+- Databricks SDK `execute_statement` + parameterized query (`:signal_id`) — SQL-injection 방어
+- Lakebase/Warehouse 미연결 시 graceful 200 + empty stages
+
+**Stages**:
+- `detected`: `bronze.news_articles` row (title/source/published_at)
+- `scored`: importance/direction/horizon/confidence (LLM scoring)
+- `decay`: `silver.signal_events_decayed` 시간 감쇠 곡선
+- `contribution`: `gold.signal_contribution_30d` 30일 누적 + referenced_case_ids
+
+**Response 200**:
+```json
+{
+  "signal_id": "gdelt-2026...",
+  "stages": {
+    "detected": {"article_id": "...", "title": "...", "source": "Reuters", "published_at": "2026-05-19T...", "importance": 78, "direction": "bullish", "category": "geopolitics", "horizon": "30d", "confidence": 0.82},
+    "scored": {"importance": 78, "direction": "bullish", "horizon": "30d", "confidence": 0.82},
+    "decay": [{"as_of_date": "2026-05-19", "weight": 1.0, "lambda": 0.05, "days_since_event": 0}],
+    "contribution": {"total_contribution": 12.4, "peak_contribution": 3.1, "peak_date": "2026-05-19", "referenced_case_ids": ["case-..."]}
+  }
+}
+```
+
 ### 4.4c `GET /api/market/fx-history?days=90`
 USD/KRW 일별 환율 + 1d/7d delta + 30일 변동성 (`gold.fx_with_delta` view).
 시나리오 §7 #5 + §13 랜딩 코스트 input.
