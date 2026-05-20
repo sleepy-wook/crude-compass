@@ -27,6 +27,28 @@ interface UseWebSocketResult {
   lastEventAt: number | null;
 }
 
+/**
+ * Pulse WS connection — cross-mission Agent activity stream.
+ *
+ * `usePulseStream` hook이 wrap. 단순 callback 형태로 onMessage 전달.
+ * dev: ws://localhost:8000/api/ws/pulse, prod: same-origin wss.
+ */
+export function connectPulseWs(onMessage: (data: unknown) => void): WebSocket {
+  const baseStr = API_BASE_URL || window.location.origin;
+  const base = new URL(baseStr);
+  base.protocol = base.protocol === "https:" ? "wss:" : "ws:";
+  base.pathname = "/api/ws/pulse";
+  const ws = new WebSocket(base.toString());
+  ws.onmessage = (ev) => {
+    try {
+      onMessage(JSON.parse(ev.data));
+    } catch {
+      // ignore malformed
+    }
+  };
+  return ws;
+}
+
 export function useMissionsWebSocket(): UseWebSocketResult {
   const qc = useQueryClient();
   const [status, setStatus] = useState<WSStatus>("disconnected");

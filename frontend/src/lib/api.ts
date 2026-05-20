@@ -259,6 +259,34 @@ export const api = {
   curationStatus: () =>
     request<{ latest_date: string | null }>("/api/admin/curation-status"),
 
+  // ──────────────────────────────────────────────────────────────────────
+  // Pulse — cross-mission Agent activity stream (Live AI Pulse / Case Thread)
+  // ──────────────────────────────────────────────────────────────────────
+
+  /** Cross-mission 최근 N개 events. Live AI Pulse 초기 fetch. */
+  pulseRecent: (limit = 50) =>
+    request<{
+      events: {
+        id: string | number;
+        mission_id: string | null;
+        occurred_at: string;
+        actor: string;
+        action: string;
+        result_preview: string | null;
+        metadata: Record<string, unknown> | null;
+      }[];
+      count: number;
+    }>(`/api/pulse/recent?limit=${limit}`),
+
+  /** 24h 누적 통계. */
+  pulseStats: () =>
+    request<{
+      total_24h: number;
+      by_actor: Record<string, number>;
+      by_action: Record<string, number>;
+      active_cases: number;
+    }>("/api/pulse/stats"),
+
   // Market Memory — Similar Pattern Retrieve (D-4 ★ Wow 1)
   marketMemorySimilar: (body: {
     pattern_score: number;

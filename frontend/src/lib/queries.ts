@@ -168,6 +168,30 @@ export function useFxHistory(days: number) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Pulse — cross-mission Agent activity stream (Live AI Pulse / Case Thread)
+// ──────────────────────────────────────────────────────────────────────────
+
+/** Live AI Pulse — cross-mission stream. Polling 5s (WS 연결 시도 별개). */
+export function useRecentPulse(limit = 50, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ["pulse", "recent", limit] as const,
+    queryFn: () => api.pulseRecent(limit),
+    refetchInterval: 5_000,
+    staleTime: 2_000,
+    enabled: options?.enabled !== false,
+  });
+}
+
+export function usePulseStats() {
+  return useQuery({
+    queryKey: ["pulse", "stats"] as const,
+    queryFn: () => api.pulseStats(),
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Write (mutations) — auto-invalidate on success
 // ──────────────────────────────────────────────────────────────────────────
 export function useMissionConfirm() {
