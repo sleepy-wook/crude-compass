@@ -75,7 +75,7 @@ export const ACTOR_META: Record<string, ActorMeta> = {
   },
   reactive: {
     label: "Reactive Trigger",
-    icon: "⚡",
+    icon: "!",
     color: "text-crisis-700",
     chip: "bg-crisis-50 text-crisis-700 border-crisis-100",
   },

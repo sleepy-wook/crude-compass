@@ -177,8 +177,7 @@ function CaseDetailBody({
       <div className="flex items-center gap-3 text-[12px] py-2.5 border-y border-line-1 mb-5 flex-wrap">
         {baseUsdM !== null ? (
           <span className="inline-flex items-baseline gap-1.5 text-ink-1">
-            <span aria-hidden>💰</span>
-            <span className="text-ink-3">예상 절감</span>
+            <span className="text-[10px] uppercase tracking-wider text-ink-3">예상 절감</span>
             <span className="font-semibold tabular-nums">
               ~${baseUsdM.toFixed(1)}M
             </span>
@@ -189,8 +188,7 @@ function CaseDetailBody({
         )}
         <span className="text-line-2" aria-hidden>·</span>
         <span className="inline-flex items-baseline gap-1.5 text-ink-2">
-          <span aria-hidden>⏰</span>
-          <span className="text-ink-3">OSP</span>
+          <span className="text-[10px] uppercase tracking-wider text-ink-3">OSP 결재</span>
           <span className="font-medium tabular-nums">D-{ospD}</span>
         </span>
       </div>

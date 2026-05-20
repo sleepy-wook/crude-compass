@@ -477,7 +477,6 @@ function EmptyStateGuide({
           <div>
             <div className="rounded-md border border-ink-1 bg-ink-1 text-paper p-3 mb-3">
               <div className="flex items-baseline gap-2">
-                <span className="text-[14px]">⚡</span>
                 <div>
                   <div className="text-[10px] uppercase tracking-wider opacity-70">Supervisor</div>
                   <div className="text-[12px] font-medium">자동 라우팅 — 질문 분석 후 sub-agent 선택</div>
