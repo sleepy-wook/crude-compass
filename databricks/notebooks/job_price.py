@@ -161,6 +161,27 @@ if spikes:
 else:
     print(f"\n{written} rows appended, no spike")
 
+# === Live Pulse emit — price spike (D-2 spec time-axis Layer A) ===
+try:
+    from _lakebase_emit import emit
+    for r in spikes:
+        pct = float(r.delta_pct_5min)
+        if abs(pct) >= 2.0:
+            direction = "spike up" if pct > 0 else "spike down"
+            emit(
+                actor="price_job",
+                action="trigger_fired",
+                result_preview=f"{r.ticker} {direction} {pct:+.2f}% (5min)",
+                metadata={
+                    "ticker": r.ticker,
+                    "price": float(r.price_usd),
+                    "pct_change": pct,
+                    "window": "5min",
+                },
+            )
+except Exception as e:
+    print(f"price spike emit failed: {e}")
+
 # COMMAND ----------
 
 dbutils.notebook.exit(json.dumps({
