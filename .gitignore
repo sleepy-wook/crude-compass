@@ -46,3 +46,4 @@ mlflow.db
 !.claude/README.md
 # Visual evaluator snapshots — local-only (large JPEGs, regenerable from screenshots)
 .claude/visual-snapshots/
+backend/.env.bak
