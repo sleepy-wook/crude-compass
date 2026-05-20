@@ -389,6 +389,30 @@ if all_rows:
     df = df.withColumn("raw_tone", col("raw_tone").cast("decimal(5,2)"))
     df.write.mode("append").saveAsTable(TARGET_TABLE)
     print(f"{len(all_rows)} rows appended to {TARGET_TABLE}")
+
+    # === Live Pulse emit — importance >= 70 신호 (D-2 spec time-axis Layer A) ===
+    try:
+        from _lakebase_emit import emit
+        from pyspark.sql import functions as F
+        top_signals = df.filter(F.col("importance") >= 70).select(
+            "title", "importance", "direction", "category", "published_at"
+        ).limit(5).collect()
+        for row in top_signals:
+            title_preview = (row["title"] or "")[:60]
+            emit(
+                actor="gdelt",
+                action="signal_detected",
+                result_preview=f"{title_preview}... (importance {row['importance']}, {row['direction']})",
+                metadata={
+                    "title": row["title"],
+                    "importance": float(row["importance"]),
+                    "direction": row["direction"],
+                    "category": row["category"],
+                    "published_at": str(row["published_at"]),
+                },
+            )
+    except Exception as e:
+        print(f"gdelt emit failed: {e}")  # fail silent
 else:
     print("No rows to write (all queries below importance threshold)")
 
