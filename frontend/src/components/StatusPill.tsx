@@ -2,12 +2,14 @@ import { cn, statusLabel } from "../lib/utils";
 
 type Variant = "crisis" | "opportunity" | "ok" | "warn" | "ink3";
 
+// Outline 톤 — MissionTypePill의 solid 톤과 시각 구분.
+// 같은 row에 [TypePill solid] + [StatusPill outline] 배치 시 위계 분리.
 const variantClass: Record<Variant, string> = {
-  crisis: "bg-crisis-50 text-crisis-700 border-crisis-100",
-  opportunity: "bg-opportunity-50 text-opportunity-700 border-opportunity-100",
-  ok: "bg-opportunity-50 text-opportunity-700 border-opportunity-100",
-  warn: "bg-amber-50 text-amber-700 border-amber-200",
-  ink3: "bg-line-1 text-ink-3 border-line-2",
+  crisis: "bg-paper text-crisis-700 border-crisis-200",
+  opportunity: "bg-paper text-opportunity-700 border-opportunity-200",
+  ok: "bg-paper text-opportunity-700 border-opportunity-200",
+  warn: "bg-paper text-amber-700 border-amber-300",
+  ink3: "bg-paper text-ink-3 border-line-2",
 };
 
 const statusToVariant: Record<string, Variant> = {

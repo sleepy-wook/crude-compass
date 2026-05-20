@@ -136,7 +136,7 @@ function CaseDetailBody({
   const askDisabled = isTerminated;
 
   return (
-    <div className="bg-panel border border-line-1 rounded-2xl p-6 flex flex-col min-h-[420px]">
+    <div className="bg-white border border-line-2 rounded-2xl p-6 flex flex-col min-h-[420px] shadow-sm">
       {/* Pills row */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <MissionTypePill type={mission.mission_type} />
@@ -206,18 +206,18 @@ function CaseDetailBody({
               "bg-ink-1 text-paper hover:bg-ink-2 disabled:opacity-40 disabled:cursor-not-allowed",
             )}
           >
-            {confirmMut.isPending ? "승인 중..." : "Approve"}
+            {confirmMut.isPending ? "승인 중..." : "승인"}
           </button>
           <button
             type="button"
             onClick={onAdjust}
             disabled={isTerminated}
-            title="Adjust — 비중/기간 조정 후 승인"
+            title="조정 — 비중/기간 조정 후 승인"
             className={cn(
               "px-2 py-2 rounded-r-md text-[12px] border-l border-paper/20",
               "bg-ink-1 text-paper hover:bg-ink-2 disabled:opacity-40 disabled:cursor-not-allowed",
             )}
-            aria-label="Adjust"
+            aria-label="조정"
           >
             ▾
           </button>
@@ -233,7 +233,7 @@ function CaseDetailBody({
             "border-line-2 bg-white text-ink-1 hover:bg-line-1 disabled:opacity-40 disabled:cursor-not-allowed",
           )}
         >
-          Ask for More Evidence
+          추가 조사
         </button>
 
         {/* More overflow */}
@@ -243,7 +243,7 @@ function CaseDetailBody({
             onClick={() => setMoreOpen((v) => !v)}
             className="px-2.5 py-2 rounded-md text-[12px] font-medium border border-line-2 bg-white text-ink-2 hover:bg-line-1 transition-colors"
           >
-            More ▾
+            더 보기 ▾
           </button>
           {moreOpen && (
             <div
@@ -252,7 +252,7 @@ function CaseDetailBody({
               onMouseLeave={() => setMoreOpen(false)}
             >
               <MenuItem
-                label="Keep Watching"
+                label="모니터링 유지"
                 onClick={() => {
                   setMoreOpen(false);
                   onKeepWatching();
@@ -260,7 +260,7 @@ function CaseDetailBody({
                 disabled={isTerminated || pivotMut.isPending}
               />
               <MenuItem
-                label="Re-check Later"
+                label="재검토 예약"
                 onClick={() => {
                   setMoreOpen(false);
                   onRecheckLater();
@@ -268,7 +268,7 @@ function CaseDetailBody({
                 disabled={isTerminated || modifyMut.isPending}
               />
               <MenuItem
-                label="Dismiss"
+                label="기각"
                 onClick={() => {
                   setMoreOpen(false);
                   onDismiss();
@@ -286,7 +286,7 @@ function CaseDetailBody({
           to={`/missions/${mission.mission_id}`}
           className="inline-flex items-center gap-1.5 text-[12px] text-ink-3 hover:text-ink-1 transition-colors"
         >
-          상세 (Case File) <span aria-hidden>→</span>
+          상세 보기 <span aria-hidden>→</span>
         </Link>
       </div>
     </div>
