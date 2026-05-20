@@ -17,9 +17,7 @@ import { Bidirectional3Zone } from "../components/Bidirectional3Zone";
 import { SimilarPastWidget } from "../components/SimilarPastWidget";
 import { MissionSplitBar } from "../components/MissionSplitBar";
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
-import { AgentActivityTimeline } from "../components/AgentActivityTimeline";
 import { LivePulseStrip } from "../components/LivePulseStrip";
-import { DailyLoopClock } from "../components/DailyLoopClock";
 import { SuggestedNextActions } from "../components/SuggestedNextActions";
 import type { Mission } from "../lib/types";
 
@@ -79,25 +77,9 @@ export function Dashboard() {
       </header>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {/* HERO ★ — Market Memory + Live AI Pulse                       */}
+      {/* HERO ★ — 오늘의 결정 (Bidirectional 시그널 + open case)         */}
+      {/* 시선 anchor 단일화 — 30초 안에 "오늘 무엇을 결정할지" 파악       */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 mb-4">
-        <div className="lg:col-span-3">
-          <SimilarPastWidget cur={cur} />
-        </div>
-        <div className="lg:col-span-2 space-y-3">
-          <LivePulseStrip />
-          <DailyLoopClock />
-        </div>
-      </div>
-
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {/* SIGNAL — Bidirectional + Mission 요약 (좌 360 / 우 1fr)        */}
-      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <SectionHeader
-        title="오늘의 시그널"
-        subtitle="양방향 강도 · 위험·기회 동시 추적"
-      />
       <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6 mb-10">
         <Bidirectional3Zone cur={cur} topMission={topMission} />
         <MissionSummaryCard
@@ -108,25 +90,23 @@ export function Dashboard() {
       </div>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {/* AGENT BRICKS 활동 — Supervisor orchestration timeline       */}
-      {/* (Lakebase agent_activity_events) — codex P0 핵심 narrative   */}
+      {/* MARKET MEMORY — 유사 과거 사례 (case의 historical anchor)      */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {topMission && (
-        <>
-          <SectionHeader
-            title="Agent Bricks 활동"
-            subtitle={`Supervisor · Genie · Knowledge Assistant · Mission Plan — 현재 ${
-              topMission.status === "proposed" ? "검토 대기" : "진행 중"
-            } case의 실시간 활동 기록`}
-          />
-          <AgentActivityTimeline
-            missionId={topMission.mission_id}
-            mode="compact"
-            limit={6}
-            showHeader={false}
-          />
-        </>
-      )}
+      <SectionHeader
+        title="시장 메모리"
+        subtitle="유사 과거 사례 — 같은 시그널 조합일 때 시장이 보였던 반응"
+      />
+      <SimilarPastWidget cur={cur} />
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {/* LIVE AI PULSE (slim) — Agent activity 글로벌 stream             */}
+      {/* Sidebar의 mini dot 보다 한 단계 자세 — 페이지 진입 시 인지       */}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <SectionHeader
+        title="AI 활동"
+        subtitle="Supervisor · Genie · KA · Cron — 최근 활동 stream"
+      />
+      <LivePulseStrip />
 
       <div className="h-12" />
     </div>
