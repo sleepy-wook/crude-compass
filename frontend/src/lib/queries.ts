@@ -192,6 +192,16 @@ export function useRecentPulse(limit = 50, options?: { enabled?: boolean }) {
   });
 }
 
+/** Daily Loop Clock — 오늘 24h 내 crude-compass job run summary. */
+export function useJobRunsToday() {
+  return useQuery({
+    queryKey: ["jobs", "runs", "today"] as const,
+    queryFn: () => api.jobsRunsToday(),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+}
+
 export function usePulseStats() {
   return useQuery({
     queryKey: ["pulse", "stats"] as const,

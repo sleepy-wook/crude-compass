@@ -19,6 +19,7 @@ import { MissionSplitBar } from "../components/MissionSplitBar";
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
 import { AgentActivityTimeline } from "../components/AgentActivityTimeline";
 import { LivePulseStrip } from "../components/LivePulseStrip";
+import { DailyLoopClock } from "../components/DailyLoopClock";
 import { SuggestedNextActions } from "../components/SuggestedNextActions";
 import type { Mission } from "../lib/types";
 
@@ -84,8 +85,9 @@ export function Dashboard() {
         <div className="lg:col-span-3">
           <SimilarPastWidget cur={cur} />
         </div>
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-3">
           <LivePulseStrip />
+          <DailyLoopClock />
         </div>
       </div>
 

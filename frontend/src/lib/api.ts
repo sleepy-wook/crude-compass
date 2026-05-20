@@ -305,6 +305,21 @@ export const api = {
       count: number;
     }>(`/api/pulse/recent?limit=${limit}`),
 
+  /** Daily Loop Clock — 오늘 24h 내 crude-compass job run summary. */
+  jobsRunsToday: () =>
+    request<{
+      runs: Array<{
+        job_name: string;
+        label: string;
+        run_id: number;
+        start_time: number | null;
+        end_time: number | null;
+        result_state: string | null;
+        duration_ms: number | null;
+      }>;
+      summary: Record<string, { count: number; success: number; fail: number }>;
+    }>("/api/jobs/runs/today"),
+
   /** 24h 누적 통계. */
   pulseStats: () =>
     request<{
