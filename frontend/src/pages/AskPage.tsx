@@ -5,12 +5,14 @@
  * 자연어 질의 → Supervisor → 3 sub-agent → 응답 trace.
  * 하단 collapsible: 과거 권고 검증 (Backtest slider).
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import type { SubAgentCall, SupervisorQueryResponse } from "../lib/types";
 import { useMission, usePatternCurrent } from "../lib/queries";
+import { SignalLifecycle } from "../components/SignalLifecycle";
+import { cn } from "../lib/utils";
 
 // 각 sample 질문에 어떤 sub-agent 주로 호출되는지 hint (평가위원/매니저 demo).
 interface SampleQuery {
@@ -115,10 +117,18 @@ export function AskPage() {
   const pattern = usePatternCurrent();
 
   // URL `?case_id=...` — case-bound Investigation 모드
+  // URL `?signal_id=...` — Trace-a-Signal 모드 (4-stage forensic view)
   const [searchParams] = useSearchParams();
   const caseId = searchParams.get("case_id") ?? undefined;
+  const signalId = searchParams.get("signal_id") ?? undefined;
   const caseQuery = useMission(caseId);
   const currentCase = caseQuery.data ?? null;
+
+  // Tab mode: chat | signal. signal_id query param 있으면 자동 signal mode 진입.
+  const [mode, setMode] = useState<"chat" | "signal">(signalId ? "signal" : "chat");
+  useEffect(() => {
+    if (signalId) setMode("signal");
+  }, [signalId]);
 
   // case_id 있으면 case-bound EXAMPLES, 없으면 generic
   const examples = useMemo(
@@ -226,14 +236,52 @@ export function AskPage() {
       <header className="mb-8">
         <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">Investigation</div>
         <h1 className="font-display text-[28px] md:text-[32px] font-semibold tracking-tight text-ink-1 leading-tight">
-          {currentCase ? "이 case 조사" : "Agent Bricks Supervisor 조사 콘솔"}
+          {mode === "signal"
+            ? "Trace a Signal"
+            : currentCase
+              ? "이 case 조사"
+              : "Agent Bricks Supervisor 조사 콘솔"}
         </h1>
         <p className="text-[13px] text-ink-3 mt-1.5 leading-relaxed">
-          Supervisor가 Genie (Crude Oil Market) · Knowledge Assistant (OPEC MOMR) · mission_plan_advice (UC Function)를
-          자동 라우팅. 응답 + 호출된 tool trace를 Lakebase activity에 기록.
+          {mode === "signal"
+            ? "단일 시그널(article)의 4-stage forensic view — bronze.news_articles → silver.signal_events_decayed → gold.signal_contribution_30d."
+            : "Supervisor가 Genie (Crude Oil Market) · Knowledge Assistant (OPEC MOMR) · mission_plan_advice (UC Function)를 자동 라우팅. 응답 + 호출된 tool trace를 Lakebase activity에 기록."}
         </p>
+
+        {/* Tab — Chat / Trace a Signal */}
+        <div className="flex gap-2 mt-4">
+          <button
+            type="button"
+            onClick={() => setMode("chat")}
+            className={cn(
+              "text-[12px] px-3 py-1 rounded transition-colors",
+              mode === "chat" ? "bg-ink-1 text-paper" : "bg-line-1 text-ink-2 hover:bg-line-2",
+            )}
+          >
+            Chat
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("signal")}
+            className={cn(
+              "text-[12px] px-3 py-1 rounded transition-colors",
+              mode === "signal" ? "bg-ink-1 text-paper" : "bg-line-1 text-ink-2 hover:bg-line-2",
+            )}
+          >
+            Trace a Signal
+          </button>
+        </div>
       </header>
 
+      {/* Signal mode — 4-stage SignalLifecycle */}
+      {mode === "signal" && (
+        <div className="mb-6">
+          <SignalLifecycle signalId={signalId} />
+        </div>
+      )}
+
+      {/* Chat mode — 기존 Supervisor 조사 콘솔 */}
+      {mode === "chat" && (<>
       {/* Case context badge — case-bound mode */}
       {caseId && currentCase && (
         <div className="mb-6 px-4 py-3 rounded-lg bg-line-1/40 border border-line-2 flex items-baseline justify-between flex-wrap gap-2">
@@ -343,6 +391,7 @@ export function AskPage() {
           과거 권고 검증 페이지 보기 →
         </Link>
       </div>
+      </>)}
 
       <div className="h-20" />
     </div>

@@ -105,10 +105,18 @@ export function LivePulseStrip() {
               )}
             </>
           );
+          // gdelt entry는 article_id metadata 있으면 /ask?signal_id=... deep link.
+          // mission_id가 우선 — case 진입이 forensic view보다 더 명시적인 narrative.
+          const articleId = (ev.metadata as { article_id?: string } | null)?.article_id;
+          const linkTo = ev.mission_id
+            ? `/missions/${ev.mission_id}`
+            : articleId
+              ? `/ask?signal_id=${encodeURIComponent(articleId)}`
+              : null;
           return (
             <li key={ev.id} className="border-b border-line-1 last:border-b-0">
-              {ev.mission_id ? (
-                <Link to={`/missions/${ev.mission_id}`} className={rowClass}>
+              {linkTo ? (
+                <Link to={linkTo} className={rowClass}>
                   {inner}
                 </Link>
               ) : (
