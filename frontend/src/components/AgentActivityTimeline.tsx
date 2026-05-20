@@ -30,7 +30,7 @@ type ActorMeta = {
   chip: string;
 };
 
-const ACTOR_META: Record<string, ActorMeta> = {
+export const ACTOR_META: Record<string, ActorMeta> = {
   supervisor: {
     label: "Agent Bricks Supervisor",
     icon: "◆",
@@ -98,7 +98,7 @@ function actorMeta(actor: string): ActorMeta {
   );
 }
 
-const ACTION_LABEL: Record<string, string> = {
+export const ACTION_LABEL: Record<string, string> = {
   case_opened: "case 개시",
   score_computed: "Pattern Score 계산",
   draft_generated: "Draft 생성",
