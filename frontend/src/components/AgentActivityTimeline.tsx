@@ -79,6 +79,24 @@ export const ACTOR_META: Record<string, ActorMeta> = {
     color: "text-crisis-700",
     chip: "bg-crisis-50 text-crisis-700 border-crisis-100",
   },
+  gdelt: {
+    label: "GDELT (News Ingest)",
+    icon: "✉",
+    color: "text-info",
+    chip: "bg-paper text-info border-info",
+  },
+  curation_job: {
+    label: "Daily Curation",
+    icon: "∆",
+    color: "text-warn",
+    chip: "bg-paper text-warn border-warn",
+  },
+  price_job: {
+    label: "Price Pipeline",
+    icon: "$",
+    color: "text-ok",
+    chip: "bg-paper text-ok border-ok",
+  },
   system: {
     label: "System",
     icon: "○",
@@ -112,6 +130,9 @@ export const ACTION_LABEL: Record<string, string> = {
   invoked: "호출",
   synthesized: "응답 종합",
   trigger_fired: "트리거 발화",
+  signal_detected: "신호 감지",
+  revision_suggested: "재검토 제안",
+  tick: "수집",
 };
 
 function actionLabel(action: string): string {
