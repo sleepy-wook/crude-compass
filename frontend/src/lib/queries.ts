@@ -109,6 +109,16 @@ export function useSignalContribution() {
   });
 }
 
+/** Signal Lifecycle — 4-stage forensic view for a single signal (article_id). */
+export function useSignalLifecycle(signalId: string | undefined) {
+  return useQuery({
+    queryKey: ["signal", "lifecycle", signalId] as const,
+    queryFn: () => api.signalLifecycle(signalId!),
+    enabled: !!signalId,
+    staleTime: 60_000,
+  });
+}
+
 export function usePatternHistory(days: number) {
   return useQuery({
     queryKey: queryKeys.patternHistory(days),

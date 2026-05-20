@@ -212,6 +212,33 @@ export const api = {
       window_days: number;
     }>("/api/signals/contribution"),
 
+  /** Signal Lifecycle — 4-stage forensic view (bronze + silver + gold). Trace-a-Signal Investigation. */
+  signalLifecycle: (signalId: string) =>
+    request<{
+      signal_id: string;
+      stages: {
+        detected: Record<string, unknown> | null;
+        scored: {
+          importance: number | null;
+          direction: string | null;
+          horizon: string | null;
+          confidence: number | null;
+        } | null;
+        decay: Array<{
+          as_of_date: string;
+          weight: number;
+          lambda: number;
+          days_since_event: number;
+        }>;
+        contribution: {
+          total_contribution: number;
+          peak_contribution: number;
+          peak_date: string;
+          referenced_case_ids: string[];
+        } | null;
+      };
+    }>(`/api/signals/${encodeURIComponent(signalId)}/lifecycle`),
+
   // backtest
   backtestResults: () => request<BacktestResults>("/api/backtest/results"),
   backtestPredictions: (limit = 50) =>
