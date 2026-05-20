@@ -36,11 +36,11 @@ export function CaseThreadEntry({ ev }: { ev: ActivityEvent }) {
     <li className="relative pl-5 pb-3">
       <span
         className={cn(
-          "absolute left-0 top-1 w-3 h-3 rounded-full border-2 border-white text-[8px] leading-[7px] text-center",
+          "absolute left-0 top-1 w-[14px] h-[14px] rounded-full border-2 border-white inline-flex items-center justify-center",
           meta.chip,
         )}
       >
-        {meta.icon}
+        <meta.Icon className="w-2 h-2" strokeWidth={2.5} />
       </span>
       <div className="flex items-center gap-2 text-[11px]">
         <span className={cn("font-semibold", meta.color)}>{meta.label}</span>

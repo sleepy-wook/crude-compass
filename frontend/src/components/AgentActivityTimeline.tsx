@@ -15,15 +15,31 @@
  *   - "compact": 최신 4개만 + 한 줄 layout (Dashboard mini)
  *   - "full":   전체 + vertical timeline + 펼친 preview (MissionsPage detail)
  */
+import {
+  Activity,
+  BookOpen,
+  Brain,
+  Circle,
+  Cog,
+  Database,
+  DollarSign,
+  Newspaper,
+  Sigma,
+  User,
+  Workflow,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
+
 import { useMissionActivity } from "../lib/queries";
 import { cn, relativeTime } from "../lib/utils";
 
 // ────────────────────────────────────────────────────────────────────
-// actor / action 라벨 + 색
+// actor / action 라벨 + 색 (lucide-react SVG icon)
 // ────────────────────────────────────────────────────────────────────
 type ActorMeta = {
   label: string;
-  icon: string;
+  Icon: LucideIcon;
   /** Tailwind text color class */
   color: string;
   /** chip bg color class */
@@ -33,73 +49,73 @@ type ActorMeta = {
 export const ACTOR_META: Record<string, ActorMeta> = {
   supervisor: {
     label: "Agent Bricks Supervisor",
-    icon: "◆",
+    Icon: Workflow,
     color: "text-ink",
     chip: "bg-line-1 text-ink-2 border-line-2",
   },
   genie: {
     label: "Genie (Crude Oil Market)",
-    icon: "▤",
+    Icon: Database,
     color: "text-opportunity-700",
     chip: "bg-opportunity-50 text-opportunity-700 border-opportunity-100",
   },
   knowledge_assistant: {
     label: "Knowledge Assistant (OPEC)",
-    icon: "✦",
+    Icon: BookOpen,
     color: "text-crisis-700",
     chip: "bg-crisis-50 text-crisis-700 border-crisis-100",
   },
   mission_plan_fma: {
     label: "Mission Plan (FMA)",
-    icon: "◇",
+    Icon: Brain,
     color: "text-opportunity-700",
     chip: "bg-opportunity-50 text-opportunity-700 border-opportunity-100",
   },
   mission_plan_uc: {
     label: "mission_plan_advice (UC Func)",
-    icon: "◇",
+    Icon: Brain,
     color: "text-opportunity-700",
     chip: "bg-opportunity-50 text-opportunity-700 border-opportunity-100",
   },
   weighted_signal_uc: {
     label: "weighted_signal (UC Func)",
-    icon: "∑",
+    Icon: Sigma,
     color: "text-ink-2",
     chip: "bg-line-1 text-ink-2 border-line-2",
   },
   manager: {
     label: "매니저",
-    icon: "●",
+    Icon: User,
     color: "text-ink",
     chip: "bg-line-1 text-ink border-line-2",
   },
   reactive: {
     label: "Reactive Trigger",
-    icon: "!",
+    Icon: Zap,
     color: "text-crisis-700",
     chip: "bg-crisis-50 text-crisis-700 border-crisis-100",
   },
   gdelt: {
     label: "GDELT (News Ingest)",
-    icon: "✉",
+    Icon: Newspaper,
     color: "text-info",
     chip: "bg-paper text-info border-info",
   },
   curation_job: {
     label: "Daily Curation",
-    icon: "∆",
+    Icon: Activity,
     color: "text-warn",
     chip: "bg-paper text-warn border-warn",
   },
   price_job: {
     label: "Price Pipeline",
-    icon: "$",
+    Icon: DollarSign,
     color: "text-ok",
     chip: "bg-paper text-ok border-ok",
   },
   system: {
     label: "System",
-    icon: "○",
+    Icon: Cog,
     color: "text-ink-3",
     chip: "bg-line-1 text-ink-3 border-line-2",
   },
@@ -109,7 +125,7 @@ function actorMeta(actor: string): ActorMeta {
   return (
     ACTOR_META[actor] || {
       label: actor,
-      icon: "·",
+      Icon: Circle,
       color: "text-ink-3",
       chip: "bg-line-1 text-ink-3 border-line-2",
     }
@@ -265,9 +281,7 @@ function EventRow({
     // 한 줄 layout: [icon] [actor short] · [action] · [time] · [preview truncated]
     return (
       <li className="flex items-center gap-2 text-[11px] leading-snug">
-        <span className={cn("inline-block w-3 text-center shrink-0", meta.color)}>
-          {meta.icon}
-        </span>
+        <meta.Icon className={cn("w-3 h-3 shrink-0", meta.color)} strokeWidth={2} />
         <span className={cn("font-medium shrink-0", meta.color)}>
           {compactActorLabel(ev.actor)}
         </span>
@@ -288,11 +302,11 @@ function EventRow({
     <li className={cn("relative pl-4", isLast ? "pb-0" : "pb-3")}>
       <span
         className={cn(
-          "absolute left-0 top-1 w-[11px] h-[11px] rounded-full border-2 border-white text-[8px] leading-[7px] text-center",
+          "absolute left-0 top-1 w-[14px] h-[14px] rounded-full border-2 border-white inline-flex items-center justify-center",
           meta.chip,
         )}
       >
-        {meta.icon}
+        <meta.Icon className="w-2 h-2" strokeWidth={2.5} />
       </span>
       <div className="flex items-center gap-2 text-[11px]">
         <span className={cn("font-semibold", meta.color)}>{meta.label}</span>

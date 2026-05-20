@@ -90,9 +90,7 @@ export function LivePulseStrip() {
               <span className="text-[10px] text-ink-3 mr-2 tabular-nums">
                 {relativeTime(ev.occurred_at)}
               </span>
-              <span className={cn("inline-block w-3 text-center mr-1", m.color)}>
-                {m.icon}
-              </span>
+              <m.Icon className={cn("inline-block w-3 h-3 mr-1 align-[-2px]", m.color)} strokeWidth={2} />
               <span className={cn("font-medium mr-1", m.color)}>{short}</span>
               <span className="text-ink-2 mr-1">·</span>
               <span className="text-ink-2 mr-2">
