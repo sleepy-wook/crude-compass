@@ -362,6 +362,36 @@ if today_score:
 
 # COMMAND ----------
 
+# === Live Pulse emit — Pattern Score change (D-2 spec time-axis Layer A) ===
+try:
+    from _lakebase_emit import emit
+    if today_score:
+        new_score = float(today_score[0].pattern_score)
+        prev_rows = spark.sql("""
+            SELECT pattern_score
+            FROM crude_compass.silver.pattern_scores_daily
+            WHERE date < CURRENT_DATE()
+            ORDER BY date DESC
+            LIMIT 1
+        """).collect()
+        prev_score = float(prev_rows[0].pattern_score) if prev_rows else new_score
+        if abs(new_score - prev_score) >= 1.0:
+            direction = "up" if new_score > prev_score else "down"
+            emit(
+                actor="curation_job",
+                action="score_computed",
+                result_preview=f"Pattern Score {prev_score:.1f} → {new_score:.1f} ({direction})",
+                metadata={
+                    "prev_score": prev_score,
+                    "new_score": new_score,
+                    "delta": new_score - prev_score,
+                },
+            )
+except Exception as e:
+    print(f"curation score emit failed: {e}")
+
+# COMMAND ----------
+
 dbutils.notebook.exit(json.dumps({
     "run_id": run_id,
     "status": "success",
