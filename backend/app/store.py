@@ -395,3 +395,18 @@ def get_bus() -> EventBus:
     if _bus is None:
         _bus = EventBus()
     return _bus
+
+
+_pulse_bus: EventBus | None = None
+
+
+def get_pulse_bus() -> EventBus:
+    """Live AI Pulse 전용 bus — agent_activity_events INSERT 시 broadcast.
+
+    missions bus와 분리 — pulse client는 mission lifecycle만 받지 않고
+    전역 AI activity (cron, supervisor, reactive) 전부 받음.
+    """
+    global _pulse_bus
+    if _pulse_bus is None:
+        _pulse_bus = EventBus()
+    return _pulse_bus
