@@ -969,6 +969,39 @@ Lakebase 미가용 시 0 / 빈 dict graceful.
 
 ---
 
+## 8.6 Jobs Endpoints (D-2 추가 — Daily Loop Clock)
+
+Databricks Jobs SDK wrapper — 오늘 24h 내 crude-compass job run summary.
+spec: `2026-05-20-time-axis-redesign.md` Task 20.
+
+### `GET /api/jobs/runs/today`
+
+오늘 0시(UTC 기준 -24h) 이후 모든 crude-compass job run 요약. Daily Loop Clock의 데이터 source.
+
+**Response 200**:
+```json
+{
+  "runs": [
+    {
+      "job_name": "gdelt-15min",
+      "label": "GDELT",
+      "run_id": 123456789,
+      "start_time": 1716172800000,
+      "end_time": 1716172860000,
+      "result_state": "SUCCESS",
+      "duration_ms": 60000
+    }
+  ],
+  "summary": {
+    "gdelt-15min": {"count": 96, "success": 95, "fail": 1}
+  }
+}
+```
+
+SDK 호출 실패 시 `{"runs": [], "summary": {}}` graceful.
+
+---
+
 ## 9. FastAPI Project 구조 (`backend/app/`)
 
 ```
