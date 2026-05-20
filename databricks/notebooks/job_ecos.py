@@ -7,10 +7,24 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install --quiet httpx==0.28.1
-# MAGIC dbutils.library.restartPython()
+# D-2 optimization: subprocess pip = no restartPython 60s overhead.
 
 # COMMAND ----------
+
+import importlib
+import subprocess
+import sys
+
+
+def _ensure_package(import_name: str, install_spec: str):
+    try:
+        importlib.import_module(import_name)
+    except ImportError:
+        print(f"  installing {install_spec}...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", install_spec])
+
+
+_ensure_package("httpx", "httpx==0.28.1")
 
 import json
 from datetime import datetime, timezone, date, timedelta
