@@ -136,7 +136,7 @@ function CaseDetailBody({
   const askDisabled = isTerminated;
 
   return (
-    <div className="bg-white border border-line-2 rounded-2xl p-6 flex flex-col min-h-[420px] shadow-sm">
+    <div className="bg-white border border-line-2 rounded-2xl p-6 flex flex-col h-[560px] overflow-y-auto shadow-sm">
       {/* Pills row */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <MissionTypePill type={mission.mission_type} />

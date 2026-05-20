@@ -62,127 +62,122 @@ export function Bidirectional3Zone({ cur, topMission }: Props) {
         )}
       </div>
 
-      <div className="flex gap-5">
-        {/* Vertical bar */}
-        <div className="relative w-14 h-64 rounded-md overflow-hidden border border-line-1 shrink-0">
-          {/* HEDGE zone — top 30% */}
-          <div className="absolute inset-x-0 top-0 h-[30%] bg-crisis-50" />
-          {/* STABLE zone — middle 40% */}
-          <div className="absolute inset-x-0 top-[30%] h-[40%] bg-line-1" />
-          {/* OPPORTUNITY zone — bottom 30% */}
-          <div className="absolute inset-x-0 bottom-0 h-[30%] bg-opportunity-50" />
+      <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8">
+        {/* LEFT — bar + zone labels (그대로) */}
+        <div className="flex gap-5">
+          {/* Vertical bar */}
+          <div className="relative w-14 h-64 rounded-md overflow-hidden border border-line-1 shrink-0">
+            <div className="absolute inset-x-0 top-0 h-[30%] bg-crisis-50" />
+            <div className="absolute inset-x-0 top-[30%] h-[40%] bg-line-1" />
+            <div className="absolute inset-x-0 bottom-0 h-[30%] bg-opportunity-50" />
+            <div className="absolute inset-x-0 top-[30%] border-t border-dashed border-crisis-100" />
+            <div className="absolute inset-x-0 top-[70%] border-t border-dashed border-opportunity-100" />
+            <div className="absolute inset-x-0 top-[10%] border-t border-crisis-500/40" />
+            <div className="absolute inset-x-0 top-[90%] border-t border-opportunity-500/40" />
+            {score !== null && (
+              <div
+                className="absolute left-0 right-0 transition-all duration-500"
+                style={{ top: markerTop, transform: "translateY(-50%)" }}
+              >
+                <div className="w-full h-0.5 bg-ink-1" />
+                <div className="absolute right-full pr-2 top-1/2 -translate-y-1/2 whitespace-nowrap">
+                  <span className="font-display text-base font-semibold text-ink-1 tabular-nums">
+                    {formatRoundedScore(score)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
 
-          {/* Zone dividers */}
-          <div className="absolute inset-x-0 top-[30%] border-t border-dashed border-crisis-100" />
-          <div className="absolute inset-x-0 top-[70%] border-t border-dashed border-opportunity-100" />
+          {/* Zone labels */}
+          <div className="flex flex-col justify-between h-64 py-1 w-32 shrink-0">
+            <ZoneRow
+              label="위험방어"
+              range="70 — 100"
+              active={currentZone === "HEDGE"}
+              urgent={isUrgent && score! >= 90}
+              urgentLabel="긴급 (90+)"
+              tone="crisis"
+            />
+            <ZoneRow
+              label="관망"
+              range="30 — 70"
+              active={currentZone === "STABLE"}
+              tone="ink"
+            />
+            <ZoneRow
+              label="기회포착"
+              range="0 — 30"
+              active={currentZone === "OPPORTUNITY"}
+              urgent={isUrgent && score! <= 10}
+              urgentLabel="긴급 (10-)"
+              tone="opportunity"
+            />
+          </div>
+        </div>
 
-          {/* Urgent threshold lines (90+ / 10-) */}
-          <div className="absolute inset-x-0 top-[10%] border-t border-crisis-500/40" />
-          <div className="absolute inset-x-0 top-[90%] border-t border-opportunity-500/40" />
+        {/* RIGHT — 강도 stats + 강한 시그널 */}
+        <div className="flex flex-col gap-4">
+          {(bullish !== null || bearish !== null) && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-[11px] text-ink-3 mb-1">위험 강도 (90일)</div>
+                <div className="font-display text-2xl font-semibold text-crisis-700 tabular-nums">
+                  {bullish !== null ? bullish.toFixed(0) : "—"}
+                  <span className="text-[11px] text-ink-3 ml-1 font-normal">점</span>
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] text-ink-3 mb-1">안정 강도 (90일)</div>
+                <div className="font-display text-2xl font-semibold text-opportunity-700 tabular-nums">
+                  {bearish !== null ? bearish.toFixed(0) : "—"}
+                  <span className="text-[11px] text-ink-3 ml-1 font-normal">점</span>
+                </div>
+              </div>
+              {cur?.signal_count_90d != null && (
+                <div className="col-span-2 text-[10px] text-ink-3 -mt-1">
+                  누적 시그널 {cur.signal_count_90d}건 (위험 + 안정)
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* Current marker */}
-          {score !== null && (
-            <div
-              className="absolute left-0 right-0 transition-all duration-500"
-              style={{ top: markerTop, transform: "translateY(-50%)" }}
-            >
-              <div className="w-full h-0.5 bg-ink-1" />
-              <div className="absolute right-full pr-2 top-1/2 -translate-y-1/2 whitespace-nowrap">
-                <span className="font-display text-base font-semibold text-ink-1 tabular-nums">
-                  {formatRoundedScore(score)}
-                </span>
+          {topContribs.length > 0 && (
+            <div className="pt-3 border-t border-line-1 flex-1">
+              <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-2">
+                최근 강한 시그널 (3)
+              </div>
+              <div className="space-y-1.5">
+                {topContribs.map((s, i) => {
+                  const dirLabel =
+                    s.direction === "bullish" ? "위기" : s.direction === "bearish" ? "안정" : "중립";
+                  const dirCls =
+                    s.direction === "bullish"
+                      ? "bg-crisis-50 text-crisis-700"
+                      : s.direction === "bearish"
+                        ? "bg-opportunity-50 text-opportunity-700"
+                        : "bg-line-1 text-ink-3";
+                  return (
+                    <div key={`${s.signal_type}-${i}`} className="flex items-center gap-2 text-[12px]">
+                      <span
+                        className={`shrink-0 inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[9px] font-medium uppercase tracking-wider ${dirCls}`}
+                      >
+                        {dirLabel}
+                      </span>
+                      <span className="text-ink-1 flex-1 truncate">
+                        {SIGNAL_LABEL[s.signal_type] ?? s.signal_type}
+                      </span>
+                      <span className="text-ink-3 text-[11px] tabular-nums">
+                        {s.share_pct.toFixed(1)}%
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
         </div>
-
-        {/* Zone labels — right column */}
-        <div className="flex-1 flex flex-col justify-between h-64 py-1">
-          <ZoneRow
-            label="위험방어"
-            range="70 — 100"
-            active={currentZone === "HEDGE"}
-            urgent={isUrgent && score! >= 90}
-            urgentLabel="긴급 위험방어 (90+)"
-            tone="crisis"
-          />
-          <ZoneRow
-            label="관망"
-            range="30 — 70"
-            active={currentZone === "STABLE"}
-            tone="ink"
-          />
-          <ZoneRow
-            label="기회포착"
-            range="0 — 30"
-            active={currentZone === "OPPORTUNITY"}
-            urgent={isUrgent && score! <= 10}
-            urgentLabel="긴급 기회포착 (10-)"
-            tone="opportunity"
-          />
-        </div>
       </div>
-
-      {/* 위험 vs 안정 강도 — 90일 가중치 합 + 시그널 갯수 */}
-      {(bullish !== null || bearish !== null) && (
-        <div className="mt-5 pt-4 border-t border-line-1 grid grid-cols-2 gap-3 text-[11px]">
-          <div>
-            <div className="text-ink-3 mb-1">위험 강도 (90일)</div>
-            <div className="font-display text-base font-semibold text-crisis-700 tabular-nums">
-              {bullish !== null ? bullish.toFixed(0) : "—"}
-              <span className="text-[10px] text-ink-3 ml-1 font-normal">점</span>
-            </div>
-          </div>
-          <div>
-            <div className="text-ink-3 mb-1">안정 강도 (90일)</div>
-            <div className="font-display text-base font-semibold text-opportunity-700 tabular-nums">
-              {bearish !== null ? bearish.toFixed(0) : "—"}
-              <span className="text-[10px] text-ink-3 ml-1 font-normal">점</span>
-            </div>
-          </div>
-          {cur?.signal_count_90d != null && (
-            <div className="col-span-2 text-[10px] text-ink-3 -mt-1">
-              누적 시그널 {cur.signal_count_90d}건 (위험 + 안정)
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* "왜 이 점수인지" 인라인 답 — top 3 시그널 */}
-      {topContribs.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-line-1">
-          <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-2">
-            최근 강한 시그널 (3)
-          </div>
-          <div className="space-y-1.5">
-            {topContribs.map((s, i) => {
-              const dirLabel =
-                s.direction === "bullish" ? "위기" : s.direction === "bearish" ? "안정" : "중립";
-              const dirCls =
-                s.direction === "bullish"
-                  ? "bg-crisis-50 text-crisis-700"
-                  : s.direction === "bearish"
-                    ? "bg-opportunity-50 text-opportunity-700"
-                    : "bg-line-1 text-ink-3";
-              return (
-                <div key={`${s.signal_type}-${i}`} className="flex items-center gap-2 text-[12px]">
-                  <span
-                    className={`shrink-0 inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[9px] font-medium uppercase tracking-wider ${dirCls}`}
-                  >
-                    {dirLabel}
-                  </span>
-                  <span className="text-ink-1 flex-1 truncate">
-                    {SIGNAL_LABEL[s.signal_type] ?? s.signal_type}
-                  </span>
-                  <span className="text-ink-3 text-[11px] tabular-nums">
-                    {s.share_pct.toFixed(1)}%
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </section>
   );
 }

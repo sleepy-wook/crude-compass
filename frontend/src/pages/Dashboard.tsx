@@ -13,22 +13,16 @@
  * 자체는 다른 페이지가 쓸 수 있으므로 삭제 X — Dashboard에서만 import 제거.)
  */
 import { useEffect, useMemo, useState } from "react";
-import {
-  useDecisionDelta,
-  useDecisionQueue,
-  usePatternCurrent,
-} from "../lib/queries";
+import { useDecisionQueue, usePatternCurrent } from "../lib/queries";
 import { useMissionsWebSocket } from "../lib/ws";
 import { Bidirectional3Zone } from "../components/Bidirectional3Zone";
 import { SimilarPastWidget } from "../components/SimilarPastWidget";
-import { DeltaStrip } from "../components/DeltaStrip";
 import { ActionQueue } from "../components/ActionQueue";
 import { SelectedCaseDetail } from "../components/SelectedCaseDetail";
 import { MonitoringStrip } from "../components/MonitoringStrip";
 
 export function Dashboard() {
   const queue = useDecisionQueue();
-  const delta = useDecisionDelta();
   const pattern = usePatternCurrent();
   const [selectedCaseId, setSelectedCaseId] = useState<string | undefined>(undefined);
 
@@ -68,8 +62,6 @@ export function Dashboard() {
     }
   }, [lastEvent, lastEventAt]);
 
-  const hasDelta = (delta.data?.events?.length ?? 0) > 0;
-
   return (
     <div className="max-w-7xl mx-auto px-8 py-8">
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
@@ -88,9 +80,6 @@ export function Dashboard() {
           </div>
         )}
       </header>
-
-      {/* DELTA STRIP — events.length > 0 일 때만 */}
-      {hasDelta && <DeltaStrip />}
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {/* HERO grid — 5 ActionQueue | 7 SelectedCaseDetail            */}
@@ -116,8 +105,11 @@ export function Dashboard() {
       <SectionHeader title="Signal Strength" subtitle="위기 ↔ 기회 (0–100, 90일)" />
       <Bidirectional3Zone cur={cur} topMission={selectedCase} />
 
-      {/* MONITORING — active/on_track/paused dense */}
-      <SectionHeader title="모니터링" subtitle="" />
+      {/* MONITORING — active/on_track/paused */}
+      <SectionHeader
+        title="진행 중인 작업"
+        subtitle={`승인 후 운영 중인 case ${monitoring.length}건`}
+      />
       <MonitoringStrip cases={monitoring} />
 
       {/* MARKET MEMORY */}
