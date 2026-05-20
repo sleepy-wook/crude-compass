@@ -88,7 +88,7 @@ export function MissionSplitBar({
       <div className="mb-3">
         <div className="flex items-baseline justify-between mb-1.5">
           <div className="text-[11px] uppercase tracking-wider text-ink-3/80 font-medium">
-            현재 운영 비중
+            현재 비중
           </div>
           <div className="flex items-baseline gap-3 text-[12px] text-ink-2">
             <span className="font-display tabular-nums">Term {s.termCurrent}%</span>
@@ -113,11 +113,11 @@ export function MissionSplitBar({
         )}
       </div>
 
-      {/* Supervisor 권고 (target) */}
+      {/* AI 권고 (target) */}
       <div className="mb-3">
         <div className="flex items-baseline justify-between mb-1.5">
           <div className="text-[11px] uppercase tracking-wider text-ink-3 font-medium">
-            Supervisor 권고 비중
+            AI 권고 비중
           </div>
           <div className="flex items-baseline gap-3 text-[12px]">
             <span className="text-ink-1 font-display font-semibold tabular-nums">
@@ -133,24 +133,32 @@ export function MissionSplitBar({
           <div
             className={`flex items-center justify-end px-2 text-[11px] font-medium text-white tabular-nums ${termAccent}`}
             style={{ width: `${s.termTarget}%` }}
-            title={`Supervisor 권고 Term (장기 계약) ${s.termTarget}%`}
+            title={`AI 권고 Term (장기 계약) ${s.termTarget}%`}
           >
             {s.termTarget >= 15 && `${s.termTarget}%`}
           </div>
           <div
             className={`flex items-center justify-start px-2 text-[11px] font-medium text-white tabular-nums ${spotAccent}`}
             style={{ width: `${s.spotTarget}%` }}
-            title={`Supervisor 권고 Spot (즉시 매입) ${s.spotTarget}%`}
+            title={`AI 권고 Spot (즉시 매입) ${s.spotTarget}%`}
           >
             {s.spotTarget >= 15 && `${s.spotTarget}%`}
           </div>
         </div>
       </div>
 
-      {/* 변화량 narration */}
+      {/* 변화량 narration — 둘 다 0이면 단일 "변경 없음" chip */}
       <div className="flex items-center gap-3 text-[12px] text-ink-2">
-        <DeltaPill label="Term" delta={s.termDelta} />
-        <DeltaPill label="Spot" delta={s.spotDelta} />
+        {s.termDelta === 0 && s.spotDelta === 0 ? (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-line-1 text-ink-3">
+            변경 없음
+          </span>
+        ) : (
+          <>
+            <DeltaPill label="Term" delta={s.termDelta} />
+            <DeltaPill label="Spot" delta={s.spotDelta} />
+          </>
+        )}
       </div>
     </div>
   );

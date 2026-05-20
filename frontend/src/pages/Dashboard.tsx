@@ -121,7 +121,7 @@ export function Dashboard() {
       <MonitoringStrip cases={monitoring} />
 
       {/* MARKET MEMORY */}
-      <SectionHeader title="Market Memory" subtitle="비슷한 시장 상황 7년 기록" />
+      <SectionHeader title="Market Memory" subtitle="7년 backtest analog" />
       <SimilarPastWidget cur={cur} />
 
       <div className="h-12" />

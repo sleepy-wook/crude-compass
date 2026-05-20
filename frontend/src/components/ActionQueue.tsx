@@ -24,7 +24,7 @@ export function ActionQueue({ cases, selectedId, onSelect }: Props) {
           당신을 기다리는 것{" "}
           <span className="text-ink-3 tabular-nums font-normal">({cases.length})</span>
         </h2>
-        <span className="text-[10px] uppercase tracking-wider text-ink-3">priority</span>
+        <span className="text-[10px] tracking-wider text-ink-3">우선순위</span>
       </header>
 
       <div className="flex-1 overflow-y-auto py-1">

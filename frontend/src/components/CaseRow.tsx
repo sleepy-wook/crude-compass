@@ -30,11 +30,13 @@ function urgencyTone(u: string): string {
 }
 
 export function CaseRow({ mission, selected, onSelect }: Props) {
-  const targetPct = mission.target_pct ?? (mission.mission_type === "HEDGE" ? 75 : 70);
+  const targetPct = mission.target_pct ?? (mission.mission_type === "HEDGE" ? 75 : 60);
   const score = Math.round(mission.pattern_score / 10);
-  // Term ratio 환산 — HEDGE면 target_pct가 그대로 Term, OPPORTUNITY면 100-target
-  const termTarget = mission.mission_type === "HEDGE" ? targetPct : 100 - targetPct;
-  const termCurrent = 60; // 평시 default — 정밀하게 알려면 op mission 주입 필요하지만 row dense view라 OK
+  // target_pct는 mission_type에 따라 의미 다름:
+  //   HEDGE: Term ratio (default 60% → 권고 target)
+  //   OPP:   Spot ratio (default 40% → 권고 target)
+  const ratioLabel = mission.mission_type === "HEDGE" ? "Term" : "Spot";
+  const baseline = mission.mission_type === "HEDGE" ? 60 : 40;
 
   return (
     <button
@@ -65,7 +67,7 @@ export function CaseRow({ mission, selected, onSelect }: Props) {
         <MissionTypePill type={mission.mission_type} />
       </span>
       <span className="shrink-0 tabular-nums text-ink-2 text-[11px]">
-        Term {termCurrent}→{termTarget}%
+        {ratioLabel} {baseline}→{targetPct}%
       </span>
       <span className="shrink-0 tabular-nums text-ink-3 text-[11px]" title="Pattern Score / 10">
         {score}/10

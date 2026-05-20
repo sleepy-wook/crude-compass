@@ -46,9 +46,6 @@ export function SimilarPastWidget({ cur }: Props) {
       {/* Header */}
       <div className="flex items-baseline justify-between mb-5">
         <div>
-          <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">
-            오늘의 시장 상황
-          </div>
           <h2 className="font-display text-xl md:text-2xl font-semibold tracking-tight text-ink-1">
             {band.label}{" "}
             <span className={`tabular-nums ${band.tone === "crisis" ? "text-crisis-700" : band.tone === "ok" ? "text-opportunity-700" : "text-ink-3"}`}>
@@ -58,9 +55,9 @@ export function SimilarPastWidget({ cur }: Props) {
         </div>
         <div className="text-[11px] text-ink-3 text-right">
           {data?.lakebase_available === false ? (
-            <span>과거 검증 데이터 연결 준비 중</span>
+            <span>backtest 연결 준비 중</span>
           ) : (
-            <span>지난 7년 시장 메모리 기반</span>
+            <span>n={data?.summary?.n ?? "—"} · 7y backtest</span>
           )}
         </div>
       </div>
@@ -97,7 +94,7 @@ export function SimilarPastWidget({ cur }: Props) {
             >
               {formatPct(data.summary.avg_dubai_change_30d_pct, 1)}
             </span>{" "}
-            변동, Supervisor 권고를 따랐다면 평균{" "}
+            변동, AI 권고를 따랐다면 평균{" "}
             <span
               className={`font-semibold tabular-nums ${
                 (data.summary.avg_saving_30d_pct ?? 0) > 0
@@ -113,9 +110,9 @@ export function SimilarPastWidget({ cur }: Props) {
           {/* Stat row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-5 border-b border-line-1">
             <Stat
-              label="유사 패턴"
+              label="유사 사례"
               value={`${data.summary.n}건`}
-              hint="7년 검증"
+              hint="n=4 · 7y backtest"
             />
             <Stat
               label="평균 절감"
@@ -126,7 +123,7 @@ export function SimilarPastWidget({ cur }: Props) {
             <Stat
               label="적중률"
               value={formatPct(data.summary.hit_rate_pct, 1)}
-              hint="이익 발생 비율"
+              hint="긍정 outcome 비율"
               tone="ok"
             />
             <Stat

@@ -49,10 +49,10 @@ export function Bidirectional3Zone({ cur, topMission }: Props) {
       <div className="flex items-baseline justify-between mb-4">
         <div>
           <h3 className="font-display text-base font-semibold text-ink-1">
-            양방향 신호 강도
+            Signal Strength
           </h3>
           <p className="text-[11px] text-ink-3 mt-0.5">
-            위기(상) vs 기회(하) 누적, 시간 감쇠 weighted
+            위험 ↔ 기회 (0–100, 90일)
           </p>
         </div>
         {topMission && (
@@ -123,21 +123,28 @@ export function Bidirectional3Zone({ cur, topMission }: Props) {
         </div>
       </div>
 
-      {/* Bullish / Bearish breakdown */}
+      {/* 위험 vs 안정 강도 — 90일 가중치 합 + 시그널 갯수 */}
       {(bullish !== null || bearish !== null) && (
         <div className="mt-5 pt-4 border-t border-line-1 grid grid-cols-2 gap-3 text-[11px]">
           <div>
-            <div className="text-ink-3 mb-1">위기 신호 누적</div>
+            <div className="text-ink-3 mb-1">위험 강도 (90일)</div>
             <div className="font-display text-base font-semibold text-crisis-700 tabular-nums">
               {bullish !== null ? bullish.toFixed(0) : "—"}
+              <span className="text-[10px] text-ink-3 ml-1 font-normal">점</span>
             </div>
           </div>
           <div>
-            <div className="text-ink-3 mb-1">안정 신호 누적</div>
+            <div className="text-ink-3 mb-1">안정 강도 (90일)</div>
             <div className="font-display text-base font-semibold text-opportunity-700 tabular-nums">
               {bearish !== null ? bearish.toFixed(0) : "—"}
+              <span className="text-[10px] text-ink-3 ml-1 font-normal">점</span>
             </div>
           </div>
+          {cur?.signal_count_90d != null && (
+            <div className="col-span-2 text-[10px] text-ink-3 -mt-1">
+              누적 시그널 {cur.signal_count_90d}건 (위험 + 안정)
+            </div>
+          )}
         </div>
       )}
 
@@ -145,7 +152,7 @@ export function Bidirectional3Zone({ cur, topMission }: Props) {
       {topContribs.length > 0 && (
         <div className="mt-4 pt-4 border-t border-line-1">
           <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-2">
-            오늘 가장 강한 시그널 Top 3
+            최근 강한 시그널 (3)
           </div>
           <div className="space-y-1.5">
             {topContribs.map((s, i) => {
