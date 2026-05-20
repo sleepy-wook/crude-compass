@@ -5,6 +5,7 @@
 import type {
   BacktestPredictionsResponse,
   BacktestResults,
+  DeltaEvent,
   GenieQueryResponse,
   Mission,
   PatternHistory,
@@ -328,6 +329,35 @@ export const api = {
       by_action: Record<string, number>;
       active_cases: number;
     }>("/api/pulse/stats"),
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Decision Room — multi-case queue + delta strip
+  // ──────────────────────────────────────────────────────────────────────
+
+  decisionRoomQueue: () =>
+    request<{
+      needs_you: Mission[];
+      monitoring: Mission[];
+      counts: Record<string, number>;
+    }>("/api/decision-room/queue"),
+
+  decisionRoomDelta: () =>
+    request<{
+      since: string | null;
+      events: DeltaEvent[];
+      counts: { new_proposed: number; status_change: number; pivot: number; total: number };
+    }>("/api/decision-room/delta"),
+
+  decisionRoomLastSeen: () =>
+    request<{ last_seen_at: string | null; user_key: string }>(
+      "/api/decision-room/last-seen",
+    ),
+
+  decisionRoomTouch: () =>
+    request<{ last_seen_at: string | null; user_key: string }>(
+      "/api/decision-room/touch",
+      { method: "POST" },
+    ),
 
   // Market Memory — Similar Pattern Retrieve (D-4 ★ Wow 1)
   marketMemorySimilar: (body: {

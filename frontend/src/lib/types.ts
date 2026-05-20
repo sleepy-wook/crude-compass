@@ -199,6 +199,18 @@ export interface GenieQueryResponse {
   source: GenieSource;
 }
 
+/** Decision Room — delta events ("자리 비운 동안" 변화 surface). */
+export type DeltaEvent = {
+  type: 'new_proposed' | 'status_change' | 'pivot' | 'aborted';
+  case_id: string;
+  occurred_at: string;
+  summary: string;
+  from?: string;
+  to?: string;
+  from_type?: string;
+  to_type?: string;
+};
+
 /** WebSocket events — docs/api_contract.md §5 */
 export type WSEvent =
   | { type: "connected"; ts: number }

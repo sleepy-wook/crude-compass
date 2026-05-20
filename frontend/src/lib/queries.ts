@@ -212,6 +212,47 @@ export function usePulseStats() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Decision Room — multi-case queue + delta strip
+// ──────────────────────────────────────────────────────────────────────────
+
+export function useDecisionQueue() {
+  return useQuery({
+    queryKey: ["decision-room", "queue"] as const,
+    queryFn: () => api.decisionRoomQueue(),
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useDecisionDelta() {
+  return useQuery({
+    queryKey: ["decision-room", "delta"] as const,
+    queryFn: () => api.decisionRoomDelta(),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+}
+
+export function useDecisionLastSeen() {
+  return useQuery({
+    queryKey: ["decision-room", "last-seen"] as const,
+    queryFn: () => api.decisionRoomLastSeen(),
+    staleTime: 60_000,
+  });
+}
+
+export function useDecisionTouch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.decisionRoomTouch(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["decision-room", "delta"] });
+      qc.invalidateQueries({ queryKey: ["decision-room", "last-seen"] });
+    },
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Write (mutations) — auto-invalidate on success
 // ──────────────────────────────────────────────────────────────────────────
 export function useMissionConfirm() {
