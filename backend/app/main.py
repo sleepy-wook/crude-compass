@@ -34,6 +34,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Lakebase migrate_d4 wrapper error: %s", e)
 
+    # Decision Room refactor — user_last_seen table
+    try:
+        from app.db.lakebase import migrate_decision_room
+        await asyncio.to_thread(migrate_decision_room)
+    except Exception as e:
+        logger.warning("Lakebase migrate_decision_room wrapper error: %s", e)
+
     # Startup — Slack subscriber task (dry-run 모드여도 log 검증용으로 띄움)
     settings = get_settings()
     notifier = get_notifier()

@@ -398,3 +398,42 @@ def migrate_d4() -> bool:
         import traceback as _tb
         logger.warning("Lakebase migrate_d4 fatal: %s\n%s", e, _tb.format_exc())
         return False
+
+
+def migrate_decision_room() -> bool:
+    """Decision Room refactor — user_last_seen table.
+
+    single-user demo. user_key='default' 한 row만 사용 (multi-user는 post-hackathon).
+    Idempotent. Lakebase 미연동 환경에서는 silent skip.
+    """
+    import logging
+    import traceback
+    logger = logging.getLogger(__name__)
+
+    try:
+        with acquire() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS user_last_seen (
+                        user_key      VARCHAR(100) PRIMARY KEY,
+                        last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+                cur.execute(
+                    """
+                    INSERT INTO user_last_seen (user_key, last_seen_at)
+                    VALUES ('default', NOW())
+                    ON CONFLICT (user_key) DO NOTHING
+                    """
+                )
+            conn.commit()
+        logger.info("Lakebase migrate_decision_room OK (user_last_seen)")
+        return True
+    except Exception as e:
+        logger.warning(
+            "Lakebase migrate_decision_room failed: %s\n%s", e, traceback.format_exc()
+        )
+        return False
