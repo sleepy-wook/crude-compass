@@ -188,7 +188,7 @@ FastAPI broadcast:
 
 ---
 
-## 3. Lakeflow Jobs — 8 Jobs (D-2 AIS 제거 후)
+## 3. Lakeflow Jobs — 12 Jobs (D-2 backfill/backtest 추가)
 
 | # | Job | Cron | 상태 | 핵심 task | Notebook |
 |---|---|---|---|---|---|
@@ -200,6 +200,10 @@ FastAPI broadcast:
 | 6 | **opec_momr_monthly** ⭐ | `0 0 12 * *` | optional | OPEC MOMR PDF fetch + `ai_parse_document()` | `databricks/notebooks/job_opec_momr.py` |
 | 7 | daily_curation_06:30 ⭐ | `30 6 * * *` | **real** ⭐ | Bidirectional Pattern Detection + Mission Plan trigger | `databricks/notebooks/job_curation.py` |
 | 8 | weekly_self_critique | `0 18 * * 0` | **mock stub** | Hard-coded 78%/71% backtest | `databricks/notebooks/job_critique_mock.py` |
+| 9 | daily_risk_backfill | daily | **real** | silver.signal_events_decayed lambda 재계산 | `databricks/notebooks/job_risk_backfill.py` |
+| 10 | backtest_seed | manual | **real** | Stratified sample seed 생성 | `databricks/notebooks/job_backtest_seed.py` |
+| 11 | backtest_compute | manual | **real** | Weighted signal + scenario ROI 계산 | `databricks/notebooks/job_backtest_compute.py` |
+| 12 | backtest_llm | manual | **real** | LLM mission_plan_advice batch 호출 | `databricks/notebooks/job_backtest_llm.py` |
 
 > Sprint 2 (5/11-13): 1·2·3·4·5 구현 + 6 (Document Intelligence 시연용). Sprint 3 (5/14-16): 7 + Mission Plan Agent + LLM backtest 산출. D-2 (5/16): AIS job + 5척 fleet narrative 완전 제거.
 
@@ -238,9 +242,9 @@ FastAPI broadcast:
 | 5 | **Foundation Model API** | **real** | `databricks-claude-haiku-4-5` 직접 호출 — mission_plan.py + recommend_now + backtest 3곳. |
 | 6 | **Document Intelligence** | **real** | `ai_parse_document()` SQL 한 줄 — `bronze.opec_momr_parsed` 적재 (35 PDF 처리). |
 | 7 | **UC Function** | **real** | `crude_compass.functions.weighted_signal()` 람다 차등 시간 감쇠. curation + backtest 공통. |
-| 8 | **Lakeflow Jobs** | **real** | 8 YAML (D-2 AIS 제거 후), GDELT 15min + OilPrice 5min UNPAUSED 자동 cron. |
+| 8 | **Lakeflow Jobs** | **real** | 12 YAML (D-2 backfill/backtest 추가), GDELT 15min + OilPrice 5min UNPAUSED 자동 cron. |
 | 9 | **Backtest** | **real** | 300건 stratified samples, 75% hit rate, 7년 4개월. Lakebase `backtest_predictions` 적재 (AI-generated content → OLTP). |
-| - | ~~Supervisor Agent~~ | **scope-out** | 미등록. backend orchestration으로 대체 (Mission Plan + Genie + Knowledge Assistant 백엔드 호출). |
+| 10 | **Supervisor Agent** | **real** | `mas-ba3fbcb5-endpoint` deployed READY. backend `services/supervisor.py` SDK 호출 + agent_activity_events에 tools_used + reasoning_path persist. |
 | - | ~~Custom Agent~~ | **scope-out** | Foundation Model API 직접 호출이 cost-effective. Agent Bricks Custom Agent 등록은 Sprint 5 swap. |
 | - | ~~MLflow tracking~~ | **scope-out** | Delta append만, MLflow run tracking 미구현. |
 | - | ~~Self-Critique Agent~~ | **mock** | What-If 페이지 backtest 결과 그대로 표시 (75% hit, 298건 등). |

@@ -22,6 +22,8 @@
 | [docs/d2_runbook.md](docs/d2_runbook.md) | D-2 (5/16) workspace 작업 가이드 |
 | [docs/deploy_guide.md](docs/deploy_guide.md) | Databricks Apps 배포 가이드 |
 | [docs/genie_certified_queries.md](docs/genie_certified_queries.md) | Genie Space 등록용 5개 certified query |
+| [docs/superpowers/specs/2026-05-20-time-axis-redesign-spec.md](docs/superpowers/specs/2026-05-20-time-axis-redesign-spec.md) | D-2 Time-Axis Redesign spec (Case Thread / Live Pulse / Lifecycle / Daily Loop / Self-Narration) |
+| [docs/superpowers/plans/2026-05-20-time-axis-redesign.md](docs/superpowers/plans/2026-05-20-time-axis-redesign.md) | D-2 Time-Axis Redesign 실행 plan (25 tasks) |
 
 ## 디렉토리 구조
 
