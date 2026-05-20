@@ -882,6 +882,67 @@ spec: `2026-05-18-market-memory-decision-platform.md` §3 ★ Wow 1.
 
 ---
 
+## 8.5 Pulse Endpoints (D-2 추가 — Live AI Pulse)
+
+`agent_activity_events` cross-mission stream + 24h 누적 통계.
+spec: `2026-05-20-time-axis-redesign.md` Tasks 4–5.
+
+### `GET /api/pulse/recent?limit=50`
+
+Cross-mission 최근 events (mission_id NULL인 system/cron event 포함).
+
+**Query**: `limit` (1–200, default 50)
+
+**Response 200**:
+```json
+{
+  "events": [
+    {
+      "id": "uuid",
+      "mission_id": "uuid|null",
+      "occurred_at": "2026-05-20T12:34:56Z",
+      "actor": "supervisor",
+      "action": "case_opened",
+      "result_preview": "string|null",
+      "metadata": {}
+    }
+  ],
+  "count": 1
+}
+```
+
+Lakebase 미가용 시 `{"events": [], "count": 0}` graceful.
+
+### `GET /api/pulse/stats`
+
+24h 누적 by_actor / by_action — Daily Loop / Pulse Strip 상단 bar.
+
+**Response 200**:
+```json
+{
+  "total_24h": 42,
+  "by_actor": {"supervisor": 12, "weighted_signal_uc": 8},
+  "by_action": {"case_opened": 5, "synthesized": 7},
+  "active_cases": 3
+}
+```
+
+Lakebase 미가용 시 0 / 빈 dict graceful.
+
+### `WS /api/ws/pulse`
+
+`agent_activity_events` INSERT 실시간 push. `pulse_bus` (missions bus와 분리) 구독.
+
+**Server → Client events**:
+- `{"type": "connected", "ts": <epoch>}` — accept 직후 1회
+- `{"type": "pulse", "mission_id": "uuid|null", "actor": "...", "action": "...", "result_preview": "...", "metadata": {}, "ts": <epoch>}`
+- `{"type": "ping", "ts": <epoch>}` — 5s keepalive
+
+**Client → Server**:
+- `{"type": "subscribe"}` (옵션, ack로 `{"type":"subscribed"}` 회신)
+
+---
+
 ## 9. FastAPI Project 구조 (`backend/app/`)
 
 ```
