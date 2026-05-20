@@ -83,7 +83,7 @@ def insert_event_autocommit(
     result_preview: str | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> bool:
-    """Insert + commit. Supervisor 호출처럼 별도 transaction에서 단일 event 기록할 때."""
+    """Insert + commit + pulse_bus publish. Supervisor / reactive / human action 등 비-mission 트랜잭션."""
     ok = insert_event(
         conn, mission_id=mission_id, actor=actor, action=action,
         result_preview=result_preview, metadata=metadata,
@@ -94,6 +94,11 @@ def insert_event_autocommit(
         except Exception as e:
             logger.warning("agent_activity commit failed: %s", e)
             return False
+        # Best-effort pulse broadcast — async event push.
+        _publish_pulse_event(
+            mission_id=mission_id, actor=actor, action=action,
+            result_preview=result_preview, metadata=metadata,
+        )
     return ok
 
 
@@ -166,6 +171,43 @@ def list_recent_all(
     except Exception as e:
         logger.warning("agent_activity list_recent_all failed: %s", e)
         return []
+
+
+def _publish_pulse_event(
+    *,
+    mission_id: UUID | None,
+    actor: str,
+    action: str,
+    result_preview: str | None,
+    metadata: dict[str, Any] | None,
+) -> None:
+    """pulse_bus broadcast — WebSocket subscribers 깨우기. fail silent.
+
+    sync context (psycopg)에서 호출 — running event loop 있으면 task 생성,
+    없으면 asyncio.run으로 fire-and-forget.
+    """
+    import asyncio
+    try:
+        from app.store import get_pulse_bus
+        bus = get_pulse_bus()
+        payload = {
+            "type": "pulse",
+            "mission_id": str(mission_id) if mission_id else None,
+            "actor": actor,
+            "action": action,
+            "result_preview": result_preview,
+            "metadata": metadata,
+            "ts": None,  # server timestamp는 WS endpoint에서 stamp
+        }
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(bus.publish(payload))
+        except RuntimeError:
+            # sync context (no running loop) — best-effort skip
+            # asyncio.run에서 새 loop 만드는 건 무거우므로 skip
+            logger.debug("pulse publish skipped — no running event loop")
+    except Exception as e:
+        logger.warning("pulse broadcast failed: %s", e)
 
 
 def _serialize(row: dict[str, Any]) -> dict[str, Any]:
