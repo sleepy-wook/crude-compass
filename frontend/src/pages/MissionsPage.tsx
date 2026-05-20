@@ -17,7 +17,7 @@ import {
 } from "../lib/queries";
 import { MissionSplitBar } from "../components/MissionSplitBar";
 import { MissionTypePill, StatusPill } from "../components/StatusPill";
-import { AgentActivityTimeline } from "../components/AgentActivityTimeline";
+import { CaseThread } from "../components/CaseThread";
 import { SuggestedNextActions } from "../components/SuggestedNextActions";
 import type { Mission } from "../lib/types";
 import {
@@ -482,8 +482,8 @@ function MissionDetail({ missionId }: { missionId: string }) {
       {/* 매니저의 다음 행동 — codex P0 SuggestedNextActions (6 agentic options) */}
       <SuggestedNextActions mission={m} />
 
-      {/* Agent Bricks 활동 timeline (Lakebase agent_activity_events 실 기록) — codex P0 */}
-      <AgentActivityTimeline missionId={m.mission_id} mode="full" />
+      {/* Case Thread — Agent Bricks 활동 thread (실시간 WS push + expand-to-raw) */}
+      <CaseThread missionId={m.mission_id} />
 
 
       {/* Actions */}
