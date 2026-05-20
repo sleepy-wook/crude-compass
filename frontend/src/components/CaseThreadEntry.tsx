@@ -64,6 +64,16 @@ export function CaseThreadEntry({ ev }: { ev: ActivityEvent }) {
       )}
       {expanded && ev.metadata && (
         <div className="mt-2 bg-line-1 rounded p-2 border border-line-2">
+          {Array.isArray((ev.metadata as { reasoning_path?: unknown }).reasoning_path) && (
+            <div className="mb-2 pb-2 border-b border-line-2">
+              <div className="text-[9px] text-ink-3 uppercase font-semibold mb-1">Reasoning Path</div>
+              <ol className="list-decimal list-inside text-[11px] text-ink-2 space-y-0.5">
+                {((ev.metadata as { reasoning_path: string[] }).reasoning_path).map((step, i) => (
+                  <li key={i}>{step}</li>
+                ))}
+              </ol>
+            </div>
+          )}
           <pre className="text-[10px] text-ink-2 leading-snug whitespace-pre-wrap font-mono break-all">
             {JSON.stringify(ev.metadata, null, 2)}
           </pre>
