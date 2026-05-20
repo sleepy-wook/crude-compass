@@ -42,6 +42,28 @@ _TOOL_ACTOR_MAP = {
 }
 
 
+def _build_reasoning_path(tools_called: list[str], response: dict | None = None) -> list[str]:
+    """단순 narrative — tool 선택 이유 list.
+
+    예: [
+        "Genie 호출 — structured market evidence 필요",
+        "KA 호출 — document evidence 보강",
+        "mission_plan_advice UDF 호출 — recommendation 합성",
+    ]
+    """
+    del response  # 미사용 (향후 확장 hook)
+    path: list[str] = []
+    if "genie" in tools_called:
+        path.append("Genie 호출 — structured market evidence 필요")
+    if "knowledge_assistant" in tools_called:
+        path.append("KA 호출 — document evidence 보강")
+    if "mission_plan_uc" in tools_called or "mission_plan_advice" in tools_called:
+        path.append("mission_plan_advice UDF 호출 — recommendation 합성")
+    if not path:
+        path.append("도구 호출 없이 직접 합성 (단순 질의)")
+    return path
+
+
 def _normalize_actor(tool_name: str) -> str:
     """sub-agent name → agent_activity actor enum.
 
@@ -64,8 +86,10 @@ def _persist_supervisor_events(mission_id: UUID | None, res: SupervisorResponse)
         from app.db.repositories import agent_activity
 
         with acquire() as conn:
+            tools_called: list[str] = []
             for tool in res.tools_used:
                 actor = _normalize_actor(tool.name)
+                tools_called.append(actor)
                 preview = (tool.result_preview or "")[:200] or f"{tool.name} 호출"
                 agent_activity.insert_event(
                     conn,
@@ -83,7 +107,11 @@ def _persist_supervisor_events(mission_id: UUID | None, res: SupervisorResponse)
                 actor="supervisor",
                 action="synthesized",
                 result_preview=answer_preview or "Supervisor 응답 종합",
-                metadata={"tool_count": len(res.tools_used)},
+                metadata={
+                    "tool_count": len(res.tools_used),
+                    "tools": tools_called,
+                    "reasoning_path": _build_reasoning_path(tools_called),
+                },
             )
             conn.commit()
     except Exception as e:
