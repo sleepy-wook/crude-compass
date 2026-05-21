@@ -1,7 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
-import { ReactiveAlertToast } from "./ReactiveAlertToast";
 
 export function Layout() {
   return (
@@ -13,8 +12,6 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
-      {/* Phase 6 — OilPriceAPI spike alert */}
-      <ReactiveAlertToast />
     </div>
   );
 }
