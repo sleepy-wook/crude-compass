@@ -93,29 +93,67 @@ type OpecItem = NonNullable<ReturnType<typeof useOpecHistory>["data"]>["items"][
 function OpecTab() {
   const { data, isLoading } = useOpecHistory(36);
   const items = data?.items ?? [];
-  const [selectedMonth, setSelectedMonth] = useState<string | undefined>(undefined);
 
+  // 년도별 분리 — report_month "YYYY-MM" 앞 4자리.
+  const years = useMemo(() => {
+    const set = new Set(items.map((m) => m.report_month.slice(0, 4)));
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [items]);
+
+  const [selectedYear, setSelectedYear] = useState<string | undefined>(undefined);
+  const activeYear = selectedYear && years.includes(selectedYear) ? selectedYear : years[0];
+
+  const yearItems = useMemo(
+    () => items.filter((m) => m.report_month.slice(0, 4) === activeYear),
+    [items, activeYear],
+  );
+
+  const [selectedMonth, setSelectedMonth] = useState<string | undefined>(undefined);
   const selected = useMemo(() => {
-    if (selectedMonth && items.some((m) => m.report_month === selectedMonth)) {
-      return items.find((m) => m.report_month === selectedMonth);
+    if (selectedMonth && yearItems.some((m) => m.report_month === selectedMonth)) {
+      return yearItems.find((m) => m.report_month === selectedMonth);
     }
-    return items[0];
-  }, [items, selectedMonth]);
+    return yearItems[0];
+  }, [yearItems, selectedMonth]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-      <div className="lg:col-span-5">
-        <OpecList
-          items={items}
-          selectedMonth={selected?.report_month}
-          onSelect={setSelectedMonth}
-          isLoading={isLoading}
-        />
+    <>
+      {/* Year filter */}
+      {years.length > 0 && (
+        <div className="flex items-center gap-1 mb-4 flex-wrap">
+          {years.map((y) => (
+            <button
+              key={y}
+              type="button"
+              onClick={() => setSelectedYear(y)}
+              className={cn(
+                "px-3 py-1.5 text-[12px] rounded-md border transition-colors tabular-nums",
+                y === activeYear
+                  ? "border-ink-1 bg-ink-1 text-paper font-medium"
+                  : "border-line-2 text-ink-2 hover:bg-line-1",
+              )}
+            >
+              {y}년
+            </button>
+          ))}
+          <span className="ml-2 text-[11px] text-ink-3 tabular-nums">{yearItems.length}건</span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="lg:col-span-5">
+          <OpecList
+            items={yearItems}
+            selectedMonth={selected?.report_month}
+            onSelect={setSelectedMonth}
+            isLoading={isLoading}
+          />
+        </div>
+        <div className="lg:col-span-7">
+          <OpecDetail item={selected} isLoading={isLoading} />
+        </div>
       </div>
-      <div className="lg:col-span-7">
-        <OpecDetail item={selected} isLoading={isLoading} />
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -537,30 +575,63 @@ function NewsList({
           ))
         )}
       </div>
-      {pageCount > 1 && (
-        <div className="border-t border-line-1 px-3 py-2 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => onPage(page - 1)}
-            disabled={page <= 0}
-            className="px-2.5 py-1 text-[11px] rounded-md border border-line-2 text-ink-2 hover:bg-line-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            이전
-          </button>
-          <span className="text-[11px] text-ink-3 tabular-nums">
-            {page + 1} / {pageCount}
-          </span>
-          <button
-            type="button"
-            onClick={() => onPage(page + 1)}
-            disabled={page >= pageCount - 1}
-            className="px-2.5 py-1 text-[11px] rounded-md border border-line-2 text-ink-2 hover:bg-line-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            다음
-          </button>
-        </div>
-      )}
+      <Pagination page={page} pageCount={pageCount} onPage={onPage} />
     </section>
+  );
+}
+
+// 숫자형 pagination — « ‹ 1 2 3 … › »
+function Pagination({
+  page,
+  pageCount,
+  onPage,
+}: {
+  page: number;
+  pageCount: number;
+  onPage: (p: number) => void;
+}) {
+  if (pageCount <= 1) return null;
+  const WINDOW = 7;
+  let start = Math.max(0, page - Math.floor(WINDOW / 2));
+  const end = Math.min(pageCount, start + WINDOW);
+  start = Math.max(0, end - WINDOW);
+  const nums: number[] = [];
+  for (let i = start; i < end; i++) nums.push(i);
+
+  const base =
+    "min-w-[26px] h-[26px] px-1.5 text-[11px] rounded-md border transition-colors disabled:opacity-30 disabled:cursor-not-allowed tabular-nums";
+  const ctrl = cn(base, "border-line-2 text-ink-3 hover:bg-line-1");
+
+  return (
+    <div className="border-t border-line-1 px-3 py-2 flex items-center justify-center gap-1">
+      <button type="button" onClick={() => onPage(0)} disabled={page <= 0} className={ctrl} aria-label="처음">
+        «
+      </button>
+      <button type="button" onClick={() => onPage(page - 1)} disabled={page <= 0} className={ctrl} aria-label="이전">
+        ‹
+      </button>
+      {nums.map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onPage(n)}
+          className={cn(
+            base,
+            n === page
+              ? "border-ink-1 bg-ink-1 text-paper font-semibold"
+              : "border-line-2 text-ink-2 hover:bg-line-1",
+          )}
+        >
+          {n + 1}
+        </button>
+      ))}
+      <button type="button" onClick={() => onPage(page + 1)} disabled={page >= pageCount - 1} className={ctrl} aria-label="다음">
+        ›
+      </button>
+      <button type="button" onClick={() => onPage(pageCount - 1)} disabled={page >= pageCount - 1} className={ctrl} aria-label="끝">
+        »
+      </button>
+    </div>
   );
 }
 
