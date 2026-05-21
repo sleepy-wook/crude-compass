@@ -185,6 +185,27 @@ class SlackNotifier:
                     getattr(report, "report_id", "?"), channel, ts)
         return ts
 
+    async def post_daily_card(self, daily, channel: str | None = None) -> str:
+        """일일 종합 보고서 카드 push. daily 전용 채널 우선, 없으면 default."""
+        from app.services.slack_blocks import build_daily_card, build_daily_text_fallback
+
+        s = get_settings()
+        channel = channel or s.slack_daily_channel or self.default_channel
+        if not self.enabled:
+            fake_ts = f"dryrun-{uuid.uuid4()}"
+            logger.info("slack[dry-run] post_daily_card date=%s", getattr(daily, "report_date", "?"))
+            return fake_ts
+
+        blocks = build_daily_card(daily)
+        text = build_daily_text_fallback(daily)
+        resp = await self._call_with_retry(
+            "chat_postMessage", channel=channel, blocks=blocks, text=text
+        )
+        ts = str(resp["ts"])
+        logger.info("slack post_daily_card date=%s channel=%s ts=%s",
+                    getattr(daily, "report_date", "?"), channel, ts)
+        return ts
+
     async def post_ephemeral(self, channel: str, user: str, text: str) -> None:
         """ephemeral 메시지 (interactive 핸들러에서 409 conflict 등 즉시 피드백)."""
         if not self.enabled:

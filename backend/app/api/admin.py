@@ -314,6 +314,20 @@ async def generate_daily_now(
             "error": last_llm_error() or "unknown",
             "note": "이미 존재할 경우 overwrite=true로 재시도",
         }
+    # Slack 발송 — 일일 보고서 전용 채널 (실패해도 생성엔 영향 X)
+    try:
+        from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+        from app.db.lakebase import acquire
+        from app.db.repositories import daily_reports as daily_repo
+        from app.services.slack_notify import get_notifier
+        kst_today = (_dt.now(_tz.utc) + _td(hours=9)).date()
+        target = parsed_date or kst_today
+        with acquire() as conn:
+            daily = daily_repo.get_for_date(conn, target)
+        if daily:
+            await get_notifier().post_daily_card(daily)
+    except Exception as se:
+        logger.warning("slack daily card push failed: %s", se)
     return {"ok": True, "daily_id": str(daily_id)}
 
 

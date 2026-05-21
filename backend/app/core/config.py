@@ -43,6 +43,10 @@ class Settings(BaseModel):
     slack_default_channel: str = Field(
         default_factory=lambda: os.getenv("SLACK_DEFAULT_CHANNEL", "")
     )
+    # 일일 보고서 전용 채널 (미설정 시 default_channel로 fallback)
+    slack_daily_channel: str = Field(
+        default_factory=lambda: os.getenv("SLACK_DAILY_CHANNEL", "")
+    )
 
     # Demo mode (production X, 데모용 endpoint enable)
     demo_mode: bool = Field(default_factory=lambda: os.getenv("DEMO_MODE", "false").lower() == "true")

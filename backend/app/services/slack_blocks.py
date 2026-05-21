@@ -297,3 +297,53 @@ def build_report_text_fallback(report) -> str:
     trig = _TRIGGER_LABEL.get(str(report.trigger_type), str(report.trigger_type))
     rec = report.recommendation or "검토 필요"
     return f"[새 보고서 · {trig}] {report.headline} — 권고: {rec}"
+
+
+_DIRECTION_LABEL = {
+    "lean_hedge": "방어 우위 (Term ↑)",
+    "neutral": "중립 유지",
+    "lean_opportunity": "기회 우위 (Spot ↑)",
+}
+
+
+def build_daily_card(daily, apps_url: str = "http://localhost:5173") -> list[dict]:
+    """일일 종합 보고서 → Slack 카드 (read-only, 비중 제안 중심)."""
+    rs = daily.ratio_suggestion or {}
+    direction = _DIRECTION_LABEL.get(str(rs.get("direction", "neutral")), "중립 유지")
+    term = str(rs.get("term_delta_pct", "0"))
+    spot = str(rs.get("spot_delta_pct", "0"))
+    blocks: list[dict] = [
+        {"type": "header", "text": {"type": "plain_text",
+         "text": f"오늘의 일일 보고서 · {daily.report_date}", "emoji": False}},
+    ]
+    if daily.market_context:
+        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": daily.market_context[:600]}})
+    blocks.append({
+        "type": "section",
+        "fields": [
+            {"type": "mrkdwn", "text": f"*방향*\n{direction}"},
+            {"type": "mrkdwn", "text": f"*Term / Spot 델타*\n{term}% / {spot}%"},
+        ],
+    })
+    if daily.reasoning:
+        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": daily.reasoning[:600]}})
+    blocks.append({
+        "type": "actions",
+        "elements": [
+            {"type": "button", "text": {"type": "plain_text", "text": "의사결정에서 열기", "emoji": False},
+             "url": apps_url, "action_id": "daily_open_apps"},
+        ],
+    })
+    created = getattr(daily, "created_at", None) or datetime.now()
+    blocks.append({
+        "type": "context",
+        "elements": [{"type": "mrkdwn",
+         "text": f"Crude Compass AI · 활성 보고서 {daily.kept_count}건 종합 · {created:%Y-%m-%d %H:%M}"}],
+    })
+    return blocks
+
+
+def build_daily_text_fallback(daily) -> str:
+    rs = daily.ratio_suggestion or {}
+    direction = _DIRECTION_LABEL.get(str(rs.get("direction", "neutral")), "중립")
+    return f"[오늘의 일일 보고서 · {daily.report_date}] {direction} · {daily.kept_count}건 종합"

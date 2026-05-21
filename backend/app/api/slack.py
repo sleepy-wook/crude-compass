@@ -253,10 +253,11 @@ def _register_handlers(app: AsyncApp) -> None:
     @app.action({"action_id": "report_keep"})
     @app.action({"action_id": "report_drop"})
     @app.action({"action_id": "report_open_apps"})
+    @app.action({"action_id": "daily_open_apps"})
     async def handle_report_action(ack, body, action, respond):
         await ack()
         action_id = action.get("action_id")
-        if action_id == "report_open_apps":
+        if action_id in ("report_open_apps", "daily_open_apps"):
             return  # url 버튼 — Slack 자동 redirect
         rid = _parse_report_value(action.get("value") or "{}")
         if not rid:
