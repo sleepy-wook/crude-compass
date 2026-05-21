@@ -6,7 +6,6 @@ import { ArchivePage } from "./pages/ArchivePage";
 import { Dashboard } from "./pages/Dashboard";
 import { LibraryPage } from "./pages/LibraryPage";
 import { MarketDataPage } from "./pages/MarketDataPage";
-import { MissionsPage } from "./pages/MissionsPage";
 import { AskPage } from "./pages/AskPage";
 import { EvidenceBoardPage } from "./pages/EvidenceBoardPage";
 
@@ -27,8 +26,6 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="market" element={<MarketDataPage />} />
-            <Route path="missions" element={<MissionsPage />} />
-            <Route path="missions/:id" element={<MissionsPage />} />
             <Route path="ask" element={<AskPage />} />
             {/* D-2: sub-pages (no sidebar tab — 4탭 IA 유지) */}
             <Route path="evidence" element={<EvidenceBoardPage />} />
