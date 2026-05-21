@@ -11,6 +11,7 @@
 import { Network } from "lucide-react";
 import { useDailyReportToday } from "../lib/queries";
 import { cn } from "../lib/utils";
+import { labelTool } from "./ChatMessage";
 
 const DIRECTION_META: Record<string, { label: string; tone: string }> = {
   lean_hedge: { label: "위험방어 쪽으로 소폭 이동", tone: "text-crisis-700 bg-crisis-50 border-crisis-200" },
@@ -139,7 +140,7 @@ export function DailyReportHero() {
               </span>
               <span className="text-ink-3 normal-case tracking-normal">
                 {rs.agent_bricks.tools_used && rs.agent_bricks.tools_used.length > 0
-                  ? rs.agent_bricks.tools_used.map((t) => t.name).join(" · ")
+                  ? Array.from(new Set(rs.agent_bricks.tools_used.map((t) => labelTool(t.name)))).join(" · ")
                   : "Supervisor 호출"}
               </span>
             </div>

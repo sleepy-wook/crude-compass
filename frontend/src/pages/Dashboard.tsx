@@ -67,7 +67,6 @@ export function Dashboard() {
         <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3">
           Decision Room
         </div>
-        <OspCycleChip />
 
         {spikeFlash && (
           <div className="w-full inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-crisis-50 text-crisis-700 text-[12px] font-medium">
@@ -114,47 +113,6 @@ export function Dashboard() {
       <SimilarPastWidget cur={cur} />
 
       <div className="h-12" />
-    </div>
-  );
-}
-
-// ────────────────────────────────────────────────────────────────────────
-// OspCycleChip — 매니저 결정 cycle 어디인지 한 줄 (시나리오 §1.2)
-// ────────────────────────────────────────────────────────────────────────
-function OspCycleChip() {
-  const today = new Date();
-  const day = today.getDate();
-  const month = today.getMonth();
-  const year = today.getFullYear();
-  const lastDay = new Date(year, month + 1, 0).getDate();
-
-  let phase: string;
-  let daysToNext: number;
-  let tone: "crisis" | "ink" = "ink";
-
-  if (day <= 5) {
-    phase = "OSP 발표 직후";
-    daysToNext = lastDay - day + 5;
-  } else if (day >= 25) {
-    phase = "Term 갱신 임박";
-    daysToNext = lastDay - day + 5;
-    tone = "crisis";
-  } else {
-    phase = "월중 Spot 조정";
-    daysToNext = lastDay - day + 5;
-  }
-
-  const toneCls =
-    tone === "crisis"
-      ? "border-crisis-100 bg-crisis-50 text-crisis-700"
-      : "border-line-2 bg-line-1 text-ink-2";
-
-  return (
-    <div
-      className={`inline-flex items-baseline gap-2 px-3 py-1.5 rounded-md border text-[12px] ${toneCls}`}
-    >
-      <span className="font-medium">{phase}</span>
-      <span className="opacity-75 tabular-nums">· OSP D-{daysToNext}</span>
     </div>
   );
 }
