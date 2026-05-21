@@ -263,6 +263,12 @@ async def trigger_now(
                         "fingerprint": ev.fingerprint,
                     },
                 )
+            # Slack 알림 — 보고서 발행 시 즉시 push (실패해도 report 생성엔 영향 X)
+            try:
+                from app.services.slack_notify import get_notifier
+                await get_notifier().post_report_card(report, report_id=str(rid))
+            except Exception as se:
+                logger.warning("slack report card push failed: %s", se)
             results.append({
                 "fingerprint": ev.fingerprint,
                 "ok": True,

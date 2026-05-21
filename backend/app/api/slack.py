@@ -220,7 +220,74 @@ async def _do_mission_action(
     return None, f"알 수 없는 action: {action_id}"
 
 
+# ════════════════════════════════════════════════════════════════════════
+# Reports model action handler (2026-05-21) — 활성화/기각 from Slack
+# ════════════════════════════════════════════════════════════════════════
+def _parse_report_value(raw: str) -> str | None:
+    try:
+        return json.loads(raw).get("rid") or None
+    except Exception:
+        return None
+
+
+async def _do_report_action(action_id: str, rid_str: str, actor: str):
+    """report_keep/report_drop → Lakebase status 업데이트. Returns (ok, label, report)."""
+    from app.db.lakebase import acquire
+    from app.db.repositories import reports as reports_repo
+    from app.schemas.report import ReportStatus, StatusActor
+
+    rid = UUID(rid_str)
+    status = ReportStatus.KEPT if action_id == "report_keep" else ReportStatus.DROPPED
+    label = "활성화됨" if action_id == "report_keep" else "기각됨"
+    with acquire() as conn:
+        ok = reports_repo.update_status(conn, rid, status, StatusActor.MANAGER)
+        conn.commit()
+        report = reports_repo.get_by_id(conn, rid) if ok else None
+    logger.info("slack report action %s rid=%s by=%s ok=%s", action_id, rid_str, actor, ok)
+    return ok, label, report
+
+
 def _register_handlers(app: AsyncApp) -> None:
+    """mission_* + report_* action_id 핸들러 등록."""
+
+    @app.action({"action_id": "report_keep"})
+    @app.action({"action_id": "report_drop"})
+    @app.action({"action_id": "report_open_apps"})
+    async def handle_report_action(ack, body, action, respond):
+        await ack()
+        action_id = action.get("action_id")
+        if action_id == "report_open_apps":
+            return  # url 버튼 — Slack 자동 redirect
+        rid = _parse_report_value(action.get("value") or "{}")
+        if not rid:
+            await respond(text="잘못된 버튼 데이터 — 카드를 새로 받아주세요.", response_type="ephemeral")
+            return
+        # Idempotency
+        action_ts = str(action.get("action_ts") or "0")
+        ikey = _idem_key(action_ts, action_id, rid, 0)
+        if _idem_check(ikey):
+            logger.info("slack report idem dedupe — key=%s", ikey)
+            return
+        actor = _slack_actor(body)
+        try:
+            ok, label, report = await _do_report_action(action_id, rid, actor)
+        except Exception as e:
+            logger.exception("slack report action error: %s", e)
+            await respond(text=f"처리 실패: {e}", response_type="ephemeral")
+            return
+        if not ok:
+            await respond(text="이미 처리되었거나 보고서를 찾을 수 없습니다.", response_type="ephemeral")
+            return
+        from app.services.slack_blocks import build_report_resolved_card
+        if report is not None:
+            await respond(blocks=build_report_resolved_card(report, label), replace_original=True)
+        else:
+            await respond(text=f"보고서 {label}", replace_original=True)
+
+    _register_mission_handlers(app)
+
+
+def _register_mission_handlers(app: AsyncApp) -> None:
     """모든 mission_* action_id 를 한 핸들러로 묶음."""
 
     @app.action({"action_id": "mission_confirm"})

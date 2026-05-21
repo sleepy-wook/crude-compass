@@ -160,6 +160,31 @@ class SlackNotifier:
             mission.mission_id, action_state, ts,
         )
 
+    async def post_report_card(self, report, report_id: str | None = None, channel: str | None = None) -> str:
+        """트리거 보고서 발행 알림 카드 push (reports model, 2026-05-21).
+
+        report: Report 객체. report_id: 버튼 value용 (admin은 insert 후 rid 전달).
+        dry-run 모드면 log only + 가짜 ts.
+        """
+        from app.services.slack_blocks import build_report_card, build_report_text_fallback
+
+        channel = channel or self.default_channel
+        if not self.enabled:
+            fake_ts = f"dryrun-{uuid.uuid4()}"
+            logger.info("slack[dry-run] post_report_card report=%s headline=%s",
+                        report_id or getattr(report, "report_id", "?"), report.headline)
+            return fake_ts
+
+        blocks = build_report_card(report, report_id=report_id)
+        text = build_report_text_fallback(report)
+        resp = await self._call_with_retry(
+            "chat_postMessage", channel=channel, blocks=blocks, text=text
+        )
+        ts = str(resp["ts"])
+        logger.info("slack post_report_card report=%s channel=%s ts=%s",
+                    getattr(report, "report_id", "?"), channel, ts)
+        return ts
+
     async def post_ephemeral(self, channel: str, user: str, text: str) -> None:
         """ephemeral 메시지 (interactive 핸들러에서 409 conflict 등 즉시 피드백)."""
         if not self.enabled:
