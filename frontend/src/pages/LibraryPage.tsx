@@ -579,6 +579,37 @@ function NewsRow({
   );
 }
 
+// GDELT는 기사 본문을 제공하지 않음 → 집계 메타로 해석 문단 합성 (정직: 통계 기반).
+function newsSummary(item: NewsItem): string {
+  const theme = item.title.startsWith("GDELT signal")
+    ? item.title.replace(/^GDELT signal\s*·\s*/, "").split("·")[0].trim()
+    : null;
+  const tone = item.raw_tone;
+  const toneText =
+    tone == null
+      ? "논조 데이터 없음"
+      : tone <= -2
+        ? `강한 부정 논조 (tone ${tone.toFixed(2)})`
+        : tone < 0
+          ? `부정 논조 (tone ${tone.toFixed(2)})`
+          : tone > 0
+            ? `긍정 논조 (tone ${tone.toFixed(2)})`
+            : `중립 논조 (tone ${tone.toFixed(2)})`;
+  const dirText =
+    item.direction === "bullish"
+      ? "원유 상방(위험) 압력 시그널"
+      : item.direction === "bearish"
+        ? "원유 하방(안정) 압력 시그널"
+        : "중립 분류";
+  const parts: string[] = [];
+  parts.push(theme ? `${theme} 테마 GDELT 집계 신호.` : "GDELT 보도 신호.");
+  if (item.mention_count != null) parts.push(`최근 7일 ${item.mention_count.toLocaleString()}건 언급,`);
+  parts.push(`${toneText}.`);
+  parts.push(`${dirText} (중요도 ${item.importance ?? "—"}/100).`);
+  parts.push("개별 기사 본문은 GDELT API가 제공하지 않아 '원문 보기'로 확인.");
+  return parts.join(" ");
+}
+
 function NewsDetail({ item, isLoading }: { item: NewsItem | undefined; isLoading: boolean }) {
   if (isLoading) {
     return (
@@ -621,9 +652,14 @@ function NewsDetail({ item, isLoading }: { item: NewsItem | undefined; isLoading
         </span>
       </div>
 
-      <h3 className="font-display text-[17px] font-semibold text-ink-1 leading-snug mb-4">
+      <h3 className="font-display text-[17px] font-semibold text-ink-1 leading-snug mb-3">
         {item.title}
       </h3>
+
+      {/* 해석 — GDELT는 본문 미제공. 집계 메타(테마·tone·언급수·방향)로 합성 */}
+      <p className="text-[12.5px] text-ink-2 leading-relaxed mb-4 pb-4 border-b border-line-1">
+        {newsSummary(item)}
+      </p>
 
       {/* Stats grid */}
       <div className="grid grid-cols-3 gap-3 mb-5">
