@@ -35,7 +35,10 @@ reports / daily_reports / agent_activity / pulse WS / Genie / Agent Bricks Super
   - 추가로 정리된 orphan: `AgentActivityTimeline`, `LivePulseStrip`, `MissionSplitBar`, `StatusPill`, utils mission 라벨 함수.
   - `ws.ts` 재작성: `useMissionsWebSocket` 제거 → `usePulseConnection`(/api/ws/pulse) 신설, TopBar가 사용.
   - `ActivityEvent` 타입은 types.ts로 이동 (pulse가 계속 사용).
-- ⏳ **5단계(Backend) 진행 예정** — 아래 ⚠️ 중요 발견 반영할 것.
+- ✅ **5단계 완료** (commit `3e185a8`) — backend mission 모듈 24개 제거 (-4667 lines). app.main import OK (47 routes).
+- ✅ **6단계 완료** (commit `6b560d3`) — Databricks backtest notebook/yml 6개 + lakebase/gold.sql mission DDL 정리.
+- ✅ **7단계 자동 검증 통과** — frontend `tsc --noEmit` clean · `vite build` 성공(2631 modules) · backend `app.main` import OK(47 routes) · mission 참조 grep 0(app+tests).
+- ⏳ **남은 것: 배포 후 화면 육안 확인** (의사결정/보관함/시황/자료실/조사 5개 + console error 0). 워크스페이스/배포는 사용자 담당. 이 확인까지 끝나면 본 문서 삭제.
 
 ### ⚠️ 5단계 backend 착수 전 필수 발견 (직접 코드 검증 완료)
 1. **`app/store.py`는 통째 삭제 금지** — dead(MissionStore/InMemory/Lakebase/seed/get_store/get_bus) + **live(`EventBus` 클래스 + `get_pulse_bus`)** 혼재. `agent_activity.py`(live pulse)가 `from app.store import get_pulse_bus` 사용. → store.py를 **pulse bus 전용으로 축소**(EventBus + get_pulse_bus만 남기고 mission 부분·`schemas.mission` import 제거).
