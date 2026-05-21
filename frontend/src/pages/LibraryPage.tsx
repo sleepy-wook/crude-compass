@@ -10,7 +10,7 @@
  *   - 우 7/12: detail
  *   둘 다 h-[680px], 좌측 scroll
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ExternalLink, Search } from "lucide-react";
 import { useNewsTop, useOpecHistory } from "../lib/queries";
@@ -421,6 +421,14 @@ function NewsTab({ initialFocus }: { initialFocus?: string }) {
     return filtered[0];
   }, [filtered, selectedTitle]);
 
+  // Pagination — 10개 단위. 필터 변경 시 1페이지로 reset.
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(0);
+  useEffect(() => setPage(0), [titleQuery, dirFilter]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const paged = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
   return (
     <>
       {/* Filters */}
@@ -460,10 +468,14 @@ function NewsTab({ initialFocus }: { initialFocus?: string }) {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-5">
           <NewsList
-            items={filtered}
+            items={paged}
+            total={filtered.length}
             selected={selected?.title}
             onSelect={setSelectedTitle}
             isLoading={isLoading}
+            page={safePage}
+            pageCount={pageCount}
+            onPage={setPage}
           />
         </div>
         <div className="lg:col-span-7">
@@ -476,14 +488,22 @@ function NewsTab({ initialFocus }: { initialFocus?: string }) {
 
 function NewsList({
   items,
+  total,
   selected,
   onSelect,
   isLoading,
+  page,
+  pageCount,
+  onPage,
 }: {
   items: NewsItem[];
+  total: number;
   selected: string | undefined;
   onSelect: (title: string) => void;
   isLoading: boolean;
+  page: number;
+  pageCount: number;
+  onPage: (p: number) => void;
 }) {
   if (isLoading) {
     return (
@@ -497,14 +517,14 @@ function NewsList({
       <header className="px-4 py-3 border-b border-line-1">
         <h2 className="text-[13px] font-semibold text-ink-1 tracking-tight">
           GDELT 주요 보도{" "}
-          <span className="text-ink-3 tabular-nums font-normal">({items.length})</span>
+          <span className="text-ink-3 tabular-nums font-normal">({total})</span>
         </h2>
         <p className="text-[10.5px] text-ink-3 mt-1 leading-snug">
           importance ≥ 60 · 최근 7일 · A·B tier 신뢰 source
         </p>
       </header>
       <div className="flex-1 overflow-y-auto py-1">
-        {items.length === 0 ? (
+        {total === 0 ? (
           <div className="px-4 py-10 text-center text-[12px] text-ink-3">조건 일치 보도 없음</div>
         ) : (
           items.map((n, i) => (
@@ -517,6 +537,29 @@ function NewsList({
           ))
         )}
       </div>
+      {pageCount > 1 && (
+        <div className="border-t border-line-1 px-3 py-2 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => onPage(page - 1)}
+            disabled={page <= 0}
+            className="px-2.5 py-1 text-[11px] rounded-md border border-line-2 text-ink-2 hover:bg-line-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            이전
+          </button>
+          <span className="text-[11px] text-ink-3 tabular-nums">
+            {page + 1} / {pageCount}
+          </span>
+          <button
+            type="button"
+            onClick={() => onPage(page + 1)}
+            disabled={page >= pageCount - 1}
+            className="px-2.5 py-1 text-[11px] rounded-md border border-line-2 text-ink-2 hover:bg-line-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            다음
+          </button>
+        </div>
+      )}
     </section>
   );
 }
