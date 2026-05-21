@@ -2,8 +2,9 @@
   "name": "crude-compass",
   "private": true,
   "version": "0.0.0",
-  "description": "Root build wrapper for Databricks Apps — delegates to frontend/ npm build. Backend Python deps in requirements.txt (auto-installed by Apps).",
+  "description": "Root build wrapper for Databricks Apps — delegates to frontend/ pnpm build. Backend Python deps in requirements.txt (auto-installed by Apps).",
+  "packageManager": "pnpm@10.33.4",
   "scripts": {
-    "build": "cd frontend && npm ci --no-audit --no-fund && npm run build"
+    "build": "corepack enable && cd frontend && pnpm install --frozen-lockfile && pnpm run build"
   }
 }
