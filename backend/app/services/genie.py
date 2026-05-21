@@ -207,13 +207,17 @@ _FALLBACK_ENTRIES: list[FallbackEntry] = [
 ]
 
 
+_BALANCE_KO = {"increase": "증산", "decrease": "감산", "steady": "유지"}
+
+
 def _format_opec_summary(rows: list[dict[str, Any]]) -> str:
-    """OPEC MOMR 3개월 요약."""
+    """OPEC MOMR 3개월 요약. market_balance = OPEC 생산 전월 대비 추세(증산/감산/유지)."""
     parts = []
     for r in rows:
         m = str(r.get("report_month"))[:7] if r.get("report_month") else "?"
         saudi = r.get("saudi_kbbl_d")
-        bal = r.get("market_balance") or "?"
+        bal_raw = r.get("market_balance")
+        bal = _BALANCE_KO.get(bal_raw, bal_raw) or "?"
         saudi_str = f"{int(saudi):,}kb/d" if saudi is not None else "?"
         parts.append(f"{m} 사우디 {saudi_str} ({bal})")
     return " · ".join(parts)

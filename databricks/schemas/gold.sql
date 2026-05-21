@@ -125,15 +125,18 @@ SELECT
     iran_production_kbbl_d,
     opec_total_kbbl_d,
     forecast_demand_kbbl_d,
-    opec_total_kbbl_d - forecast_demand_kbbl_d AS supply_demand_gap_kbbl_d,
+    -- 'supply_demand_gap_kbbl_d' 컬럼명은 하위호환 유지하되 의미를 'OPEC 생산 전월 대비(MoM)'로 재정의.
+    -- (기존 'OPEC생산 - 세계수요'는 OPEC이 세계공급 ~30%라 항상 큰 음수 → 무조건 undersupply = 무의미. 폐기.)
+    opec_total_kbbl_d - LAG(opec_total_kbbl_d) OVER (ORDER BY report_month)
+        AS supply_demand_gap_kbbl_d,
+    -- market_balance = OPEC 생산 추세. 증산(가격 하방/안정) / 감산(가격 상방/위험) / 유지.
     CASE
-        WHEN opec_total_kbbl_d - forecast_demand_kbbl_d > 500  THEN 'oversupply'
-        WHEN opec_total_kbbl_d - forecast_demand_kbbl_d < -500 THEN 'undersupply'
-        ELSE 'balanced'
+        WHEN opec_total_kbbl_d - LAG(opec_total_kbbl_d) OVER (ORDER BY report_month) > 100  THEN 'increase'
+        WHEN opec_total_kbbl_d - LAG(opec_total_kbbl_d) OVER (ORDER BY report_month) < -100 THEN 'decrease'
+        ELSE 'steady'
     END AS market_balance
 FROM crude_compass.bronze.opec_momr_parsed
-WHERE opec_total_kbbl_d IS NOT NULL
-  AND forecast_demand_kbbl_d IS NOT NULL;
+WHERE opec_total_kbbl_d IS NOT NULL;
 
 -- ────────────────────────────────────────────────────────────────────
 -- V6. fx_with_delta — USD/KRW + delta + 30일 변동성

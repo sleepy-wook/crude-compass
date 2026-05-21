@@ -216,17 +216,17 @@ function OpecRow({
   const delta = item.saudi_delta_vs_prev;
   const balance = item.market_balance;
   const balanceLabel =
-    balance === "undersupply"
-      ? "공급 부족"
-      : balance === "oversupply"
-        ? "공급 과잉"
-        : balance === "balanced"
-          ? "균형"
+    balance === "decrease"
+      ? "감산"
+      : balance === "increase"
+        ? "증산"
+        : balance === "steady"
+          ? "유지"
           : "—";
   const balanceTone =
-    balance === "undersupply"
+    balance === "decrease"
       ? "bg-crisis-50 text-crisis-700"
-      : balance === "oversupply"
+      : balance === "increase"
         ? "bg-opportunity-50 text-opportunity-700"
         : "bg-line-1 text-ink-3";
 
@@ -297,17 +297,17 @@ function OpecDetail({ item, isLoading }: { item: OpecItem | undefined; isLoading
 
   const balance = item.market_balance;
   const balanceLabel =
-    balance === "undersupply"
-      ? "공급 부족"
-      : balance === "oversupply"
-        ? "공급 과잉"
-        : balance === "balanced"
-          ? "균형"
+    balance === "decrease"
+      ? "감산"
+      : balance === "increase"
+        ? "증산"
+        : balance === "steady"
+          ? "유지"
           : "—";
   const balanceTone =
-    balance === "undersupply"
+    balance === "decrease"
       ? "bg-crisis-50 text-crisis-700 border-crisis-200"
-      : balance === "oversupply"
+      : balance === "increase"
         ? "bg-opportunity-50 text-opportunity-700 border-opportunity-200"
         : "bg-line-1 text-ink-3 border-line-2";
 
@@ -323,7 +323,7 @@ function OpecDetail({ item, isLoading }: { item: OpecItem | undefined; isLoading
           </h3>
         </div>
         <span className={cn("inline-flex items-center px-2.5 py-1 rounded-md text-[11px] border font-medium", balanceTone)}>
-          시장 {balanceLabel}
+          OPEC {balanceLabel}
         </span>
       </div>
 
@@ -352,11 +352,11 @@ function OpecDetail({ item, isLoading }: { item: OpecItem | undefined; isLoading
         />
       </div>
 
-      {/* 수급 갭 */}
+      {/* OPEC 생산 전월 대비 (MoM) */}
       {item.supply_demand_gap_kbbl_d != null && (
         <div className="rounded-md border border-line-1 bg-paper px-4 py-3 mb-4">
           <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">
-            수급 갭 (OPEC 공급 - 수요 전망)
+            OPEC 생산 전월 대비 (MoM)
           </div>
           <div className="flex items-baseline gap-2 tabular-nums">
             <span className={cn(
@@ -376,19 +376,19 @@ function OpecDetail({ item, isLoading }: { item: OpecItem | undefined; isLoading
 
       {/* 해석 */}
       <div className="text-[12.5px] text-ink-2 leading-relaxed mt-3 pt-3 border-t border-line-1">
-        {balance === "undersupply" && (
+        {balance === "decrease" && (
           <p>
-            수요가 OPEC 공급을 초과하는 상태. 단기 가격 상승 압력 누적 시그널 — 정유사 매입 비용 ↑ 가능성.
+            OPEC 전월 대비 감산. 공급 축소 → 단기 가격 상승 압력. 정유사 매입 비용 ↑ 가능성 (위험 신호).
           </p>
         )}
-        {balance === "oversupply" && (
+        {balance === "increase" && (
           <p>
-            OPEC 공급이 수요를 초과. 가격 약세 압력. Spot 발주 타이밍 유리할 수 있음.
+            OPEC 전월 대비 증산. 공급 확대 → 가격 약세 압력. Spot 발주 타이밍 유리할 수 있음 (안정 신호).
           </p>
         )}
-        {balance === "balanced" && (
+        {balance === "steady" && (
           <p>
-            공급-수요 균형. 외부 충격(지정학·계절성) 없으면 가격 안정 구간.
+            OPEC 생산 전월 수준 유지. 외부 충격(지정학·계절성) 없으면 공급 측 가격 영향 중립.
           </p>
         )}
       </div>

@@ -14,9 +14,9 @@ function formatKbbl(v: number | null | undefined): string {
 }
 
 const BALANCE_LABEL: Record<string, string> = {
-  oversupply: "공급 과잉",
-  undersupply: "공급 부족",
-  balanced: "균형",
+  increase: "증산",
+  decrease: "감산",
+  steady: "유지",
 };
 
 export function OpecCitation() {
@@ -68,9 +68,9 @@ export function OpecCitation() {
             {latest.market_balance && (
               <span
                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] border font-medium ${
-                  latest.market_balance === "undersupply"
+                  latest.market_balance === "decrease"
                     ? "bg-crisis-50 text-crisis-700 border-crisis-100"
-                    : latest.market_balance === "oversupply"
+                    : latest.market_balance === "increase"
                       ? "bg-opportunity-50 text-opportunity-700 border-opportunity-100"
                       : "bg-line-1 text-ink-3 border-line-2"
                 }`}
@@ -143,8 +143,8 @@ export function OpecCitation() {
                 {formatKbbl(latest.forecast_demand_kbbl_d)}
               </div>
               {latest.supply_demand_gap_kbbl_d != null && (
-                <div className="text-[11px] font-mono text-ink-3" title="수요 - OPEC 공급 (M b/d 단위, 음수 = OPEC 공급 부족)">
-                  수급 차 {(latest.supply_demand_gap_kbbl_d / 1000).toFixed(1)}M b/d
+                <div className="text-[11px] font-mono text-ink-3" title="OPEC 생산 전월 대비 (kb/d)">
+                  전월比 {latest.supply_demand_gap_kbbl_d > 0 ? "+" : ""}{latest.supply_demand_gap_kbbl_d.toFixed(0)} kb/d
                 </div>
               )}
             </div>
@@ -154,27 +154,27 @@ export function OpecCitation() {
           {latest.market_balance && (
             <div className="mt-4 pt-3 border-t border-line-1 text-[12px] leading-relaxed text-ink-2">
               <span className="text-[10px] uppercase tracking-wider text-ink-3 mr-2">해석</span>
-              {latest.market_balance === "undersupply" && (
+              {latest.market_balance === "decrease" && (
                 <>
-                  수요가 OPEC 공급보다{" "}
+                  OPEC 전월 대비{" "}
                   <span className="font-medium text-crisis-700">
-                    {Math.abs((latest.supply_demand_gap_kbbl_d ?? 0) / 1000).toFixed(1)}M b/d 많음
+                    감산 {Math.abs(latest.supply_demand_gap_kbbl_d ?? 0).toFixed(0)} kb/d
                   </span>{" "}
-                  → 비OPEC이 메우거나 가격 상승 압력. <span className="text-ink-3">Term 비중 ↑ 신호.</span>
+                  → 공급 축소·가격 상승 압력. <span className="text-ink-3">Term 비중 ↑ 신호.</span>
                 </>
               )}
-              {latest.market_balance === "oversupply" && (
+              {latest.market_balance === "increase" && (
                 <>
-                  OPEC 공급이 수요보다{" "}
+                  OPEC 전월 대비{" "}
                   <span className="font-medium text-opportunity-700">
-                    {Math.abs((latest.supply_demand_gap_kbbl_d ?? 0) / 1000).toFixed(1)}M b/d 많음
+                    증산 {Math.abs(latest.supply_demand_gap_kbbl_d ?? 0).toFixed(0)} kb/d
                   </span>{" "}
-                  → 재고 누적·가격 하방. <span className="text-ink-3">Spot 비중 ↑ 신호.</span>
+                  → 공급 확대·가격 하방. <span className="text-ink-3">Spot 비중 ↑ 신호.</span>
                 </>
               )}
-              {latest.market_balance === "balanced" && (
+              {latest.market_balance === "steady" && (
                 <>
-                  수급 균형. <span className="text-ink-3">평시 비중 유지 신호.</span>
+                  OPEC 생산 전월 수준 유지. <span className="text-ink-3">평시 비중 유지 신호.</span>
                 </>
               )}
             </div>

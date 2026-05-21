@@ -136,7 +136,7 @@ export const api = {
         opec_total_kbbl_d: number | null;
         forecast_demand_kbbl_d: number | null;
         supply_demand_gap_kbbl_d: number | null;
-        market_balance: "oversupply" | "undersupply" | "balanced" | null;
+        market_balance: "increase" | "decrease" | "steady" | null;
         saudi_delta_vs_prev?: number;
       } | null;
       prev: unknown;
@@ -153,7 +153,7 @@ export const api = {
         opec_total_kbbl_d: number | null;
         forecast_demand_kbbl_d: number | null;
         supply_demand_gap_kbbl_d: number | null;
-        market_balance: "oversupply" | "undersupply" | "balanced" | null;
+        market_balance: "increase" | "decrease" | "steady" | null;
         saudi_delta_vs_prev: number | null;
       }[];
     }>(`/api/market/opec-history?limit=${limit}`),
