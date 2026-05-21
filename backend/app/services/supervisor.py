@@ -47,6 +47,13 @@ def _clean_answer(text: str) -> str:
         text = re.sub(r"^[ \t]*\|[^\n]*\n?", "", text, flags=re.MULTILINE)
     # Citation footnote([^Pq2d-1] 등) 제거 — KA RAG 인용 잔재.
     text = re.sub(r"\[\^[^\]]+\]", "", text)
+    # Agentic 서두 제거 — Supervisor가 tool 호출 전 붙이는 도입 문장.
+    # 첫 문장(마침표 전)에 확인/조회/분석 등 작업동사 + "겠습니다"가 있으면 그 문장 통째 제거.
+    text = re.sub(
+        r"^\s*[^.\n]*(?:확인|조회|분석|검토|살펴|파악|검증)[^.\n]*겠습니다[.!]\s*",
+        "",
+        text,
+    )
     # Markdown heading inline fix:
     # LLM이 종종 "문장.## heading" 처럼 토큰을 붙여 emit (특히 streaming).
     # ATX heading은 줄 시작에서만 인식되므로 parser가 plain text로 처리됨.

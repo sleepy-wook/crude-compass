@@ -160,8 +160,12 @@ async def investigate_report(report_id: UUID = Path(...)) -> dict[str, Any]:
             f"트리거: {trigger_type_value}\n"
             f"권고: {rec_value or '없음'}\n\n"
             f"Genie로 시장 데이터 추가 조회, Knowledge Assistant로 OPEC 문서 cross-reference, "
-            f"권고 sub-agent로 종합 의견 산출. 자연어 1-2단락 답변 (300자 이내). "
-            f"한국 정유사 구매 매니저용. 변수명·점수 raw 노출 X."
+            f"권고 sub-agent로 종합 의견 산출.\n\n"
+            f"[출력 규칙 — 반드시 준수]\n"
+            f"- '확인하겠습니다', '조회하겠습니다', '분석하겠습니다' 같은 작업 과정/서두를 절대 쓰지 말 것.\n"
+            f"- 첫 문장부터 곧바로 분석 결론으로 시작 (결론 → 근거 순서).\n"
+            f"- 완성된 보고서 형태의 한국어 자연어 1-2단락 (300자 이내).\n"
+            f"- 한국 정유사 구매 매니저 대상. 변수명·점수 raw·인용 각주 노출 X."
         )
         try:
             sup = await query_supervisor(supervisor_q)

@@ -28,6 +28,8 @@ function cleanReportText(s: string | null | undefined): string {
     .replace(/<name>[^<]*<\/name>/g, "")
     .replace(/\[\^[^\]]+\]/g, "")
     .replace(/\|[^\n|]{0,40}(?:\|[^\n|]{0,40}){2,}/g, "")
+    // agentic 서두 — 첫 문장에 확인/조회/분석 등 + "겠습니다"면 제거
+    .replace(/^\s*[^.\n]*(?:확인|조회|분석|검토|살펴|파악|검증)[^.\n]*겠습니다[.!]\s*/, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
