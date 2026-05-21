@@ -11,6 +11,7 @@
  *   둘 다 h-[680px], 좌측 scroll
  */
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ExternalLink, Search } from "lucide-react";
 import { useNewsTop, useOpecHistory } from "../lib/queries";
 import { cn } from "../lib/utils";
@@ -18,7 +19,11 @@ import { cn } from "../lib/utils";
 type TabKey = "opec" | "news";
 
 export function LibraryPage() {
-  const [tab, setTab] = useState<TabKey>("opec");
+  const [searchParams] = useSearchParams();
+  const focus = searchParams.get("focus") ?? undefined;
+  const [tab, setTab] = useState<TabKey>(
+    searchParams.get("tab") === "news" ? "news" : "opec",
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-8 py-8">
@@ -48,7 +53,7 @@ export function LibraryPage() {
         />
       </div>
 
-      {tab === "opec" ? <OpecTab /> : <NewsTab />}
+      {tab === "opec" ? <OpecTab /> : <NewsTab initialFocus={focus} />}
 
       <div className="h-12" />
     </div>
@@ -392,7 +397,7 @@ function Stat({
 // ─────────────────────────────────────────────────────────────────────
 type NewsItem = NonNullable<ReturnType<typeof useNewsTop>["data"]>["items"][number];
 
-function NewsTab() {
+function NewsTab({ initialFocus }: { initialFocus?: string }) {
   const { data, isLoading } = useNewsTop(80);
   const items = data?.items ?? [];
   const [titleQuery, setTitleQuery] = useState("");
@@ -407,7 +412,7 @@ function NewsTab() {
     });
   }, [items, titleQuery, dirFilter]);
 
-  const [selectedTitle, setSelectedTitle] = useState<string | undefined>(undefined);
+  const [selectedTitle, setSelectedTitle] = useState<string | undefined>(initialFocus);
   const selected = useMemo(() => {
     if (selectedTitle) {
       const found = filtered.find((n) => n.title === selectedTitle);

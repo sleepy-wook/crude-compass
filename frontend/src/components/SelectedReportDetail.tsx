@@ -279,18 +279,18 @@ function DetailBody({
             {selected.related_signals.slice(0, 4).map((s, i) => (
               <li key={i} className="flex items-baseline gap-2 text-ink-2">
                 <span className="text-ink-3 shrink-0 text-[10.5px]">·</span>
-                {s.url ? (
+                {s.title ? (
                   <a
-                    href={s.url}
+                    href={`/library?tab=news&focus=${encodeURIComponent(s.title)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="truncate text-info-700 hover:underline"
-                    title="뉴스 원문 (새 탭)"
+                    title="자료실 주요 보도에서 보기 (새 탭)"
                   >
-                    {s.title || "—"}
+                    {s.title}
                   </a>
                 ) : (
-                  <span className="truncate">{s.title || "—"}</span>
+                  <span className="truncate">—</span>
                 )}
                 {s.direction && (
                   <span className={cn(
