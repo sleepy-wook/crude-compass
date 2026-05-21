@@ -12,12 +12,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__
-from app.api import admin as admin_api, daily_reports as daily_reports_api, decision_room as decision_room_api, demo as demo_api, genie as genie_api, jobs as jobs_api, missions, pattern, pulse as pulse_api, reactive as reactive_api, reports as reports_api, signals as signals_api, slack as slack_api, supervisor as supervisor_api
-from app.core.config import get_settings
-from app.services.slack_bus_subscriber import run_slack_subscriber
-from app.services.slack_notify import get_notifier
-from app.store import get_bus, get_store
-from app.ws import missions as ws_missions, pulse as ws_pulse
+from app.api import admin as admin_api, daily_reports as daily_reports_api, genie as genie_api, jobs as jobs_api, pattern, pulse as pulse_api, reports as reports_api, signals as signals_api, slack as slack_api, supervisor as supervisor_api
+from app.ws import pulse as ws_pulse
 
 logger = logging.getLogger(__name__)
 
@@ -34,13 +30,6 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Lakebase migrate_d4 wrapper error: %s", e)
 
-    # Decision Room refactor — user_last_seen table
-    try:
-        from app.db.lakebase import migrate_decision_room
-        await asyncio.to_thread(migrate_decision_room)
-    except Exception as e:
-        logger.warning("Lakebase migrate_decision_room wrapper error: %s", e)
-
     # Reports model (2026-05-21) — reports + daily_reports tables
     try:
         from app.db.lakebase import migrate_reports
@@ -48,29 +37,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Lakebase migrate_reports wrapper error: %s", e)
 
-    # Startup — Slack subscriber task (dry-run 모드여도 log 검증용으로 띄움)
-    settings = get_settings()
-    notifier = get_notifier()
-    slack_task = asyncio.create_task(
-        run_slack_subscriber(get_bus(), notifier, get_store())
-    )
-    logger.info(
-        "slack subscriber started (enabled=%s, default_channel=%s)",
-        settings.slack_enabled, settings.slack_default_channel or "(missing)",
-    )
-    app.state.slack_task = slack_task
-
     yield
 
     # Shutdown
-    if not slack_task.done():
-        slack_task.cancel()
-        try:
-            await slack_task
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            logger.warning("slack task cleanup error: %s", e)
     try:
         from app.db.lakebase import close_pool
         close_pool()
@@ -96,9 +65,7 @@ def create_app() -> FastAPI:
     )
 
     # Routers
-    app.include_router(missions.router)
     app.include_router(pattern.router)
-    app.include_router(reactive_api.router)
     app.include_router(slack_api.router)
     app.include_router(genie_api.router)
     app.include_router(supervisor_api.router)
@@ -106,17 +73,9 @@ def create_app() -> FastAPI:
     app.include_router(pulse_api.router)
     app.include_router(signals_api.router)
     app.include_router(jobs_api.router)
-    app.include_router(decision_room_api.router)
     app.include_router(reports_api.router)
     app.include_router(daily_reports_api.router)
-    app.include_router(ws_missions.router)
     app.include_router(ws_pulse.router)
-
-    # Demo router — DEMO_MODE=true 일 때만 mount (production 보호)
-    settings = get_settings()
-    if settings.demo_mode:
-        app.include_router(demo_api.router)
-        logger.info("demo router mounted (DEMO_MODE=true)")
 
     @app.get("/api/health")
     async def health() -> dict:

@@ -21,8 +21,6 @@ def _client(monkeypatch, genie_enabled: bool = False) -> TestClient:
     get_settings.cache_clear()
 
     from app.main import create_app
-    from app.store import reset_store_for_testing
-    reset_store_for_testing()
     return TestClient(create_app())
 
 

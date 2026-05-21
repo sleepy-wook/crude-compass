@@ -14,14 +14,11 @@ import asyncio
 import logging
 import uuid
 from typing import Any
-from uuid import UUID
 
 from slack_sdk.errors import SlackApiError
 from slack_sdk.web.async_client import AsyncWebClient
 
 from app.core.config import get_settings
-from app.schemas.mission import Mission
-from app.services.slack_blocks import ActionState, build_mission_card, build_text_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -39,25 +36,6 @@ class SlackNotifier:
         self._client: AsyncWebClient | None = (
             AsyncWebClient(token=s.slack_bot_token) if self.enabled else None
         )
-        # mission_id (UUID) → message_ts (str). chat.update 시 lookup.
-        self._ts_map: dict[UUID, str] = {}
-        # 채널도 카드별로 보관 (DM 채널은 mission_id마다 다를 수 있음).
-        self._channel_map: dict[UUID, str] = {}
-
-    # ────────────────────────────────────────────────────────────────────
-    # ts map (subscriber + interactive handler에서 양쪽 사용)
-    # ────────────────────────────────────────────────────────────────────
-    def get_ts(self, mission_id: UUID) -> tuple[str, str] | None:
-        """Returns (channel, ts) tuple or None."""
-        ts = self._ts_map.get(mission_id)
-        ch = self._channel_map.get(mission_id)
-        if ts and ch:
-            return ch, ts
-        return None
-
-    def set_ts(self, mission_id: UUID, channel: str, ts: str) -> None:
-        self._ts_map[mission_id] = ts
-        self._channel_map[mission_id] = channel
 
     # ────────────────────────────────────────────────────────────────────
     # Post + update with retry
@@ -95,70 +73,6 @@ class SlackNotifier:
                 continue
         assert last_exc is not None
         raise last_exc
-
-    async def post_mission_card(
-        self,
-        mission: Mission,
-        channel: str | None = None,
-    ) -> str:
-        """Mission 카드 신규 push. Returns message ts.
-
-        dry-run 모드: 가짜 ts 반환 + log only.
-        """
-        channel = channel or self.default_channel
-        if not self.enabled:
-            fake_ts = f"dryrun-{uuid.uuid4()}"
-            logger.info(
-                "slack[dry-run] post_mission_card mission=%s urgency=%s → ts=%s",
-                mission.mission_id, mission.urgency.value, fake_ts,
-            )
-            self.set_ts(mission.mission_id, channel or "dry-run-channel", fake_ts)
-            return fake_ts
-
-        blocks = build_mission_card(mission, action_state="proposed")
-        text = build_text_fallback(mission, "proposed")
-        resp = await self._call_with_retry(
-            "chat_postMessage", channel=channel, blocks=blocks, text=text
-        )
-        ts = str(resp["ts"])
-        self.set_ts(mission.mission_id, channel, ts)
-        logger.info(
-            "slack post_mission_card mission=%s channel=%s ts=%s",
-            mission.mission_id, channel, ts,
-        )
-        return ts
-
-    async def update_mission_card(
-        self,
-        mission: Mission,
-        action_state: ActionState,
-    ) -> None:
-        """기존 message 를 새 상태로 갱신. ts map 에 없으면 silent skip + WARN."""
-        loc = self.get_ts(mission.mission_id)
-        if loc is None:
-            logger.warning(
-                "slack update_mission_card — no ts for mission=%s (skip)",
-                mission.mission_id,
-            )
-            return
-        channel, ts = loc
-
-        if not self.enabled:
-            logger.info(
-                "slack[dry-run] update_mission_card mission=%s state=%s ts=%s",
-                mission.mission_id, action_state, ts,
-            )
-            return
-
-        blocks = build_mission_card(mission, action_state=action_state)
-        text = build_text_fallback(mission, action_state)
-        await self._call_with_retry(
-            "chat_update", channel=channel, ts=ts, blocks=blocks, text=text
-        )
-        logger.info(
-            "slack update_mission_card mission=%s state=%s ts=%s",
-            mission.mission_id, action_state, ts,
-        )
 
     async def post_report_card(self, report, report_id: str | None = None, channel: str | None = None) -> str:
         """트리거 보고서 발행 알림 카드 push (reports model, 2026-05-21).
