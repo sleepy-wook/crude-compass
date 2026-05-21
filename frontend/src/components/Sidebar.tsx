@@ -29,7 +29,7 @@ function prefetchForRoute(qc: QueryClient, to: string): void {
   const prefetch = (key: readonly unknown[], fn: () => Promise<unknown>, staleTime = 120_000) =>
     qc.prefetchQuery({ queryKey: key, queryFn: fn, staleTime });
   if (to === "/") {
-    prefetch(queryKeys.missionsActive, () => api.missionsActive());
+    prefetch(queryKeys.reportsInbox(10), () => api.reportsInbox(10));
     prefetch(queryKeys.patternCurrent, () => api.patternCurrent(), 300_000);
   } else if (to === "/market") {
     prefetch(queryKeys.patternCurrent, () => api.patternCurrent(), 300_000);

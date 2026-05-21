@@ -7,10 +7,6 @@ import { api } from "./api";
 
 export const queryKeys = {
   health: ["health"] as const,
-  missionsActive: ["missions", "active"] as const,
-  missionsAll: ["missions", "all"] as const,
-  mission: (id: string) => ["missions", id] as const,
-  missionActivity: (id: string) => ["missions", id, "activity"] as const,
   patternCurrent: ["pattern", "current"] as const,
   patternHistory: (days: number) => ["pattern", "history", days] as const,
   signalContribution: ["signals", "contribution"] as const,
@@ -32,37 +28,6 @@ export const queryKeys = {
 // ──────────────────────────────────────────────────────────────────────────
 // Read
 // ──────────────────────────────────────────────────────────────────────────
-export function useMissionsActive() {
-  return useQuery({
-    queryKey: queryKeys.missionsActive,
-    queryFn: () => api.missionsActive(),
-    staleTime: 120_000, // 2분 — tab switch 시 instant render
-    refetchInterval: 60_000, // 1분마다 background refetch (UI block X)
-  });
-}
-
-export function useMission(id: string | undefined) {
-  return useQuery({
-    queryKey: queryKeys.mission(id || ""),
-    queryFn: () => api.missionGet(id!),
-    enabled: !!id,
-  });
-}
-
-/**
- * Agent Bricks orchestration activity timeline.
- * Lakebase `agent_activity_events` table read. Lakebase 미연동 시 events=[].
- */
-export function useMissionActivity(id: string | undefined, options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: queryKeys.missionActivity(id || ""),
-    queryFn: () => api.missionActivity(id!),
-    enabled: !!id && (options?.enabled ?? true),
-    staleTime: 60_000, // 1분 — manager action 시 mutation hook이 invalidate (실시간성 유지)
-    refetchInterval: 60_000,
-  });
-}
-
 export function usePatternCurrent() {
   return useQuery({
     queryKey: queryKeys.patternCurrent,
@@ -193,82 +158,6 @@ export function usePulseStats() {
     queryFn: () => api.pulseStats(),
     refetchInterval: 30_000,
     staleTime: 15_000,
-  });
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// Write (mutations) — auto-invalidate on success
-// ──────────────────────────────────────────────────────────────────────────
-export function useMissionConfirm() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, version }: { id: string; version: number }) =>
-      api.missionConfirm(id, version),
-    onSuccess: (m) => {
-      qc.invalidateQueries({ queryKey: queryKeys.missionsActive });
-      qc.setQueryData(queryKeys.mission(m.mission_id), m);
-      // Agent Bricks activity timeline 즉시 갱신 (Lakebase에 새 event row 기록됨)
-      qc.invalidateQueries({ queryKey: queryKeys.missionActivity(m.mission_id) });
-    },
-  });
-}
-
-export function useMissionReject() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, version, reason }: { id: string; version: number; reason?: string }) =>
-      api.missionReject(id, version, reason),
-    onSuccess: (m) => {
-      qc.invalidateQueries({ queryKey: queryKeys.missionsActive });
-      qc.setQueryData(queryKeys.mission(m.mission_id), m);
-      // Agent Bricks activity timeline 즉시 갱신 (Lakebase에 새 event row 기록됨)
-      qc.invalidateQueries({ queryKey: queryKeys.missionActivity(m.mission_id) });
-    },
-  });
-}
-
-export function useMissionPivot() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: {
-      id: string;
-      version: number;
-      pivot_action: "pivot" | "pause" | "abort" | "continue";
-      to_type?: "HEDGE" | "OPPORTUNITY";
-      reason: string;
-    }) => {
-      const { id, ...rest } = body;
-      return api.missionPivot(id, rest);
-    },
-    onSuccess: (m) => {
-      qc.invalidateQueries({ queryKey: queryKeys.missionsActive });
-      qc.setQueryData(queryKeys.mission(m.mission_id), m);
-      // Agent Bricks activity timeline 즉시 갱신 (Lakebase에 새 event row 기록됨)
-      qc.invalidateQueries({ queryKey: queryKeys.missionActivity(m.mission_id) });
-    },
-  });
-}
-
-export function useMissionModify() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      id,
-      version,
-      target_pct,
-      duration_days,
-    }: {
-      id: string;
-      version: number;
-      target_pct?: number;
-      duration_days?: number;
-    }) => api.missionModify(id, { version, target_pct, duration_days }),
-    onSuccess: (m) => {
-      qc.invalidateQueries({ queryKey: queryKeys.missionsActive });
-      qc.setQueryData(queryKeys.mission(m.mission_id), m);
-      // Agent Bricks activity timeline 즉시 갱신 (Lakebase에 새 event row 기록됨)
-      qc.invalidateQueries({ queryKey: queryKeys.missionActivity(m.mission_id) });
-    },
   });
 }
 

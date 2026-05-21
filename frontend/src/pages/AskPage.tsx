@@ -10,13 +10,10 @@
  *
  * 대화 기록: localStorage (`crude-compass:chats:v1`), 최대 50개.
  * Multi-Agent backend: /api/supervisor/query → Agent Bricks Supervisor.
- * Auto-inject: market memory (★ wow), case context (?case_id).
  */
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import { ArrowUp, Network } from "lucide-react";
 import { api, supervisorQueryStream } from "../lib/api";
-import { useMission } from "../lib/queries";
 import { useChatHistory } from "../lib/useChatHistory";
 import { ChatHistorySidebar } from "../components/ChatHistorySidebar";
 import { ChatMessage } from "../components/ChatMessage";
@@ -30,19 +27,7 @@ const SAMPLE_QUERIES: string[] = [
   "지금 추세에서 30일 후 가격 예측은?",
 ];
 
-const CASE_BOUND_SAMPLES: string[] = [
-  "왜 이 보고서가 만들어졌지?",
-  "OPEC 근거만 보여줘 (사우디 공급 + 수요 전망)",
-  "구조화 데이터와 문서 근거가 충돌하나?",
-  "유사 과거 사례와 비교해줘",
-];
-
 export function AskPage() {
-  const [searchParams] = useSearchParams();
-  const caseId = searchParams.get("case_id") ?? undefined;
-  const caseQuery = useMission(caseId);
-  const currentCase = caseQuery.data ?? null;
-
   const history = useChatHistory();
   const turns = history.active?.turns ?? [];
 
@@ -67,7 +52,6 @@ export function AskPage() {
     try {
       // 1차 시도: streaming
       await supervisorQueryStream(enriched, {
-        missionId: caseId,
         signal: abort.signal,
         onEvent: (ev) => {
           if (ev.type === "delta") {
@@ -93,7 +77,7 @@ export function AskPage() {
             history.updateLastTurn({ pending: false, error: true });
           } else if (ev.type === "fallback") {
             // Supervisor 미설정 → 일반 query API로 fallback
-            api.supervisorQuery(enriched, caseId).then((data) => {
+            api.supervisorQuery(enriched).then((data) => {
               history.updateLastTurn({
                 content: data.answer || "(응답 비어있음)",
                 toolsUsed: data.tools_used,
@@ -119,22 +103,10 @@ export function AskPage() {
     const q = (text ?? question).trim();
     if (q.length < 2 || streaming) return;
 
-    let caseContextPrefix = "";
-    if (currentCase) {
-      const typeKr = currentCase.mission_type === "HEDGE" ? "위험방어" : "기회포착";
-      caseContextPrefix =
-        `[현재 조사 중인 case]\n` +
-        `direction: ${typeKr} (${currentCase.mission_type})\n` +
-        `Pattern Score: ${currentCase.pattern_score.toFixed(0)} · 긴급도 ${currentCase.urgency}\n` +
-        `상태: ${currentCase.status}\n\n`;
-    }
-
-    const enriched = caseContextPrefix + q;
-
     // history에 append (active 없으면 자동 새 conversation)
     history.appendTurn({
       question: q,
-      enriched,
+      enriched: q,
       similarCtx: null,
       message: {
         role: "assistant",
@@ -143,10 +115,9 @@ export function AskPage() {
       },
     });
     setQuestion("");
-    void runStream(enriched);
+    void runStream(q);
   }
 
-  const samples = currentCase ? CASE_BOUND_SAMPLES : SAMPLE_QUERIES;
   const isEmpty = turns.length === 0;
 
   return (
@@ -173,18 +144,13 @@ export function AskPage() {
               Agent Bricks Supervisor — Genie (데이터) · Knowledge Assistant (문서) · 권고 sub-agent
             </p>
           </div>
-          {currentCase && <CaseChip mission={currentCase} />}
         </header>
 
         {/* Body */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-8 py-6">
             {isEmpty ? (
-              <EmptyState
-                samples={samples}
-                caseBound={!!currentCase}
-                onPick={(s) => submit(s)}
-              />
+              <EmptyState samples={SAMPLE_QUERIES} onPick={(s) => submit(s)} />
             ) : (
               turns.map((t, i) => (
                 <div key={i}>
@@ -214,11 +180,9 @@ export function AskPage() {
 
 function EmptyState({
   samples,
-  caseBound,
   onPick,
 }: {
   samples: string[];
-  caseBound: boolean;
   onPick: (s: string) => void;
 }) {
   return (
@@ -230,9 +194,7 @@ function EmptyState({
         무엇이 궁금하세요?
       </h2>
       <p className="text-[13px] text-ink-3 mb-8">
-        {caseBound
-          ? "이 보고서를 깊이 파헤치기"
-          : "시장·뉴스·과거 사례 — 자연어로 질문"}
+        시장·뉴스·과거 사례 — 자연어로 질문
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-2xl">
         {samples.map((s) => (
@@ -293,25 +255,6 @@ function Composer({
       >
         <ArrowUp className="w-4 h-4" />
       </button>
-    </div>
-  );
-}
-
-function CaseChip({ mission }: { mission: NonNullable<ReturnType<typeof useMission>["data"]> }) {
-  const typeKr = mission.mission_type === "HEDGE" ? "위험방어" : "기회포착";
-  const tone =
-    mission.mission_type === "HEDGE"
-      ? "bg-crisis-50 text-crisis-700 border-crisis-200"
-      : "bg-opportunity-50 text-opportunity-700 border-opportunity-200";
-  return (
-    <div
-      className={cn(
-        "inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-[11px]",
-        tone,
-      )}
-    >
-      <span className="font-medium">{typeKr} case 조사 중</span>
-      <span className="text-ink-3 font-mono">#{mission.mission_id.slice(0, 6)}</span>
     </div>
   );
 }

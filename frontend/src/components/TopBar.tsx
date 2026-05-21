@@ -4,7 +4,7 @@
  * 전 page 공통. 위기 점수 · mode chip · 진행 임무 · 마지막 갱신 · 실시간 연결 (WS + Slack).
  */
 import { usePatternCurrent } from "../lib/queries";
-import { useMissionsWebSocket } from "../lib/ws";
+import { usePulseConnection } from "../lib/ws";
 
 type Mode = "HEDGE" | "OPPORTUNITY" | "STABLE";
 
@@ -28,7 +28,7 @@ function modeLabel(mode: Mode): string {
 
 export function TopBar() {
   const pattern = usePatternCurrent();
-  const { status } = useMissionsWebSocket();
+  const { status } = usePulseConnection();
 
   const cur = pattern.data?.current ?? null;
   const mode = decideMode(cur?.mission_type);

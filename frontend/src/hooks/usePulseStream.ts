@@ -9,7 +9,7 @@
  *   connected: boolean       // WS 상태
  */
 import { useEffect, useRef, useState } from "react";
-import type { ActivityEvent } from "../components/AgentActivityTimeline";
+import type { ActivityEvent } from "../lib/types";
 import { connectPulseWs } from "../lib/ws";
 import { useRecentPulse } from "../lib/queries";
 

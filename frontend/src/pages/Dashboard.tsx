@@ -2,19 +2,15 @@
  * Dashboard — Decision Room (/) (reports model 2026-05-21).
  *
  * Layout:
- *   [Header — Decision Room | OSP D-N | spike alert?]
+ *   [Header — Decision Room]
  *   [DailyReportHero — 오늘 비중 제안 (참고용, read-only)]
  *   [Grid 5/12: ReportsInbox | 7/12: SelectedReportDetail]
- *   [Signal Strength — Bidirectional3Zone (유지)]
- *   [Market Memory (유지)]
- *
- * 기존 ActionQueue/SelectedCaseDetail/MonitoringStrip/DeltaStrip 제거.
- * (컴포넌트 자체는 다른 페이지가 쓸 수 있으니 삭제 X — Dashboard에서만 import 제거.)
+ *   [Signal Strength — Bidirectional3Zone]
+ *   [Market Memory]
  */
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePatternCurrent, useReportsInbox } from "../lib/queries";
-import { useMissionsWebSocket } from "../lib/ws";
 import { Bidirectional3Zone } from "../components/Bidirectional3Zone";
 import { DailyReportHero } from "../components/DailyReportHero";
 import { ReportsInbox } from "../components/ReportsInbox";
@@ -46,18 +42,6 @@ export function Dashboard() {
     }
   };
 
-  // Reactive trigger flash (위기 spike alert) — pulse_bus WS 그대로 활용
-  const [spikeFlash, setSpikeFlash] = useState(false);
-  const { lastEvent, lastEventAt } = useMissionsWebSocket();
-  useEffect(() => {
-    if (!lastEvent || !lastEventAt) return;
-    if (lastEvent.type === "reactive.alert") {
-      setSpikeFlash(true);
-      const timer = window.setTimeout(() => setSpikeFlash(false), 30_000);
-      return () => window.clearTimeout(timer);
-    }
-  }, [lastEvent, lastEventAt]);
-
   return (
     <div className="max-w-7xl mx-auto px-8 py-8">
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
@@ -67,13 +51,6 @@ export function Dashboard() {
         <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3">
           Decision Room
         </div>
-
-        {spikeFlash && (
-          <div className="w-full inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-crisis-50 text-crisis-700 text-[12px] font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-crisis-500 animate-pulse" />
-            실시간 위기 신호 감지 — 30초 내 자동 갱신
-          </div>
-        )}
       </header>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
@@ -105,7 +82,7 @@ export function Dashboard() {
 
       {/* SIGNAL STRENGTH — Bidirectional (자체 header 보유) */}
       <div className="mt-12">
-        <Bidirectional3Zone cur={cur} topMission={null} />
+        <Bidirectional3Zone cur={cur} />
       </div>
 
       {/* MARKET MEMORY */}

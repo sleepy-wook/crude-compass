@@ -8,13 +8,12 @@
  *
  * 시각화: 세로 막대. 위가 위기, 아래가 기회 — §6.1 그림과 일치.
  */
-import type { Mission, PatternScoreCurrent } from "../lib/types";
+import type { PatternScoreCurrent } from "../lib/types";
 import { formatRoundedScore } from "../lib/utils";
 import { useSignalContribution } from "../lib/queries";
 
 interface Props {
   cur: PatternScoreCurrent | null | undefined;
-  topMission?: Mission | null;
 }
 
 const SIGNAL_LABEL: Record<string, string> = {
@@ -31,7 +30,7 @@ function zoneOf(score: number): "HEDGE" | "STABLE" | "OPPORTUNITY" {
   return "STABLE";
 }
 
-export function Bidirectional3Zone({ cur, topMission }: Props) {
+export function Bidirectional3Zone({ cur }: Props) {
   const score = cur?.pattern_score ?? null;
   const bullish = cur?.bullish_score ?? null;
   const bearish = cur?.bearish_score ?? null;
@@ -55,11 +54,6 @@ export function Bidirectional3Zone({ cur, topMission }: Props) {
             위험 ↔ 기회 (0–100, 90일)
           </p>
         </div>
-        {topMission && (
-          <span className="text-[10px] text-ink-3">
-            {topMission.mission_type === "HEDGE" ? "장기 비중 ↑" : "즉시 비중 ↑"}
-          </span>
-        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8">

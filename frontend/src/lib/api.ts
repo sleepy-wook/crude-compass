@@ -4,7 +4,6 @@
  */
 import type {
   DailyReport,
-  Mission,
   PatternHistory,
   PatternScoreCurrent,
   Report,
@@ -54,62 +53,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return resp.json() as Promise<T>;
 }
 
-// ──────────────────────────────────────────────────────────────────────────
-// Missions
-// ──────────────────────────────────────────────────────────────────────────
 export const api = {
   // health
   health: () => request<{ status: string; version: string }>("/api/health"),
-
-  // missions
-  missionsActive: () =>
-    request<{ missions: Mission[] }>("/api/missions/active"),
-  missionGet: (id: string) => request<Mission>(`/api/missions/${id}`),
-  missionConfirm: (id: string, version: number, via: "apps" | "slack" = "apps") =>
-    request<Mission>(`/api/missions/${id}/confirm`, {
-      method: "POST",
-      body: JSON.stringify({ version, via }),
-    }),
-  missionReject: (id: string, version: number, reason?: string) =>
-    request<Mission>(`/api/missions/${id}/reject`, {
-      method: "POST",
-      body: JSON.stringify({ version, via: "apps", reason }),
-    }),
-  missionPivot: (
-    id: string,
-    body: {
-      version: number;
-      pivot_action: "pivot" | "pause" | "abort" | "continue";
-      to_type?: "HEDGE" | "OPPORTUNITY";
-      reason: string;
-    }
-  ) =>
-    request<Mission>(`/api/missions/${id}/pivot`, {
-      method: "POST",
-      body: JSON.stringify({ via: "apps", ...body }),
-    }),
-  missionModify: (
-    id: string,
-    body: { version: number; target_pct?: number; duration_days?: number }
-  ) =>
-    request<Mission>(`/api/missions/${id}/modify`, {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-
-  /** Agent Bricks orchestration activity timeline (Lakebase `agent_activity_events`). */
-  missionActivity: (id: string) =>
-    request<{
-      events: {
-        id: string | number;
-        mission_id: string | null;
-        occurred_at: string;
-        actor: string;
-        action: string;
-        result_preview: string | null;
-        metadata: Record<string, unknown> | null;
-      }[];
-    }>(`/api/missions/${id}/activity`),
 
   // pattern score
   patternCurrent: () =>

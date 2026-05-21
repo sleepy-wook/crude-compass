@@ -3,87 +3,6 @@
  * docs/api_contract.md §1.1, backend/app/schemas/mission.py
  */
 
-export type MissionType = "HEDGE" | "OPPORTUNITY";
-
-export type MissionStatus =
-  | "proposed"
-  | "active"
-  | "on_track"
-  | "at_risk"
-  | "paused"
-  | "pivoted"
-  | "aborted"
-  | "completed";
-
-export type MissionUrgency = "optional" | "default" | "urgent";
-
-export interface PivotEntry {
-  from_type: MissionType;
-  to_type: MissionType;
-  occurred_at: string;
-  reason: string;
-  pattern_score_at: number;
-}
-
-export interface SupplierAllocation {
-  supplier_name: string;
-  delta_bpd: number;
-  rationale: string;
-}
-
-export interface SimulationAssumptions {
-  scenario_label: string;
-  brent_usd: number;
-  usd_krw: number;
-  vlcc_freight_multiplier: number;
-}
-
-export interface SimulationScenario {
-  name: "worst" | "likely" | "best";
-  label: string;
-  assumptions: SimulationAssumptions;
-  saving_pct: number;
-  saving_krw_oku: number;
-  confidence_note?: string | null;
-}
-
-export interface DeltaVsPrevious {
-  previous_date: string;
-  previous_mission_type: MissionType;
-  previous_target_pct: number | null;
-  direction_changed: boolean;
-  reason: string;
-  new_signals: string[];
-  weakened_signals: string[];
-}
-
-export interface Mission {
-  mission_id: string;
-  mission_type: MissionType;
-  status: MissionStatus;
-  goal_text: string;
-  pattern_score: number;
-  reasoning: string;
-  simulation_roi: Record<string, number>;
-  urgency: MissionUrgency;
-  target_pct: number | null;
-  duration_days: number;
-  created_at: string;
-  confirmed_at: string | null;
-  confirmed_by: string | null;
-  confirmed_via: "slack" | "apps" | null;
-  completed_at: string | null;
-  pivot_history: PivotEntry[];
-  version: number;
-  // Sub-A — actionable recommendations (옵션, backward compat)
-  cycle?: string | null;
-  supplier_mix?: SupplierAllocation[];
-  // Sub-B — honest simulation (옵션, backward compat)
-  simulation_scenarios?: SimulationScenario[];
-  // AI Agent 어제 vs 오늘 변동 narrative (D-3 추가, 옵션)
-  delta_vs_previous?: DeltaVsPrevious | null;
-}
-
 export interface PatternScoreCurrent {
   date: string;
   pattern_score: number | null;
@@ -102,6 +21,17 @@ export interface PatternHistory {
   bullish_score?: number | null;
   bearish_score?: number | null;
 }
+
+/** Pulse / Agent activity event (Lakebase agent_activity row). */
+export type ActivityEvent = {
+  id: string | number;
+  mission_id: string | null;
+  occurred_at: string;
+  actor: string;
+  action: string;
+  result_preview: string | null;
+  metadata: Record<string, unknown> | null;
+};
 
 /** Agent Bricks Supervisor Agent — Multi-Agent orchestration (3 sub-agents) */
 
@@ -221,24 +151,3 @@ export interface DailyReport {
   created_at: string;
 }
 
-/** WebSocket events — docs/api_contract.md §5 */
-export type WSEvent =
-  | { type: "connected"; ts: number }
-  | { type: "ping"; ts: number }
-  | { type: "subscribed" }
-  | { type: "mission.proposed"; mission: Mission }
-  | { type: "mission.confirmed"; mission: Mission }
-  | { type: "mission.pivoted"; mission: Mission; pivot?: PivotEntry }
-  | { type: "mission.updated"; mission: Mission }
-  | { type: "pattern.changed"; pattern_score: number; mission_type: MissionType }
-  | {
-      type: "reactive.alert";
-      title: string;
-      body: string;
-      related_mission_id?: string;
-      // Phase 6 OilPriceAPI spike payload
-      ticker?: string;
-      price_usd?: number;
-      delta_pct_5min?: number;
-      direction?: "bullish" | "bearish";
-    };
