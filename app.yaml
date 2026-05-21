@@ -52,8 +52,9 @@ env:
     valueFrom: slack_signing_secret
   - name: SLACK_DEFAULT_CHANNEL
     valueFrom: slack_default_channel
+  # 채널 ID는 secret 아님 — resource 미설정 에러 회피 위해 직접 value.
   - name: SLACK_DAILY_CHANNEL
-    valueFrom: slack_daily_channel
+    value: "C0B55UA42J1"
 
   # Genie Space (D-2 형욱 manual 등록 후 — 미설정이면 fallback)
   - name: GENIE_SPACE_ID
