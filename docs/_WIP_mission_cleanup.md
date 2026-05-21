@@ -26,6 +26,25 @@ reports / daily_reports / agent_activity / pulse WS / Genie / Agent Bricks Super
 
 ---
 
+## 진행 상황 (2026-05-21 업데이트)
+
+- ✅ **1단계 완료** (commit `ec93d4a`) — dead 컴포넌트 12개 삭제 + Layout에서 ReactiveAlertToast 제거.
+- ✅ **2단계 완료** (commit `315b86b`) — dead hook/api/queryKey + 고아 type 제거.
+- ✅ **3단계 완료** (commit `71820c3`) — MissionsPage 체인 + route 삭제.
+- ✅ **4단계 완료** (commit `83f7bd8`) — 호출부 정리. 프런트엔드 **mission 완전 제거**, tsc clean.
+  - 추가로 정리된 orphan: `AgentActivityTimeline`, `LivePulseStrip`, `MissionSplitBar`, `StatusPill`, utils mission 라벨 함수.
+  - `ws.ts` 재작성: `useMissionsWebSocket` 제거 → `usePulseConnection`(/api/ws/pulse) 신설, TopBar가 사용.
+  - `ActivityEvent` 타입은 types.ts로 이동 (pulse가 계속 사용).
+- ⏳ **5단계(Backend) 진행 예정** — 아래 ⚠️ 중요 발견 반영할 것.
+
+### ⚠️ 5단계 backend 착수 전 필수 발견 (직접 코드 검증 완료)
+1. **`app/store.py`는 통째 삭제 금지** — dead(MissionStore/InMemory/Lakebase/seed/get_store/get_bus) + **live(`EventBus` 클래스 + `get_pulse_bus`)** 혼재. `agent_activity.py`(live pulse)가 `from app.store import get_pulse_bus` 사용. → store.py를 **pulse bus 전용으로 축소**(EventBus + get_pulse_bus만 남기고 mission 부분·`schemas.mission` import 제거).
+2. **`services/mission_plan.py` 삭제 안전** — live `supervisor.py`는 config+databricks SDK만 import, mission_plan/store/simulation 안 씀. (Agent Bricks의 `mission_plan_advice`는 Databricks UC 함수지 이 파일 아님.)
+3. main.py: `get_bus`/`get_store`/`run_slack_subscriber`/`ws_missions`/`missions`/`decision_room`/`demo` import + lifespan slack_task + router include 정리. **`get_pulse_bus`·`ws_pulse`·reports·daily_reports·slack(report)·supervisor·pattern·signals·jobs·admin·reactive·genie는 유지.**
+4. slack 관련: `slack_bus_subscriber.py`(mission EventBus 구독) 삭제 가능 — reports Slack은 admin.py가 `get_notifier().post_report_card` 직접 호출(bus 무관). slack.py의 mission_* action 핸들러만 제거, report_* 유지.
+5. `db/repositories/agent_activity.py`(pulse) + `ws/pulse.py` + `api/pulse.py` + `api/jobs.py` + `api/signals.py`는 live → 유지. (단 이들이 mission 심볼 import하면 그 부분만 정리.)
+6. `api/reactive.py`·`services/demo_scenarios.py`도 grep에 걸림 — mission 의존 여부 개별 확인 후 결정.
+
 ## 제거 단계 (각 단계마다 `npx tsc --noEmit` + backend import 검증 + 커밋)
 
 ### 1단계 — 순수 dead 컴포넌트 (의존 없는 잎, 위험 0)
