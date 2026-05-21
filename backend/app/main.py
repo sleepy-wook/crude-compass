@@ -37,9 +37,21 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Lakebase migrate_reports wrapper error: %s", e)
 
+    # Slack Socket Mode — Databricks Apps inbound 401 우회 (outbound WS). no-op if no app_token.
+    try:
+        from app.api.slack import start_socket_mode
+        await start_socket_mode()
+    except Exception as e:
+        logger.warning("slack socket mode start error: %s", e)
+
     yield
 
     # Shutdown
+    try:
+        from app.api.slack import stop_socket_mode
+        await stop_socket_mode()
+    except Exception:
+        pass
     try:
         from app.db.lakebase import close_pool
         close_pool()

@@ -47,6 +47,11 @@ class Settings(BaseModel):
     slack_daily_channel: str = Field(
         default_factory=lambda: os.getenv("SLACK_DAILY_CHANNEL", "")
     )
+    # App-level token (xapp-...) for Socket Mode — Databricks Apps는 inbound 401이라
+    # outbound WS로 interactivity 수신. 미설정 시 socket mode no-op.
+    slack_app_token: str = Field(
+        default_factory=lambda: os.getenv("SLACK_APP_TOKEN", "")
+    )
 
     # Demo mode (production X, 데모용 endpoint enable)
     demo_mode: bool = Field(default_factory=lambda: os.getenv("DEMO_MODE", "false").lower() == "true")

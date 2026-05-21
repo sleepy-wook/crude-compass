@@ -77,6 +77,43 @@ def get_handler() -> AsyncSlackRequestHandler | None:
 
 
 # ════════════════════════════════════════════════════════════════════════
+# Socket Mode — Databricks Apps는 inbound에 OAuth 강제(401)라 HTTP Request URL
+# 방식으로 Slack interactivity 수신 불가. App→Slack outbound WS(Socket Mode)로
+# 우회한다. app_token(xapp-) 없으면 no-op → 기존 동작 안 깨짐.
+# ════════════════════════════════════════════════════════════════════════
+_socket_handler = None
+
+
+async def start_socket_mode() -> None:
+    """lifespan startup 호출. app_token 있으면 outbound WS 연결 (비차단)."""
+    global _socket_handler
+    s = get_settings()
+    app = get_app()
+    if app is None or not s.slack_app_token:
+        logger.info("slack socket mode skip (app_token 미설정 또는 slack 비활성)")
+        return
+    try:
+        from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
+        _socket_handler = AsyncSocketModeHandler(app, s.slack_app_token)
+        await _socket_handler.connect_async()  # 비차단 — WS 열고 반환
+        logger.info("slack socket mode connected (outbound WS)")
+    except Exception as e:
+        logger.warning("slack socket mode connect 실패 (Apps outbound WS 차단 가능): %s", e)
+        _socket_handler = None
+
+
+async def stop_socket_mode() -> None:
+    """lifespan shutdown 호출."""
+    global _socket_handler
+    if _socket_handler is not None:
+        try:
+            await _socket_handler.disconnect_async()
+        except Exception:
+            pass
+        _socket_handler = None
+
+
+# ════════════════════════════════════════════════════════════════════════
 # Idempotency cache — (action_ts, action_id, mission_id, version) 60s TTL
 # Slack retry 시 동일 action_ts 보존 → 두 번째 요청 dedupe.
 # ════════════════════════════════════════════════════════════════════════

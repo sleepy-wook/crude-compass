@@ -52,6 +52,10 @@ env:
     valueFrom: slack_signing_secret
   - name: SLACK_DEFAULT_CHANNEL
     valueFrom: slack_default_channel
+  # Socket Mode app-level token (xapp-...) — Databricks Apps inbound 401 우회용.
+  # Resource: Secret resource 추가 (scope=crude, key=slack_app_token) 후 재배포.
+  - name: SLACK_APP_TOKEN
+    valueFrom: slack_app_token
   # 채널 ID는 secret 아님 — resource 미설정 에러 회피 위해 직접 value.
   - name: SLACK_DAILY_CHANNEL
     value: "C0B55UA42J1"
