@@ -178,6 +178,10 @@ def get_pool() -> ConnectionPool:
             max_size=5,
             # token TTL 60min → max_lifetime 50min로 만료 전 reconnect 강제.
             max_lifetime=3000,
+            # Lakebase scale-to-zero/토큰만료로 서버가 idle 커넥션을 종료함
+            # ("terminating connection due to administrator command"). 내주기 전
+            # SELECT 1로 검증 → 죽었으면 버리고 fresh(새 토큰) 재발급.
+            check=ConnectionPool.check_connection,
             open=False,
         )
         _pool.open()
