@@ -17,6 +17,7 @@ import { api, supervisorQueryStream } from "../lib/api";
 import { useChatHistory } from "../lib/useChatHistory";
 import { ChatHistorySidebar } from "../components/ChatHistorySidebar";
 import { ChatMessage } from "../components/ChatMessage";
+import type { ChatStep } from "../components/ChatMessage";
 import { cn } from "../lib/utils";
 import type { SubAgentCall } from "../lib/types";
 
@@ -49,6 +50,16 @@ export function AskPage() {
     abortRef.current = abort;
     let accumulated = "";
     const tools: SubAgentCall[] = [];
+    // 순서 보존 trace — SSE가 delta/tool_call을 순서대로 주므로 그대로 쌓는다.
+    const steps: ChatStep[] = [];
+    const pushDelta = (text: string) => {
+      const last = steps[steps.length - 1];
+      if (last && last.kind === "text") {
+        steps[steps.length - 1] = { kind: "text", text: last.text + text };
+      } else {
+        steps.push({ kind: "text", text });
+      }
+    };
     try {
       // 1차 시도: streaming
       await supervisorQueryStream(enriched, {
@@ -56,10 +67,12 @@ export function AskPage() {
         onEvent: (ev) => {
           if (ev.type === "delta") {
             accumulated += ev.text;
-            history.updateLastTurn({ content: accumulated, pending: true });
+            pushDelta(ev.text);
+            history.updateLastTurn({ content: accumulated, steps: [...steps], pending: true });
           } else if (ev.type === "tool_call") {
             tools.push({ name: ev.name, arguments: null, result_preview: null });
-            history.updateLastTurn({ toolsUsed: [...tools], pending: true });
+            steps.push({ kind: "tool", name: ev.name });
+            history.updateLastTurn({ toolsUsed: [...tools], steps: [...steps], pending: true });
           } else if (ev.type === "done") {
             const finalTools: SubAgentCall[] = ev.tools_used.map((t) => ({
               name: t.name,
@@ -69,6 +82,7 @@ export function AskPage() {
             history.updateLastTurn({
               content: ev.answer || accumulated || "(응답 비어있음)",
               toolsUsed: finalTools,
+              steps: [...steps],
               source: "live",
               pending: false,
               error: false,

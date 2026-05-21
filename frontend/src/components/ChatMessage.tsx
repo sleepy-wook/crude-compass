@@ -13,10 +13,21 @@ import remarkGfm from "remark-gfm";
 import { cn } from "../lib/utils";
 import type { SubAgentCall } from "../lib/types";
 
+/**
+ * ChatStep — Supervisor 스트림의 순서 보존 trace.
+ * SSE가 delta/tool_call을 순서대로 보내므로, 이를 순서대로 쌓아
+ * "사고 과정"(마지막 tool_call까지) ↔ "최종 답변"(그 이후 텍스트)으로 분리 렌더.
+ */
+export type ChatStep =
+  | { kind: "text"; text: string }
+  | { kind: "tool"; name: string };
+
 export interface ChatMessageData {
   role: "user" | "assistant";
   content: string;
   toolsUsed?: SubAgentCall[];
+  /** 순서 보존 trace (있으면 사고과정↔답변 분리 렌더; 없으면 legacy content 렌더) */
+  steps?: ChatStep[];
   source?: "live" | "fallback";
   pending?: boolean;
   error?: boolean;
@@ -46,7 +57,7 @@ export function ChatMessage({ msg }: Props) {
 }
 
 function AssistantMessage({ msg }: { msg: ChatMessageData }) {
-  const [showTrace, setShowTrace] = useState(false);
+  const [showTrace, setShowTrace] = useState(true);
   const isStreaming = msg.pending && msg.content.length > 0;
   const isInitialWait = msg.pending && msg.content.length === 0;
 
@@ -84,6 +95,63 @@ function AssistantMessage({ msg }: { msg: ChatMessageData }) {
       <div className="flex justify-start mb-4">
         <div className="max-w-[85%] bg-crisis-50 border border-crisis-100 rounded-2xl rounded-tl-md px-4 py-3 text-[13px] text-crisis-700">
           분석 실패 — 다시 시도해주세요.
+        </div>
+      </div>
+    );
+  }
+
+  // ── steps 기반 렌더: 순서 보존 trace에 tool_call이 하나라도 있으면
+  //    "사고 과정"(마지막 tool까지) ↔ "최종 답변"(그 이후) 분리 ──
+  if (msg.steps && msg.steps.some((s) => s.kind === "tool")) {
+    const { reasoning, answer, toolCount } = splitSteps(msg.steps);
+    return (
+      <div className="flex justify-start mb-4">
+        <div className="max-w-[85%] bg-paper border border-line-1 rounded-2xl rounded-tl-md px-4 py-3 text-[13px] text-ink-1 leading-relaxed">
+          {reasoning.length > 0 && (
+            <div className="mb-3">
+              <button
+                type="button"
+                onClick={() => setShowTrace((v) => !v)}
+                className="inline-flex items-center gap-1.5 text-[10.5px] text-ink-3 hover:text-ink-1 transition-colors"
+              >
+                <Network className="w-3 h-3" />
+                사고 과정 · sub-agent {toolCount}개 호출
+                <ChevronDown
+                  className={cn("w-3 h-3 transition-transform", showTrace && "rotate-180")}
+                />
+              </button>
+              {showTrace && (
+                <div className="mt-2 pl-3 border-l-2 border-line-1 space-y-1.5">
+                  {reasoning.map((s, i) =>
+                    s.kind === "tool" ? (
+                      <div key={i}>
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-semibold uppercase tracking-wider bg-info-50 text-info-700">
+                          <Network className="w-2.5 h-2.5" />
+                          {labelTool(s.name)} 호출
+                        </span>
+                      </div>
+                    ) : (
+                      s.text.trim() && (
+                        <p key={i} className="text-[12px] text-ink-3 whitespace-pre-wrap leading-relaxed">
+                          {s.text.trim()}
+                        </p>
+                      )
+                    ),
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 최종 답변 — 사고 과정과 시각 분리 */}
+          {answer ? (
+            <MarkdownBody content={answer} />
+          ) : (
+            isStreaming && <span className="text-[12px] text-ink-3">답변 작성 중…</span>
+          )}
+          {isStreaming && (
+            <span className="inline-block w-2 h-3.5 -mb-0.5 bg-ink-3 animate-pulse ml-0.5" aria-label="streaming" />
+          )}
         </div>
       </div>
     );
@@ -148,6 +216,32 @@ function AssistantMessage({ msg }: { msg: ChatMessageData }) {
       </div>
     </div>
   );
+}
+
+/**
+ * splitSteps — 순서 보존 steps를 "사고 과정"(마지막 tool_call까지) ↔
+ * "최종 답변"(그 이후 텍스트)으로 분리. tool_call이 없으면 reasoning 빈 배열.
+ */
+function splitSteps(steps: ChatStep[]): {
+  reasoning: ChatStep[];
+  answer: string;
+  toolCount: number;
+} {
+  let lastTool = -1;
+  let toolCount = 0;
+  steps.forEach((s, i) => {
+    if (s.kind === "tool") {
+      lastTool = i;
+      toolCount += 1;
+    }
+  });
+  const reasoning = lastTool >= 0 ? steps.slice(0, lastTool + 1) : [];
+  const answerSteps = lastTool >= 0 ? steps.slice(lastTool + 1) : steps;
+  const answer = answerSteps
+    .filter((s): s is { kind: "text"; text: string } => s.kind === "text")
+    .map((s) => s.text)
+    .join("");
+  return { reasoning, answer, toolCount };
 }
 
 export function labelTool(name: string): string {
