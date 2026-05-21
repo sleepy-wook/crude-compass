@@ -103,41 +103,6 @@ export interface PatternHistory {
   bearish_score?: number | null;
 }
 
-export interface BacktestSummary {
-  run_id: string;
-  n_total: number;
-  n_active: number;
-  n_hedge: number;
-  n_opp: number;
-  avg_save_pct: number | null;
-  hit_rate_pct: number | null;
-}
-
-export interface BacktestZoneBreakdown {
-  zone: string;
-  mission_type: MissionType | null;
-  n: number;
-  avg_save_pct: number | null;
-  hit_rate_pct: number | null;
-}
-
-export interface BacktestConfBreakdown {
-  conf_bin: string;
-  n: number;
-  avg_save_pct: number | null;
-  hit_rate_pct: number | null;
-}
-
-export interface BacktestResults {
-  summary: BacktestSummary | null;
-  by_zone: BacktestZoneBreakdown[];
-  by_confidence: BacktestConfBreakdown[];
-  /** Lakebase OAuth role binding 상태 (Apps Database resource pending 시 false) */
-  lakebase_available?: boolean;
-  reason?: string;
-  message?: string;
-}
-
 /** Agent Bricks Supervisor Agent — Multi-Agent orchestration (3 sub-agents) */
 
 export interface SubAgentCall {
@@ -155,39 +120,6 @@ export interface SupervisorQueryResponse {
   fallback_sql?: string | null;
   fallback_data?: Record<string, unknown>[] | null;
 }
-
-/** Genie 자연어 질의 — docs/api_contract.md §7.3 */
-export type GenieSource =
-  | "live"            // Genie Conversation API 정상 호출
-  | "fallback_data"   // Lakebase 직접 SQL → 결과 포맷팅
-  | "fallback_text"   // SQL 실패 → hardcoded 설명
-  | "fallback";       // 키워드 매칭 실패 → generic meta
-
-export interface GenieQueryRequest {
-  question: string;
-  conversation_id?: string | null;
-}
-
-export interface GenieQueryResponse {
-  answer: string;
-  sql: string | null;
-  data: Record<string, unknown>[] | null;
-  conversation_id: string | null;
-  message_id: string | null;
-  source: GenieSource;
-}
-
-/** Decision Room — delta events ("자리 비운 동안" 변화 surface). */
-export type DeltaEvent = {
-  type: 'new_proposed' | 'status_change' | 'pivot' | 'aborted';
-  case_id: string;
-  occurred_at: string;
-  summary: string;
-  from?: string;
-  to?: string;
-  from_type?: string;
-  to_type?: string;
-};
 
 // ──────────────────────────────────────────────────────────────────────────
 // Reports model (2026-05-21) — event-driven AI report inbox + 06:30 daily

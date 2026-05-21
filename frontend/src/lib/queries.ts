@@ -13,7 +13,6 @@ export const queryKeys = {
   missionActivity: (id: string) => ["missions", id, "activity"] as const,
   patternCurrent: ["pattern", "current"] as const,
   patternHistory: (days: number) => ["pattern", "history", days] as const,
-  backtestResults: ["backtest", "results"] as const,
   signalContribution: ["signals", "contribution"] as const,
   opecLatest: ["market", "opec-latest"] as const,
   opecHistory: (limit: number) => ["market", "opec-history", limit] as const,
@@ -72,14 +71,6 @@ export function usePatternCurrent() {
   });
 }
 
-export function useBacktestResults() {
-  return useQuery({
-    queryKey: queryKeys.backtestResults,
-    queryFn: () => api.backtestResults(),
-    staleTime: 3600_000,
-  });
-}
-
 export function useMarketMemorySimilar(
   pattern_score: number | null | undefined,
   mission_type: string | null | undefined,
@@ -105,16 +96,6 @@ export function useSignalContribution() {
     queryKey: queryKeys.signalContribution,
     queryFn: () => api.signalContribution(),
     staleTime: 300_000, // 5분 — daily 갱신이라 자주 fetch X
-  });
-}
-
-/** Signal Lifecycle — 4-stage forensic view for a single signal (article_id). */
-export function useSignalLifecycle(signalId: string | undefined) {
-  return useQuery({
-    queryKey: ["signal", "lifecycle", signalId] as const,
-    queryFn: () => api.signalLifecycle(signalId!),
-    enabled: !!signalId,
-    staleTime: 60_000,
   });
 }
 
@@ -206,63 +187,12 @@ export function useRecentPulse(
   });
 }
 
-/** Daily Loop Clock — 오늘 24h 내 crude-compass job run summary. */
-export function useJobRunsToday() {
-  return useQuery({
-    queryKey: ["jobs", "runs", "today"] as const,
-    queryFn: () => api.jobsRunsToday(),
-    refetchInterval: 60_000,
-    staleTime: 30_000,
-  });
-}
-
 export function usePulseStats() {
   return useQuery({
     queryKey: ["pulse", "stats"] as const,
     queryFn: () => api.pulseStats(),
     refetchInterval: 30_000,
     staleTime: 15_000,
-  });
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// Decision Room — multi-case queue + delta strip
-// ──────────────────────────────────────────────────────────────────────────
-
-export function useDecisionQueue() {
-  return useQuery({
-    queryKey: ["decision-room", "queue"] as const,
-    queryFn: () => api.decisionRoomQueue(),
-    staleTime: 15_000,
-    refetchInterval: 30_000,
-  });
-}
-
-export function useDecisionDelta() {
-  return useQuery({
-    queryKey: ["decision-room", "delta"] as const,
-    queryFn: () => api.decisionRoomDelta(),
-    staleTime: 30_000,
-    refetchInterval: 60_000,
-  });
-}
-
-export function useDecisionLastSeen() {
-  return useQuery({
-    queryKey: ["decision-room", "last-seen"] as const,
-    queryFn: () => api.decisionRoomLastSeen(),
-    staleTime: 60_000,
-  });
-}
-
-export function useDecisionTouch() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => api.decisionRoomTouch(),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["decision-room", "delta"] });
-      qc.invalidateQueries({ queryKey: ["decision-room", "last-seen"] });
-    },
   });
 }
 

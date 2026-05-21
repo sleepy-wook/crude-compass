@@ -3,10 +3,7 @@
  * Backend: http://localhost:8000 (dev), Apps deploy URL (prod).
  */
 import type {
-  BacktestResults,
   DailyReport,
-  DeltaEvent,
-  GenieQueryResponse,
   Mission,
   PatternHistory,
   PatternScoreCurrent,
@@ -67,8 +64,6 @@ export const api = {
   // missions
   missionsActive: () =>
     request<{ missions: Mission[] }>("/api/missions/active"),
-  missionsAll: () =>
-    request<{ missions: Mission[] }>("/api/missions/all"),
   missionGet: (id: string) => request<Mission>(`/api/missions/${id}`),
   missionConfirm: (id: string, version: number, via: "apps" | "slack" = "apps") =>
     request<Mission>(`/api/missions/${id}/confirm`, {
@@ -258,16 +253,6 @@ export const api = {
       };
     }>(`/api/signals/${encodeURIComponent(signalId)}/lifecycle`),
 
-  // backtest
-  backtestResults: () => request<BacktestResults>("/api/backtest/results"),
-
-  // genie 자연어 질의
-  genieQuery: (question: string, conversationId?: string | null) =>
-    request<GenieQueryResponse>("/api/genie/query", {
-      method: "POST",
-      body: JSON.stringify({ question, conversation_id: conversationId ?? null }),
-    }),
-
   // Agent Bricks Supervisor Agent — Multi-Agent orchestration (Genie + KA + UC Function mission_plan_advice)
   // missionId 전달 시 agent_activity_events에 그 case의 tools_used + synthesized 기록.
   supervisorQuery: (question: string, missionId?: string) =>
@@ -276,32 +261,12 @@ export const api = {
       body: JSON.stringify({ question, mission_id: missionId }),
     }),
 
-  // Mission Plan Agent — '지금 새 추천 생성' demo wrapper
-  missionRecommendNow: (overrides?: {
-    pattern_score?: number;
-    bullish_score?: number;
-    bearish_score?: number;
-    use_demo_signals?: boolean;
-  }) =>
-    request<{
-      action: string;
-      mission?: Mission;
-      output?: Record<string, unknown>;
-      confidence_score?: number;
-      llm_endpoint: string;
-    }>("/api/missions/recommend_now", {
-      method: "POST",
-      body: JSON.stringify(overrides ?? {}),
-    }),
-
-  // Admin — daily_curation 수동 trigger + freshness 확인
+  // Admin — daily_curation 수동 trigger
   refreshCuration: () =>
     request<{ ok: boolean; run_id: number; job_id: number; message: string }>(
       "/api/admin/refresh-curation",
       { method: "POST" },
     ),
-  curationStatus: () =>
-    request<{ latest_date: string | null }>("/api/admin/curation-status"),
 
   // ──────────────────────────────────────────────────────────────────────
   // Pulse — cross-mission Agent activity stream (Live AI Pulse / Case Thread)
@@ -345,35 +310,6 @@ export const api = {
       by_action: Record<string, number>;
       active_cases: number;
     }>("/api/pulse/stats"),
-
-  // ──────────────────────────────────────────────────────────────────────
-  // Decision Room — multi-case queue + delta strip
-  // ──────────────────────────────────────────────────────────────────────
-
-  decisionRoomQueue: () =>
-    request<{
-      needs_you: Mission[];
-      monitoring: Mission[];
-      counts: Record<string, number>;
-    }>("/api/decision-room/queue"),
-
-  decisionRoomDelta: () =>
-    request<{
-      since: string | null;
-      events: DeltaEvent[];
-      counts: { new_proposed: number; status_change: number; pivot: number; total: number };
-    }>("/api/decision-room/delta"),
-
-  decisionRoomLastSeen: () =>
-    request<{ last_seen_at: string | null; user_key: string }>(
-      "/api/decision-room/last-seen",
-    ),
-
-  decisionRoomTouch: () =>
-    request<{ last_seen_at: string | null; user_key: string }>(
-      "/api/decision-room/touch",
-      { method: "POST" },
-    ),
 
   // Market Memory — Similar Pattern Retrieve (D-4 ★ Wow 1)
   marketMemorySimilar: (body: {
@@ -468,9 +404,6 @@ export const api = {
     request<{ count: number; items: DailyReport[] }>(
       `/api/daily-reports/recent?limit=${limit}`
     ),
-
-  dailyReportByDate: (reportDate: string) =>
-    request<{ daily_report: DailyReport }>(`/api/daily-reports/${reportDate}`),
 };
 
 // ──────────────────────────────────────────────────────────────────────
