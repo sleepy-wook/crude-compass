@@ -220,6 +220,14 @@ def migrate_d4() -> bool:
             conn.commit()
             logger.info("migrate_d4 step OK: %s", name)
             return True
+        except psycopg.errors.InsufficientPrivilege:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            # 테이블 owner가 아님 — 이미 적용된 DDL no-op이라 예상된 상황. (Lakebase owner 불일치)
+            logger.info("migrate_d4 step skip [%s]: not table owner — 이미 적용됨 가정", name)
+            return True
         except Exception as e:
             try:
                 conn.rollback()
@@ -361,6 +369,10 @@ def migrate_reports() -> bool:
                     cur.execute(sql)
             conn.commit()
         logger.info("Lakebase migrate_reports OK (reports + daily_reports + archived status)")
+        return True
+    except psycopg.errors.InsufficientPrivilege:
+        # 테이블 owner 아님 — 이미 적용된 DDL no-op이라 예상된 상황. (Lakebase owner 불일치)
+        logger.info("Lakebase migrate_reports skip: not table owner — 이미 적용됨 가정")
         return True
     except Exception as e:
         logger.warning(
