@@ -174,7 +174,7 @@ interface TriggerTabProps {
 }
 
 function TriggerReportsTab({ focusId, searchParams, setSearchParams }: TriggerTabProps) {
-  const [filter, setFilter] = useState<ReportStatus>("archived");
+  const [filter, setFilter] = useState<ReportStatus>("kept");
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   const [titleQuery, setTitleQuery] = useState("");
   const [datePreset, setDatePreset] = useState<string>("all");
