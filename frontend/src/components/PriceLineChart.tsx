@@ -1,260 +1,220 @@
 /**
- * PriceLineChart — Dubai/Brent/WTI 일별 가격 + Brent-Dubai spread.
+ * PriceLineChart — Dubai/Brent/WTI 일별 가격 (Recharts).
  *
- * 시나리오 §7 #4 anchor — 한국 정유사 baseline = Dubai.
- * 데이터 source: `gold.oil_prices_wide` view (bronze.oil_prices_daily 3-ticker pivot).
- * 라이브러리 0 — pure SVG.
+ * 2026-05-21: SVG hand-rolled → Recharts 마이그레이션.
+ *  - hover crosshair + tooltip
+ *  - 자체 기간 toggle (7/30/90/180일)
+ *  - legend는 카드 footer에 latest 값과 함께
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { usePricesWide } from "../lib/queries";
+import { cn } from "../lib/utils";
 
-const VIEW_W = 720;
-const VIEW_H = 260; // D-2 사용자 요청: 차트 높이 ↑
-const PAD_L = 40;
-const PAD_R = 8;
-const PAD_T = 16;
-const PAD_B = 28;
+type DayRange = 7 | 30 | 90 | 180;
+const DAY_OPTIONS: DayRange[] = [7, 30, 90, 180];
 
 const COLORS = {
-  dubai: "#1B3139",     // ink (primary — 한국 정유사 baseline)
-  brent: "#F59E0B",     // amber
-  wti: "#10B981",       // green
+  dubai: "#1B3139",
+  brent: "#F59E0B",
+  wti: "#10B981",
 };
 
-interface PricePoint {
+interface ChartPoint {
   trade_date: string;
-  wti_usd: number | null;
-  brent_usd: number | null;
-  dubai_usd: number | null;
-  brent_dubai_spread_usd: number | null;
+  dubai?: number | null;
+  brent?: number | null;
+  wti?: number | null;
 }
 
-function buildPath(
-  points: PricePoint[],
-  field: keyof Pick<PricePoint, "wti_usd" | "brent_usd" | "dubai_usd">,
-  innerW: number,
-  innerH: number,
-  yMin: number,
-  yMax: number,
-): string {
-  if (points.length < 2) return "";
-  const yRange = yMax - yMin || 1;
-  const n = points.length;
-  let d = "";
-  let moved = false;
-  for (let i = 0; i < n; i++) {
-    const v = points[i][field];
-    if (v == null) continue;
-    const x = PAD_L + (i / (n - 1)) * innerW;
-    const y = PAD_T + ((yMax - v) / yRange) * innerH;
-    d += `${moved ? "L" : "M"} ${x.toFixed(1)} ${y.toFixed(1)} `;
-    moved = true;
-  }
-  return d;
-}
-
-export function PriceLineChart({ days = 90 }: { days?: number }) {
+export function PriceLineChart({ days: initialDays = 90 }: { days?: number }) {
+  const [days, setDays] = useState<DayRange>(
+    (DAY_OPTIONS.includes(initialDays as DayRange) ? initialDays : 90) as DayRange,
+  );
   const { data, isLoading, isError } = usePricesWide(days);
-  const points = useMemo(() => data?.prices ?? [], [data]);
 
-  const innerW = VIEW_W - PAD_L - PAD_R;
-  const innerH = VIEW_H - PAD_T - PAD_B;
+  const points = useMemo<ChartPoint[]>(() => {
+    const raw = data?.prices ?? [];
+    return raw.map((p) => ({
+      trade_date: p.trade_date.slice(5), // MM-DD
+      dubai: p.dubai_usd,
+      brent: p.brent_usd,
+      wti: p.wti_usd,
+    }));
+  }, [data]);
 
-  // y range — 모든 ticker 합쳐서 min/max
+  const latest = (data?.prices ?? [])[(data?.prices ?? []).length - 1];
+  const spread = latest?.brent_dubai_spread_usd;
+
+  // Y range — 시각적 padding
   const { yMin, yMax } = useMemo(() => {
     const all: number[] = [];
     for (const p of points) {
-      for (const v of [p.wti_usd, p.brent_usd, p.dubai_usd]) {
+      for (const v of [p.dubai, p.brent, p.wti]) {
         if (v != null) all.push(v);
       }
     }
     if (all.length === 0) return { yMin: 0, yMax: 100 };
     const min = Math.min(...all);
     const max = Math.max(...all);
-    const pad = (max - min) * 0.1 || 1;
+    const pad = (max - min) * 0.08 || 1;
     return { yMin: Math.floor(min - pad), yMax: Math.ceil(max + pad) };
   }, [points]);
 
-  const pathDubai = buildPath(points, "dubai_usd", innerW, innerH, yMin, yMax);
-  const pathBrent = buildPath(points, "brent_usd", innerW, innerH, yMin, yMax);
-  const pathWti = buildPath(points, "wti_usd", innerW, innerH, yMin, yMax);
-
-  const latest = points[points.length - 1];
-
   return (
-    <section className="mb-8">
-      <div className="flex items-baseline justify-between mb-3">
-        <h3 className="font-display text-lg font-semibold tracking-tight text-ink-1">
-          유종별 가격
-        </h3>
-        <span className="text-[11px] text-ink-3">최근 {days}일 · 두바이 기준</span>
-      </div>
-
-      <div className="rounded-xl border border-line-1 bg-panel">
-        <svg
-          width="100%"
-          height={VIEW_H}
-          viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-          style={{ display: "block", background: "#FAFAF7" }}
-        >
-          {/* Y axis grid + labels */}
-          {[0, 0.25, 0.5, 0.75, 1].map((f) => {
-            const y = PAD_T + f * innerH;
-            const v = yMax - f * (yMax - yMin);
-            return (
-              <g key={f}>
-                <line
-                  x1={PAD_L}
-                  y1={y}
-                  x2={VIEW_W - PAD_R}
-                  y2={y}
-                  stroke="#EFEFEA"
-                  strokeWidth="1"
-                />
-                <text
-                  x={PAD_L - 6}
-                  y={y + 3}
-                  fontSize="9"
-                  fontFamily="JetBrains Mono"
-                  fill="#7A8A91"
-                  textAnchor="end"
-                >
-                  ${v.toFixed(0)}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* 3 lines */}
-          {pathBrent && (
-            <path
-              d={pathBrent}
-              fill="none"
-              stroke={COLORS.brent}
-              strokeWidth="1.2"
-              opacity={0.7}
-            />
-          )}
-          {pathWti && (
-            <path
-              d={pathWti}
-              fill="none"
-              stroke={COLORS.wti}
-              strokeWidth="1.2"
-              opacity={0.7}
-            />
-          )}
-          {pathDubai && (
-            <path
-              d={pathDubai}
-              fill="none"
-              stroke={COLORS.dubai}
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          )}
-
-          {/* Empty / loading state */}
-          {!isLoading && points.length === 0 && (
-            <text
-              x={VIEW_W / 2}
-              y={VIEW_H / 2}
-              fontSize="11"
-              fontFamily="JetBrains Mono"
-              fill="#7A8A91"
-              textAnchor="middle"
-            >
-              {isError ? "가격 데이터 일시 불가" : "데이터 없음"}
-            </text>
-          )}
-          {isLoading && (
-            <text
-              x={VIEW_W / 2}
-              y={VIEW_H / 2}
-              fontSize="11"
-              fontFamily="JetBrains Mono"
-              fill="#7A8A91"
-              textAnchor="middle"
-            >
-              로딩 중…
-            </text>
-          )}
-
-          {/* X axis date ticks — 5 points (0/25/50/75/100%) */}
-          {points.length > 1 && (
-            <>
-              {[0, 0.25, 0.5, 0.75, 1].map((f, i) => {
-                const idx = Math.round(f * (points.length - 1));
-                const tick = points[idx]?.trade_date;
-                if (!tick) return null;
-                const x = PAD_L + f * innerW;
-                return (
-                  <g key={f}>
-                    <line
-                      x1={x}
-                      y1={PAD_T + innerH}
-                      x2={x}
-                      y2={PAD_T + innerH + 3}
-                      stroke="#CFCFC8"
-                      strokeWidth="1"
-                    />
-                    <text
-                      x={x}
-                      y={VIEW_H - 6}
-                      fontSize="9"
-                      fontFamily="JetBrains Mono"
-                      fill="#7A8A91"
-                      textAnchor={i === 0 ? "start" : i === 4 ? "end" : "middle"}
-                    >
-                      {tick.slice(5)}
-                    </text>
-                  </g>
-                );
-              })}
-            </>
-          )}
-        </svg>
-
-        {/* Legend + latest values */}
-        <div className="flex items-center gap-4 px-4 py-2 border-t border-line-1 bg-line-1/30 text-[11px] font-mono">
-          <span className="flex items-center gap-1.5">
-            <span
-              className="inline-block w-3 h-0.5"
-              style={{ background: COLORS.dubai }}
-            />
-            <span className="text-ink">
-              Dubai ${latest?.dubai_usd?.toFixed(2) ?? "—"}
-            </span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span
-              className="inline-block w-3 h-0.5"
-              style={{ background: COLORS.brent }}
-            />
-            <span className="text-ink-3">
-              Brent ${latest?.brent_usd?.toFixed(2) ?? "—"}
-            </span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span
-              className="inline-block w-3 h-0.5"
-              style={{ background: COLORS.wti }}
-            />
-            <span className="text-ink-3">
-              WTI ${latest?.wti_usd?.toFixed(2) ?? "—"}
-            </span>
-          </span>
-          {latest?.brent_dubai_spread_usd != null && (
-            <span className="ml-auto text-ink-3">
-              Brent − Dubai spread{" "}
-              <span className="text-ink font-semibold">
-                ${latest.brent_dubai_spread_usd.toFixed(2)}
-              </span>
-            </span>
-          )}
+    <section className="rounded-xl border border-line-1 bg-panel">
+      <header className="flex items-baseline justify-between px-4 py-3 border-b border-line-1">
+        <div className="flex items-baseline gap-2">
+          <h3 className="font-display text-[13px] font-semibold text-ink-1">
+            유종별 가격
+          </h3>
+          <span className="text-[10px] text-ink-3">두바이 기준 · USD/bbl</span>
         </div>
+        <div className="flex items-center gap-0.5 rounded-md border border-line-2 bg-white p-0.5">
+          {DAY_OPTIONS.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setDays(d)}
+              className={cn(
+                "px-2 py-0.5 text-[10.5px] rounded transition-colors tabular-nums",
+                days === d
+                  ? "bg-line-1 text-ink-1 font-medium"
+                  : "text-ink-3 hover:text-ink-1",
+              )}
+            >
+              {d}일
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <div className="px-2 py-3" style={{ height: 280 }}>
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full text-[11px] text-ink-3">
+            로딩 중...
+          </div>
+        ) : isError || points.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-[11px] text-ink-3">
+            데이터 없음
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={points} margin={{ top: 6, right: 12, bottom: 4, left: 4 }}>
+              <CartesianGrid stroke="#EFEFEA" strokeDasharray="3 3" vertical={false} />
+              <XAxis
+                dataKey="trade_date"
+                tick={{ fontSize: 10, fill: "#7A8A91" }}
+                tickLine={false}
+                axisLine={{ stroke: "#CFCFC8" }}
+                minTickGap={40}
+              />
+              <YAxis
+                domain={[yMin, yMax]}
+                tick={{ fontSize: 10, fill: "#7A8A91" }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v) => `$${v}`}
+                width={40}
+              />
+              <Tooltip content={<PriceTooltip />} />
+              <Line
+                type="monotone"
+                dataKey="dubai"
+                name="Dubai"
+                stroke={COLORS.dubai}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4 }}
+                connectNulls
+              />
+              <Line
+                type="monotone"
+                dataKey="brent"
+                name="Brent"
+                stroke={COLORS.brent}
+                strokeWidth={1.4}
+                dot={false}
+                activeDot={{ r: 3 }}
+                connectNulls
+              />
+              <Line
+                type="monotone"
+                dataKey="wti"
+                name="WTI"
+                stroke={COLORS.wti}
+                strokeWidth={1.4}
+                dot={false}
+                activeDot={{ r: 3 }}
+                connectNulls
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
+
+      {/* Footer — latest values + spread */}
+      <footer className="flex items-center gap-4 px-4 py-2 border-t border-line-1 bg-line-1/30 text-[11px] tabular-nums flex-wrap">
+        <Legend color={COLORS.dubai} label="Dubai" value={latest?.dubai_usd} weight="bold" />
+        <Legend color={COLORS.brent} label="Brent" value={latest?.brent_usd} />
+        <Legend color={COLORS.wti} label="WTI" value={latest?.wti_usd} />
+        {spread != null && (
+          <span className="ml-auto text-ink-3">
+            Brent-Dubai spread{" "}
+            <span className="text-ink-2 font-medium">${spread.toFixed(2)}</span>
+          </span>
+        )}
+      </footer>
     </section>
+  );
+}
+
+function Legend({
+  color,
+  label,
+  value,
+  weight,
+}: {
+  color: string;
+  label: string;
+  value: number | null | undefined;
+  weight?: "bold";
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="inline-block w-3 h-0.5" style={{ background: color }} />
+      <span className={cn("text-ink-3", weight === "bold" && "text-ink-1 font-medium")}>
+        {label} ${value?.toFixed(2) ?? "—"}
+      </span>
+    </span>
+  );
+}
+
+function PriceTooltip({ active, payload, label }: {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; color: string }>;
+  label?: string;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  return (
+    <div className="rounded-md border border-line-2 bg-white shadow-md px-3 py-2 text-[11px] tabular-nums">
+      <div className="text-ink-3 mb-1 font-medium">{label}</div>
+      {payload.map((p) => (
+        <div key={p.name} className="flex items-center gap-2">
+          <span className="inline-block w-2.5 h-0.5" style={{ background: p.color }} />
+          <span className="text-ink-1">
+            {p.name} <span className="font-medium">${p.value?.toFixed(2) ?? "—"}</span>
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }

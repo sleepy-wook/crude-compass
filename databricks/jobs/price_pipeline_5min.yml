@@ -8,9 +8,9 @@ resources:
       description: "OilPriceAPI 3 ticker → bronze.oil_prices + spike 감지"
 
       schedule:
-        quartz_cron_expression: "0 0/5 * * * ?"  # 매 5분
+        quartz_cron_expression: "0 0/30 * * * ?"  # 매 30분 (비용 절감 — 5분→30분, 2026-05-21)
         timezone_id: Asia/Seoul
-        pause_status: UNPAUSED  # 5/14 D-4: Brent/WTI/Dubai 5분 spike 누적 시작
+        pause_status: UNPAUSED  # Brent/WTI/Dubai 30분 간격 spike 감지
 
       tasks:
         - task_key: price_fetch

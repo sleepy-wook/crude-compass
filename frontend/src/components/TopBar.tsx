@@ -3,7 +3,7 @@
  *
  * 전 page 공통. 위기 점수 · mode chip · 진행 임무 · 마지막 갱신 · 실시간 연결 (WS + Slack).
  */
-import { useMissionsActive, usePatternCurrent } from "../lib/queries";
+import { usePatternCurrent } from "../lib/queries";
 import { useMissionsWebSocket } from "../lib/ws";
 
 type Mode = "HEDGE" | "OPPORTUNITY" | "STABLE";
@@ -26,34 +26,11 @@ function modeLabel(mode: Mode): string {
   return "관망";
 }
 
-function formatRelativeDate(dateStr: string | undefined): string {
-  if (!dateStr) return "—";
-  try {
-    // daily_curation cron이 매일 06:30 KST 실행 — 그 시각 anchor
-    const then = new Date(`${dateStr}T06:30:00+09:00`).getTime();
-    const now = Date.now();
-    const diffMs = now - then;
-    if (diffMs < 0) return "갱신 예정";
-    const diffMin = Math.floor(diffMs / 60_000);
-    const diffHours = Math.floor(diffMs / 3_600_000);
-    const diffDays = Math.floor(diffMs / 86_400_000);
-    if (diffMin < 60) return "방금 갱신";
-    if (diffHours < 24) return `${diffHours}시간 전 갱신 · 06:30`;
-    if (diffDays === 1) return "어제 06:30 갱신";
-    if (diffDays < 7) return `${diffDays}일 전 06:30 갱신`;
-    return `${dateStr.slice(5).replace("-", "/")} 06:30 갱신`;
-  } catch {
-    return "—";
-  }
-}
-
 export function TopBar() {
   const pattern = usePatternCurrent();
-  const missions = useMissionsActive();
   const { status } = useMissionsWebSocket();
 
   const cur = pattern.data?.current ?? null;
-  const activeCount = missions.data?.missions?.length ?? 0;
   const mode = decideMode(cur?.mission_type);
   const score = cur?.pattern_score ?? null;
   const wsConnected = status === "connected";
@@ -85,16 +62,6 @@ export function TopBar() {
               : "—"
           }
         />
-
-        <Divider />
-
-        {/* Active missions */}
-        <KpiChip label="진행 case" value={`${activeCount}건`} />
-
-        <Divider />
-
-        {/* Last update */}
-        <KpiChip label="데이터" value={formatRelativeDate(cur?.date)} />
 
         <Divider />
 

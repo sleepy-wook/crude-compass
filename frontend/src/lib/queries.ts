@@ -14,12 +14,20 @@ export const queryKeys = {
   patternCurrent: ["pattern", "current"] as const,
   patternHistory: (days: number) => ["pattern", "history", days] as const,
   backtestResults: ["backtest", "results"] as const,
-  backtestPredictions: (limit: number) => ["backtest", "predictions", limit] as const,
   signalContribution: ["signals", "contribution"] as const,
   opecLatest: ["market", "opec-latest"] as const,
+  opecHistory: (limit: number) => ["market", "opec-history", limit] as const,
   pricesWide: (days: number) => ["market", "prices-wide", days] as const,
   newsTop: (limit: number) => ["market", "news-top", limit] as const,
   fxHistory: (days: number) => ["market", "fx-history", days] as const,
+
+  // Reports model (2026-05-21)
+  reportsInbox: (limit: number) => ["reports", "inbox", limit] as const,
+  reportDetail: (id: string) => ["reports", id] as const,
+  reportsArchive: (status: string, limit: number) =>
+    ["reports", "archive", status, limit] as const,
+  dailyReportToday: ["daily-reports", "today"] as const,
+  dailyReportsRecent: (limit: number) => ["daily-reports", "recent", limit] as const,
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -92,15 +100,6 @@ export function useMarketMemorySimilar(
 }
 
 
-export function useBacktestPredictions(limit = 50, options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: queryKeys.backtestPredictions(limit),
-    queryFn: () => api.backtestPredictions(limit),
-    staleTime: 3600_000,
-    enabled: options?.enabled ?? true,
-  });
-}
-
 export function useSignalContribution() {
   return useQuery({
     queryKey: queryKeys.signalContribution,
@@ -131,6 +130,14 @@ export function useOpecLatest() {
   return useQuery({
     queryKey: queryKeys.opecLatest,
     queryFn: () => api.opecLatest(),
+    staleTime: 3600_000,
+  });
+}
+
+export function useOpecHistory(limit = 24) {
+  return useQuery({
+    queryKey: queryKeys.opecHistory(limit),
+    queryFn: () => api.opecHistory(limit),
     staleTime: 3600_000,
   });
 }
@@ -181,12 +188,19 @@ export function useFxHistory(days: number) {
 // Pulse — cross-mission Agent activity stream (Live AI Pulse / Case Thread)
 // ──────────────────────────────────────────────────────────────────────────
 
-/** Live AI Pulse — cross-mission stream. Polling 5s (WS 연결 시도 별개). */
-export function useRecentPulse(limit = 50, options?: { enabled?: boolean }) {
+/**
+ * Live AI Pulse — cross-mission stream.
+ * 초기 snapshot은 REST 1회. 이후 실시간은 WS push가 담당하므로 WS 연결 시 polling 중지.
+ * (REST polling이 매번 Lakebase를 깨워 scale-to-zero를 무력화하던 비용 누수 차단.)
+ */
+export function useRecentPulse(
+  limit = 50,
+  options?: { enabled?: boolean; refetchMs?: number | false },
+) {
   return useQuery({
     queryKey: ["pulse", "recent", limit] as const,
     queryFn: () => api.pulseRecent(limit),
-    refetchInterval: 5_000,
+    refetchInterval: options?.refetchMs ?? 30_000,
     staleTime: 2_000,
     enabled: options?.enabled !== false,
   });
@@ -325,5 +339,84 @@ export function useMissionModify() {
       // Agent Bricks activity timeline 즉시 갱신 (Lakebase에 새 event row 기록됨)
       qc.invalidateQueries({ queryKey: queryKeys.missionActivity(m.mission_id) });
     },
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Reports model (2026-05-21) — event-driven inbox + daily summary
+// ──────────────────────────────────────────────────────────────────────────
+import type { ReportStatus } from "./types";
+
+export function useReportsInbox(limit = 10) {
+  return useQuery({
+    queryKey: queryKeys.reportsInbox(limit),
+    queryFn: () => api.reportsInbox(limit),
+    staleTime: 30_000, // 30s — manager가 빠르게 keep/drop 시 invalidation으로 즉시 갱신
+    refetchInterval: 60_000,
+  });
+}
+
+export function useReportDetail(reportId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.reportDetail(reportId || ""),
+    queryFn: () => api.reportDetail(reportId!),
+    enabled: !!reportId,
+    staleTime: 60_000,
+  });
+}
+
+export function useReportsArchive(status: ReportStatus = "kept", limit = 50) {
+  return useQuery({
+    queryKey: queryKeys.reportsArchive(status, limit),
+    queryFn: () => api.reportsArchive(status, limit),
+    staleTime: 120_000,
+  });
+}
+
+export function useDailyReportToday() {
+  return useQuery({
+    queryKey: queryKeys.dailyReportToday,
+    queryFn: () => api.dailyReportToday(),
+    staleTime: 300_000, // 5분 — 06:30 cron 후 fix됨
+    refetchInterval: 600_000, // 10분
+  });
+}
+
+export function useDailyReportsRecent(limit = 7) {
+  return useQuery({
+    queryKey: queryKeys.dailyReportsRecent(limit),
+    queryFn: () => api.dailyReportsRecent(limit),
+    staleTime: 300_000,
+  });
+}
+
+// ─────────────────────────────────────────────
+// Mutations (manager action)
+// ─────────────────────────────────────────────
+function invalidateReports(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ["reports"] });
+}
+
+export function useKeepReport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (reportId: string) => api.reportKeep(reportId),
+    onSuccess: () => invalidateReports(qc),
+  });
+}
+
+export function useDropReport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (reportId: string) => api.reportDrop(reportId),
+    onSuccess: () => invalidateReports(qc),
+  });
+}
+
+export function useInvestigateReport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (reportId: string) => api.reportInvestigate(reportId),
+    onSuccess: () => invalidateReports(qc),
   });
 }

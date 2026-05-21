@@ -182,6 +182,19 @@ try:
 except Exception as e:
     print(f"price spike emit failed: {e}")
 
+# === Reports trigger emit (D-1 reports model) ===
+# backend가 직접 detect_price_spike() 돌려서 Dubai 24h ±2% 잡아 LLM 보고서 생성.
+# 5min spike != detect_price_spike (24h)이지만 notebook이 trigger 호출만 보내고
+# backend가 자체 condition 검사 — 안전.
+if spikes:
+    try:
+        from _report_emit import emit_trigger
+        result = emit_trigger("price_spike")
+        evts = result.get("events_detected", 0)
+        print(f"reports trigger emitted (price_spike) — events={evts}")
+    except Exception as e:
+        print(f"reports trigger emit failed: {e}")
+
 # COMMAND ----------
 
 dbutils.notebook.exit(json.dumps({

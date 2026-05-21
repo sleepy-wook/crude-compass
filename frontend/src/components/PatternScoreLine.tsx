@@ -1,87 +1,65 @@
 /**
- * PatternScoreLine — Pattern Score 시계열 line chart.
+ * PatternScoreLine — Pattern Score 시계열 (Recharts).
  *
  * 2 모드:
- *   - 'mini' (default 30일): Discovery 페이지 sparkline 보강
- *   - 'long' (2200일 ≈ 6년): 시나리오 §14 Phase 7 "평시 가치 6년 그래프" anchor
+ *   - 'mini' (default 30일): Discovery 페이지 sparkline
+ *   - 'long' (2200일 ≈ 6년): "평시 가치 6년 그래프"
  *
- * 라이브러리 0 — pure SVG. zone band (HEDGE 70+ / OPP 30-) 가시화.
+ * 2026-05-21: SVG hand-rolled → Recharts.
+ *  - Zone band (위험방어 70+ / 기회포착 30-)
+ *  - Reference lines 30/70
+ *  - 위기 peak / 기회 trough extrema marker (long variant)
+ *  - hover tooltip
  */
 import { useMemo } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ReferenceArea,
+  ReferenceDot,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { usePatternHistory } from "../lib/queries";
 import type { PatternHistory } from "../lib/types";
 
 interface Props {
-  /** 표시 기간 (일). 30 = mini, 2200 = 6년 long. */
   days?: number;
-  /** 컴포넌트 변종 — 'mini' (sparkline) | 'long' (full Phase 7) */
   variant?: "mini" | "long";
+  hideTitle?: boolean;
 }
 
-const VIEW_W = 720;
-const MINI_H = 80;
-const LONG_H = 220;
-const PAD_L = 36;
-const PAD_R = 8;
-const PAD_T = 8;
-const PAD_B = 22;
-
-function buildPath(
-  history: PatternHistory[],
-  innerW: number,
-  innerH: number,
-): string {
-  if (history.length < 2) return "";
-  const n = history.length;
-  return history
-    .map((h, i) => {
-      const x = PAD_L + (i / (n - 1)) * innerW;
-      const s = h.pattern_score ?? 50;
-      const y = PAD_T + ((100 - s) / 100) * innerH;
-      return `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join(" ");
-}
-
-// Local extrema 추출 — 6년 시계열의 위기/기회 peak/trough를 marker로 표시.
-// 시나리오 §6: "1년 1-2 위기 + 분기 1-2 기회 + 매주 미세 조정" narrative 시각화.
-type Extremum = { date: string; score: number; idx: number; kind: "crisis" | "opportunity" };
+type Extremum = { date: string; score: number; kind: "crisis" | "opportunity" };
 
 function findExtrema(history: PatternHistory[]): Extremum[] {
   const out: Extremum[] = [];
-  // window 60일 — 위기/기회는 보통 수 주~수개월 단위. noise 컷.
   const WIN = 60;
   const seenIdx = new Set<number>();
   for (let i = WIN; i < history.length - WIN; i++) {
     const cur = history[i].pattern_score ?? 50;
-    // crisis peak: 90+ 이고 ±60일 윈도우 내 maximum
     if (cur >= 90) {
       let isMax = true;
       for (let j = i - WIN; j <= i + WIN; j++) {
         if (j === i) continue;
-        if ((history[j]?.pattern_score ?? 50) > cur) {
-          isMax = false;
-          break;
-        }
+        if ((history[j]?.pattern_score ?? 50) > cur) { isMax = false; break; }
       }
       if (isMax && !seenIdx.has(i)) {
-        out.push({ date: history[i].date, score: cur, idx: i, kind: "crisis" });
-        // 이웃 60일에 다른 peak 안 잡히게 mark
+        out.push({ date: history[i].date, score: cur, kind: "crisis" });
         for (let k = i - WIN; k <= i + WIN; k++) seenIdx.add(k);
       }
     }
-    // opportunity trough: 10- 이고 ±60일 윈도우 내 minimum
     if (cur <= 10) {
       let isMin = true;
       for (let j = i - WIN; j <= i + WIN; j++) {
         if (j === i) continue;
-        if ((history[j]?.pattern_score ?? 50) < cur) {
-          isMin = false;
-          break;
-        }
+        if ((history[j]?.pattern_score ?? 50) < cur) { isMin = false; break; }
       }
       if (isMin && !seenIdx.has(i)) {
-        out.push({ date: history[i].date, score: cur, idx: i, kind: "opportunity" });
+        out.push({ date: history[i].date, score: cur, kind: "opportunity" });
         for (let k = i - WIN; k <= i + WIN; k++) seenIdx.add(k);
       }
     }
@@ -89,11 +67,17 @@ function findExtrema(history: PatternHistory[]): Extremum[] {
   return out;
 }
 
-export function PatternScoreLine({ days = 30, variant = "mini" }: Props) {
+export function PatternScoreLine({ days = 30, variant = "mini", hideTitle = false }: Props) {
   const { data, isLoading, isError } = usePatternHistory(days);
+
   const history = useMemo(
     () => (data?.history ?? []).filter((h) => h.pattern_score != null),
     [data],
+  );
+
+  const chartData = useMemo(
+    () => history.map((h) => ({ date: h.date, score: h.pattern_score })),
+    [history],
   );
 
   const extrema = useMemo(
@@ -101,284 +85,145 @@ export function PatternScoreLine({ days = 30, variant = "mini" }: Props) {
     [history, variant],
   );
 
-  const H = variant === "long" ? LONG_H : MINI_H;
-  const innerW = VIEW_W - PAD_L - PAD_R;
-  const innerH = H - PAD_T - PAD_B;
-
-  // y for zones
-  const yHedge = PAD_T + ((100 - 70) / 100) * innerH;
-  const yOpp = PAD_T + ((100 - 30) / 100) * innerH;
-  const yMid = PAD_T + ((100 - 50) / 100) * innerH;
-
-  const path = buildPath(history, innerW, innerH);
   const last = history[history.length - 1];
   const first = history[0];
-
-  const title = variant === "long" ? "위기 신호 점수 · 6년 평시 가치" : `위기 신호 점수 · ${days}일`;
-  const subtitle =
-    variant === "long"
-      ? "호르무즈 봉우리 + 작은 봉우리들 (OPEC 회의, EIA 재고, 허리케인). 매주 작은 시그널 종합 = 일상 도구."
-      : "70+ 위험방어 · 30- 기회포착 · 중간 관망";
-
   const crisisCount = extrema.filter((e) => e.kind === "crisis").length;
   const oppCount = extrema.filter((e) => e.kind === "opportunity").length;
 
+  const height = variant === "long" ? 260 : 100;
+  const title =
+    variant === "long" ? "위기 신호 점수 · 6년 평시 가치" : `위기 신호 점수 · ${days}일`;
+  const subtitle =
+    variant === "long"
+      ? "호르무즈 봉우리 + 작은 봉우리들 (OPEC 회의, EIA 재고, 허리케인)."
+      : "70+ 위험방어 · 30- 기회포착 · 중간 관망";
+
   return (
-    <section className="mb-8">
-      <div className="flex items-baseline justify-between mb-2">
-        <h2
-          className={`font-display ${variant === "long" ? "text-xl" : "text-sm"} font-semibold tracking-tight`}
-        >
-          {title}
-        </h2>
-        <span className="text-[11px] text-ink-3 font-mono">
-          {first?.date ?? "—"} → {last?.date ?? "—"} · n={history.length}
-        </span>
-      </div>
+    <section className="mb-2">
+      {!hideTitle && (
+        <div className="flex items-baseline justify-between mb-2">
+          <h2 className={`font-display ${variant === "long" ? "text-xl" : "text-sm"} font-semibold tracking-tight`}>
+            {title}
+          </h2>
+          <span className="text-[11px] text-ink-3 font-mono">
+            {first?.date ?? "—"} → {last?.date ?? "—"} · n={history.length}
+          </span>
+        </div>
+      )}
+      {hideTitle && (
+        <div className="flex items-baseline justify-end mb-2">
+          <span className="text-[11px] text-ink-3 font-mono">
+            {first?.date ?? "—"} → {last?.date ?? "—"} · n={history.length}
+          </span>
+        </div>
+      )}
       {variant === "long" && (
         <div className="mb-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <p className="text-xs text-ink-3 flex-1 min-w-0">{subtitle}</p>
           <div className="flex items-center gap-3 text-[11px] text-ink-3">
             <span className="inline-flex items-center gap-1">
               <span className="inline-block w-2 h-2 rounded-full bg-crisis-500" />
-              <span>
-                위기 peak <span className="text-ink-1 font-medium tabular-nums">{crisisCount}</span>
-              </span>
+              <span>위기 peak <span className="text-ink-1 font-medium tabular-nums">{crisisCount}</span></span>
             </span>
             <span className="inline-flex items-center gap-1">
               <span className="inline-block w-2 h-2 rounded-full bg-opportunity-500" />
-              <span>
-                기회 trough <span className="text-ink-1 font-medium tabular-nums">{oppCount}</span>
-              </span>
+              <span>기회 trough <span className="text-ink-1 font-medium tabular-nums">{oppCount}</span></span>
             </span>
           </div>
         </div>
       )}
 
       <div className="rounded-xl border border-line-1 bg-panel">
-        <svg
-          width="100%"
-          height={H}
-          viewBox={`0 0 ${VIEW_W} ${H}`}
-          style={{ display: "block", background: "#FAFAF7" }}
-        >
-          <defs>
-            <linearGradient id="pattern-line-grad" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#FF3621" stopOpacity=".25" />
-              <stop offset="50%" stopColor="#7A8A91" stopOpacity=".10" />
-              <stop offset="100%" stopColor="#10B981" stopOpacity=".20" />
-            </linearGradient>
-          </defs>
+        <div className="px-2 py-2" style={{ height }}>
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full text-[11px] text-ink-3">로딩 중...</div>
+          ) : isError || chartData.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-[11px] text-ink-3">데이터 없음</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 6, right: 12, bottom: 4, left: 4 }}>
+                <defs>
+                  <linearGradient id="pattern-score-grad" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#FF3621" stopOpacity="0.35" />
+                    <stop offset="50%" stopColor="#7A8A91" stopOpacity="0.10" />
+                    <stop offset="100%" stopColor="#10B981" stopOpacity="0.25" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#EFEFEA" strokeDasharray="3 3" vertical={false} />
+                {/* Zone bands */}
+                <ReferenceArea y1={70} y2={100} fill="#FF3621" fillOpacity={0.06} />
+                <ReferenceArea y1={0} y2={30} fill="#10B981" fillOpacity={0.06} />
+                {/* Reference lines */}
+                <ReferenceLine y={70} stroke="#FF3621" strokeDasharray="3 3" strokeOpacity={0.5} />
+                <ReferenceLine y={30} stroke="#10B981" strokeDasharray="3 3" strokeOpacity={0.5} />
+                <ReferenceLine y={50} stroke="#D6D6CF" />
 
-          {/* Zone bands */}
-          <rect
-            x={PAD_L}
-            y={PAD_T}
-            width={innerW}
-            height={yHedge - PAD_T}
-            fill="#FF3621"
-            fillOpacity="0.06"
-          />
-          <rect
-            x={PAD_L}
-            y={yOpp}
-            width={innerW}
-            height={PAD_T + innerH - yOpp}
-            fill="#10B981"
-            fillOpacity="0.06"
-          />
+                {variant === "long" && extrema.map((e) => (
+                  <ReferenceDot
+                    key={`${e.kind}-${e.date}`}
+                    x={e.date}
+                    y={e.score}
+                    r={3.5}
+                    fill={e.kind === "crisis" ? "#FF3621" : "#10B981"}
+                    stroke="white"
+                    strokeWidth={1}
+                    ifOverflow="visible"
+                  />
+                ))}
 
-          {/* Zone reference lines */}
-          <line
-            x1={PAD_L}
-            y1={yHedge}
-            x2={VIEW_W - PAD_R}
-            y2={yHedge}
-            stroke="#FF3621"
-            strokeDasharray="3 3"
-            strokeWidth="1"
-            opacity=".5"
-          />
-          <line
-            x1={PAD_L}
-            y1={yMid}
-            x2={VIEW_W - PAD_R}
-            y2={yMid}
-            stroke="#D6D6CF"
-            strokeWidth="1"
-          />
-          <line
-            x1={PAD_L}
-            y1={yOpp}
-            x2={VIEW_W - PAD_R}
-            y2={yOpp}
-            stroke="#10B981"
-            strokeDasharray="3 3"
-            strokeWidth="1"
-            opacity=".5"
-          />
-
-          {/* Y axis labels */}
-          {[
-            { v: 100, y: PAD_T },
-            { v: 70, y: yHedge },
-            { v: 50, y: yMid },
-            { v: 30, y: yOpp },
-            { v: 0, y: PAD_T + innerH },
-          ].map((tick) => (
-            <text
-              key={tick.v}
-              x={PAD_L - 6}
-              y={tick.y + 3}
-              fontSize="9"
-              fontFamily="JetBrains Mono"
-              fill="#7A8A91"
-              textAnchor="end"
-            >
-              {tick.v}
-            </text>
-          ))}
-
-          {/* Line area fill */}
-          {path && (
-            <path
-              d={`${path} L ${PAD_L + innerW} ${PAD_T + innerH} L ${PAD_L} ${PAD_T + innerH} Z`}
-              fill="url(#pattern-line-grad)"
-            />
-          )}
-          {/* Line */}
-          {path && (
-            <path
-              d={path}
-              fill="none"
-              stroke="#1B3139"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-          )}
-
-          {/* Decision marker — 위기 peak / 기회 trough에 매니저 의사결정 cue */}
-          {extrema.map((ex) => {
-            const x = PAD_L + (ex.idx / Math.max(1, history.length - 1)) * innerW;
-            const y = PAD_T + ((100 - ex.score) / 100) * innerH;
-            const color = ex.kind === "crisis" ? "#FF3621" : "#10B981";
-            const label = ex.kind === "crisis" ? "위기" : "기회";
-            // 위기는 위로 spike, 기회는 아래로 spike
-            const dir = ex.kind === "crisis" ? -1 : 1;
-            return (
-              <g key={`${ex.kind}-${ex.idx}`}>
-                <line
-                  x1={x}
-                  y1={y}
-                  x2={x}
-                  y2={y + dir * 14}
-                  stroke={color}
-                  strokeWidth="1.5"
-                  opacity="0.6"
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10, fill: "#7A8A91" }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#CFCFC8" }}
+                  minTickGap={60}
+                  tickFormatter={(v) => v?.slice(2) ?? ""}
                 />
-                <circle cx={x} cy={y + dir * 14} r="3" fill={color} />
-                <title>
-                  {`${label} 시점 · ${ex.date} · 위기 강도 ${Math.round(ex.score / 10)}/10`}
-                </title>
-              </g>
-            );
-          })}
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fontSize: 10, fill: "#7A8A91" }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={28}
+                  ticks={[0, 30, 50, 70, 100]}
+                />
+                <Tooltip content={<ScoreTooltip />} />
 
-          {/* Last point */}
-          {last && (
-            <g
-              transform={`translate(${PAD_L + innerW}, ${
-                PAD_T + ((100 - (last.pattern_score ?? 50)) / 100) * innerH
-              })`}
-            >
-              <circle
-                r="5"
-                fill={
-                  (last.pattern_score ?? 50) >= 70
-                    ? "#FF3621"
-                    : (last.pattern_score ?? 50) <= 30
-                      ? "#10B981"
-                      : "#7A8A91"
-                }
-                fillOpacity=".25"
-              />
-              <circle
-                r="2.5"
-                fill={
-                  (last.pattern_score ?? 50) >= 70
-                    ? "#FF3621"
-                    : (last.pattern_score ?? 50) <= 30
-                      ? "#10B981"
-                      : "#7A8A91"
-                }
-              />
-            </g>
+                <Area
+                  type="monotone"
+                  dataKey="score"
+                  stroke="#1B3139"
+                  strokeWidth={1.6}
+                  fill="url(#pattern-score-grad)"
+                  fillOpacity={1}
+                  activeDot={{ r: 4 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           )}
-
-          {/* Empty state */}
-          {!isLoading && history.length === 0 && (
-            <text
-              x={VIEW_W / 2}
-              y={H / 2}
-              fontSize="11"
-              fontFamily="JetBrains Mono"
-              fill="#7A8A91"
-              textAnchor="middle"
-            >
-              {isError ? "데이터 일시 불가" : "데이터 없음"}
-            </text>
-          )}
-
-          {/* Loading state */}
-          {isLoading && (
-            <text
-              x={VIEW_W / 2}
-              y={H / 2}
-              fontSize="11"
-              fontFamily="JetBrains Mono"
-              fill="#7A8A91"
-              textAnchor="middle"
-            >
-              로딩 중…
-            </text>
-          )}
-
-          {/* X axis date ticks — variant별 tick 수 (long=7개 / mini=3개) */}
-          {history.length > 1 && (
-            <>
-              {(variant === "long" ? [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1] : [0, 0.5, 1]).map((f, i, arr) => {
-                const idx = Math.round(f * (history.length - 1));
-                const tick = history[idx]?.date;
-                if (!tick) return null;
-                const x = PAD_L + f * innerW;
-                return (
-                  <g key={f}>
-                    <line
-                      x1={x}
-                      y1={PAD_T + innerH}
-                      x2={x}
-                      y2={PAD_T + innerH + 3}
-                      stroke="#CFCFC8"
-                      strokeWidth="1"
-                    />
-                    <text
-                      x={x}
-                      y={H - 6}
-                      fontSize="9"
-                      fontFamily="JetBrains Mono"
-                      fill="#7A8A91"
-                      textAnchor={i === 0 ? "start" : i === arr.length - 1 ? "end" : "middle"}
-                    >
-                      {tick.slice(0, 7)}
-                    </text>
-                  </g>
-                );
-              })}
-            </>
-          )}
-        </svg>
+        </div>
       </div>
     </section>
+  );
+}
+
+function ScoreTooltip({ active, payload, label }: {
+  active?: boolean;
+  payload?: Array<{ value: number }>;
+  label?: string;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  const v = payload[0].value;
+  const zone = v >= 70 ? "위험방어" : v <= 30 ? "기회포착" : "관망";
+  const tone = v >= 70 ? "text-crisis-700" : v <= 30 ? "text-opportunity-700" : "text-ink-3";
+  return (
+    <div className="rounded-md border border-line-2 bg-white shadow-md px-3 py-2 text-[11px] tabular-nums">
+      <div className="text-ink-3 mb-1 font-medium">{label}</div>
+      <div className="text-ink-1">
+        Pattern Score{" "}
+        <span className="font-semibold text-[13px]">{v?.toFixed(1) ?? "—"}</span>
+      </div>
+      <div className={`text-[10px] mt-0.5 ${tone}`}>{zone}</div>
+    </div>
   );
 }

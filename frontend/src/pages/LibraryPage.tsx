@@ -1,0 +1,658 @@
+/**
+ * LibraryPage — 자료실 (/library) (2026-05-21 reports model 부수).
+ *
+ * 2 tabs:
+ *   [OPEC 월간 보고서]  bronze.opec_momr_parsed (gold.opec_demand_gap view)
+ *   [주요 보도]          GDELT importance >= 70 article
+ *
+ * Layout (Archive와 동일 패턴):
+ *   - 좌 5/12: list (날짜 정렬)
+ *   - 우 7/12: detail
+ *   둘 다 h-[680px], 좌측 scroll
+ */
+import { useMemo, useState } from "react";
+import { ExternalLink, Search } from "lucide-react";
+import { useNewsTop, useOpecHistory } from "../lib/queries";
+import { cn } from "../lib/utils";
+
+type TabKey = "opec" | "news";
+
+export function LibraryPage() {
+  const [tab, setTab] = useState<TabKey>("opec");
+
+  return (
+    <div className="max-w-7xl mx-auto px-8 py-8">
+      <header className="mb-5">
+        <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1">
+          Library
+        </div>
+        <h1 className="font-display text-xl font-semibold text-ink-1 tracking-tight">
+          자료실
+        </h1>
+        <p className="text-[12px] text-ink-3 mt-1">
+          OPEC 월간 보고서와 GDELT 주요 보도 — AI 보고서가 인용하는 원본 자료.
+        </p>
+      </header>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-0.5 mb-5 border-b border-line-1">
+        <TabButton
+          active={tab === "opec"}
+          onClick={() => setTab("opec")}
+          label="OPEC 월간 보고서"
+        />
+        <TabButton
+          active={tab === "news"}
+          onClick={() => setTab("news")}
+          label="주요 보도"
+        />
+      </div>
+
+      {tab === "opec" ? <OpecTab /> : <NewsTab />}
+
+      <div className="h-12" />
+    </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "px-4 py-2.5 text-[13px] font-medium transition-colors border-b-2 -mb-px",
+        active
+          ? "border-ink-1 text-ink-1"
+          : "border-transparent text-ink-3 hover:text-ink-1",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Tab 1: OPEC 월간 보고서
+// ─────────────────────────────────────────────────────────────────────
+type OpecItem = NonNullable<ReturnType<typeof useOpecHistory>["data"]>["items"][number];
+
+function OpecTab() {
+  const { data, isLoading } = useOpecHistory(36);
+  const items = data?.items ?? [];
+  const [selectedMonth, setSelectedMonth] = useState<string | undefined>(undefined);
+
+  const selected = useMemo(() => {
+    if (selectedMonth && items.some((m) => m.report_month === selectedMonth)) {
+      return items.find((m) => m.report_month === selectedMonth);
+    }
+    return items[0];
+  }, [items, selectedMonth]);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="lg:col-span-5">
+        <OpecList
+          items={items}
+          selectedMonth={selected?.report_month}
+          onSelect={setSelectedMonth}
+          isLoading={isLoading}
+        />
+      </div>
+      <div className="lg:col-span-7">
+        <OpecDetail item={selected} isLoading={isLoading} />
+      </div>
+    </div>
+  );
+}
+
+function OpecList({
+  items,
+  selectedMonth,
+  onSelect,
+  isLoading,
+}: {
+  items: OpecItem[];
+  selectedMonth: string | undefined;
+  onSelect: (m: string) => void;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <section className="bg-panel border border-line-1 rounded-2xl h-[680px] flex items-center justify-center text-[12px] text-ink-3">
+        불러오는 중...
+      </section>
+    );
+  }
+  return (
+    <section className="bg-panel border border-line-1 rounded-2xl flex flex-col h-[680px]">
+      <header className="px-4 py-3 border-b border-line-1">
+        <h2 className="text-[13px] font-semibold text-ink-1 tracking-tight">
+          OPEC MOMR{" "}
+          <span className="text-ink-3 tabular-nums font-normal">({items.length})</span>
+        </h2>
+        <p className="text-[10.5px] text-ink-3 mt-1 leading-snug">
+          월별 사우디·이란 생산 + 수요 전망 + 수급 갭
+        </p>
+      </header>
+      <div className="flex-1 overflow-y-auto py-1">
+        {items.length === 0 ? (
+          <div className="px-4 py-10 text-center text-[12px] text-ink-3">데이터 없음</div>
+        ) : (
+          items.map((m) => (
+            <OpecRow
+              key={m.report_month}
+              item={m}
+              selected={m.report_month === selectedMonth}
+              onSelect={() => onSelect(m.report_month)}
+            />
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function OpecRow({
+  item,
+  selected,
+  onSelect,
+}: {
+  item: OpecItem;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const delta = item.saudi_delta_vs_prev;
+  const balance = item.market_balance;
+  const balanceLabel =
+    balance === "undersupply"
+      ? "공급 부족"
+      : balance === "oversupply"
+        ? "공급 과잉"
+        : balance === "balanced"
+          ? "균형"
+          : "—";
+  const balanceTone =
+    balance === "undersupply"
+      ? "bg-crisis-50 text-crisis-700"
+      : balance === "oversupply"
+        ? "bg-opportunity-50 text-opportunity-700"
+        : "bg-line-1 text-ink-3";
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "w-full px-2.5 py-2.5 flex items-start gap-2.5 text-left transition-colors border-l-2",
+        selected
+          ? "bg-line-1 border-ink-1"
+          : "border-transparent hover:bg-line-1/60",
+      )}
+    >
+      <span className="flex-1 min-w-0">
+        <span className="flex items-baseline gap-2">
+          <span className="font-display text-[13px] font-semibold text-ink-1 tabular-nums">
+            {item.report_month}
+          </span>
+          <span
+            className={cn(
+              "inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-semibold uppercase tracking-wider",
+              balanceTone,
+            )}
+          >
+            {balanceLabel}
+          </span>
+        </span>
+        <span className="mt-1 flex items-center gap-2 text-[10.5px] text-ink-3 tabular-nums">
+          <span>사우디 {item.saudi_kbbl_d?.toFixed(0) ?? "—"} kbd</span>
+          {delta != null && delta !== 0 && (
+            <span className={cn(
+              "font-medium",
+              delta > 0 ? "text-crisis-700" : "text-opportunity-700",
+            )}>
+              {delta > 0 ? "+" : ""}{delta.toFixed(0)}
+            </span>
+          )}
+          <span aria-hidden>·</span>
+          <span>수요 {item.forecast_demand_kbbl_d?.toFixed(0) ?? "—"}</span>
+        </span>
+      </span>
+      {selected && (
+        <span className="shrink-0 text-ink-3 text-[12px] mt-0.5" aria-hidden>
+          ›
+        </span>
+      )}
+    </button>
+  );
+}
+
+function OpecDetail({ item, isLoading }: { item: OpecItem | undefined; isLoading: boolean }) {
+  if (isLoading) {
+    return (
+      <div className="bg-white border border-line-2 rounded-2xl p-8 flex items-center text-sm text-ink-3 h-[680px] shadow-sm">
+        불러오는 중...
+      </div>
+    );
+  }
+  if (!item) {
+    return (
+      <div className="bg-white border border-line-2 rounded-2xl p-6 h-[680px] flex flex-col justify-center shadow-sm">
+        <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-2">보고서</div>
+        <div className="text-base text-ink-1">선택된 월 없음</div>
+      </div>
+    );
+  }
+
+  const balance = item.market_balance;
+  const balanceLabel =
+    balance === "undersupply"
+      ? "공급 부족"
+      : balance === "oversupply"
+        ? "공급 과잉"
+        : balance === "balanced"
+          ? "균형"
+          : "—";
+  const balanceTone =
+    balance === "undersupply"
+      ? "bg-crisis-50 text-crisis-700 border-crisis-200"
+      : balance === "oversupply"
+        ? "bg-opportunity-50 text-opportunity-700 border-opportunity-200"
+        : "bg-line-1 text-ink-3 border-line-2";
+
+  return (
+    <div className="bg-white border border-line-2 rounded-2xl p-6 flex flex-col h-[680px] overflow-y-auto shadow-sm">
+      <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-ink-3 mb-0.5">
+            OPEC MOMR · ai_parse_document
+          </div>
+          <h3 className="font-display text-[20px] font-semibold text-ink-1 tracking-tight tabular-nums">
+            {item.report_month}
+          </h3>
+        </div>
+        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-md text-[11px] border font-medium", balanceTone)}>
+          시장 {balanceLabel}
+        </span>
+      </div>
+
+      {/* 핵심 지표 grid */}
+      <div className="grid grid-cols-2 gap-4 mb-5">
+        <Stat
+          label="사우디 생산"
+          value={item.saudi_kbbl_d?.toFixed(0)}
+          unit="kbd"
+          delta={item.saudi_delta_vs_prev}
+        />
+        <Stat
+          label="이란 생산"
+          value={item.iran_kbbl_d?.toFixed(0)}
+          unit="kbd"
+        />
+        <Stat
+          label="OPEC 전체"
+          value={item.opec_total_kbbl_d?.toFixed(0)}
+          unit="kbd"
+        />
+        <Stat
+          label="글로벌 수요 전망"
+          value={item.forecast_demand_kbbl_d?.toFixed(0)}
+          unit="kbd"
+        />
+      </div>
+
+      {/* 수급 갭 */}
+      {item.supply_demand_gap_kbbl_d != null && (
+        <div className="rounded-md border border-line-1 bg-paper px-4 py-3 mb-4">
+          <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">
+            수급 갭 (OPEC 공급 - 수요 전망)
+          </div>
+          <div className="flex items-baseline gap-2 tabular-nums">
+            <span className={cn(
+              "font-display text-2xl font-semibold",
+              item.supply_demand_gap_kbbl_d > 0
+                ? "text-opportunity-700"
+                : item.supply_demand_gap_kbbl_d < 0
+                  ? "text-crisis-700"
+                  : "text-ink-1",
+            )}>
+              {item.supply_demand_gap_kbbl_d > 0 ? "+" : ""}{item.supply_demand_gap_kbbl_d.toFixed(0)}
+            </span>
+            <span className="text-[11px] text-ink-3">kbd</span>
+          </div>
+        </div>
+      )}
+
+      {/* 해석 */}
+      <div className="text-[12.5px] text-ink-2 leading-relaxed mt-3 pt-3 border-t border-line-1">
+        {balance === "undersupply" && (
+          <p>
+            수요가 OPEC 공급을 초과하는 상태. 단기 가격 상승 압력 누적 시그널 — 정유사 매입 비용 ↑ 가능성.
+          </p>
+        )}
+        {balance === "oversupply" && (
+          <p>
+            OPEC 공급이 수요를 초과. 가격 약세 압력. Spot 발주 타이밍 유리할 수 있음.
+          </p>
+        )}
+        {balance === "balanced" && (
+          <p>
+            공급-수요 균형. 외부 충격(지정학·계절성) 없으면 가격 안정 구간.
+          </p>
+        )}
+      </div>
+
+      <div className="mt-auto pt-4 text-[10.5px] text-ink-3 italic">
+        Databricks Document Intelligence — OPEC MOMR PDF → ai_parse_document() → bronze.opec_momr_parsed
+      </div>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  unit,
+  delta,
+}: {
+  label: string;
+  value: string | undefined | null;
+  unit: string;
+  delta?: number | null;
+}) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">{label}</div>
+      <div className="flex items-baseline gap-2 tabular-nums">
+        <span className="font-display text-xl font-semibold text-ink-1">{value ?? "—"}</span>
+        <span className="text-[11px] text-ink-3">{unit}</span>
+        {delta != null && delta !== 0 && (
+          <span className={cn(
+            "text-[11px] font-medium ml-1",
+            delta > 0 ? "text-crisis-700" : "text-opportunity-700",
+          )}>
+            {delta > 0 ? "+" : ""}{delta.toFixed(0)}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Tab 2: 주요 보도 (GDELT)
+// ─────────────────────────────────────────────────────────────────────
+type NewsItem = NonNullable<ReturnType<typeof useNewsTop>["data"]>["items"][number];
+
+function NewsTab() {
+  const { data, isLoading } = useNewsTop(80);
+  const items = data?.items ?? [];
+  const [titleQuery, setTitleQuery] = useState("");
+  const [dirFilter, setDirFilter] = useState<"all" | "bullish" | "bearish">("all");
+
+  const filtered = useMemo(() => {
+    const q = titleQuery.trim().toLowerCase();
+    return items.filter((n) => {
+      if (q && !n.title.toLowerCase().includes(q)) return false;
+      if (dirFilter !== "all" && n.direction !== dirFilter) return false;
+      return true;
+    });
+  }, [items, titleQuery, dirFilter]);
+
+  const [selectedTitle, setSelectedTitle] = useState<string | undefined>(undefined);
+  const selected = useMemo(() => {
+    if (selectedTitle) {
+      const found = filtered.find((n) => n.title === selectedTitle);
+      if (found) return found;
+    }
+    return filtered[0];
+  }, [filtered, selectedTitle]);
+
+  return (
+    <>
+      {/* Filters */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-3" />
+          <input
+            type="text"
+            value={titleQuery}
+            onChange={(e) => setTitleQuery(e.target.value)}
+            placeholder="제목 검색..."
+            className="pl-8 pr-3 py-1.5 text-[12px] border border-line-2 rounded-md w-64 bg-white text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-ink-3"
+          />
+        </div>
+        <div className="flex items-center gap-0.5 rounded-md border border-line-2 bg-white p-0.5">
+          {(["all", "bullish", "bearish"] as const).map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setDirFilter(d)}
+              className={cn(
+                "px-2.5 py-1 text-[11px] rounded transition-colors",
+                dirFilter === d
+                  ? "bg-line-1 text-ink-1 font-medium"
+                  : "text-ink-3 hover:text-ink-1",
+              )}
+            >
+              {d === "all" ? "전체" : d === "bullish" ? "위험" : "안정"}
+            </button>
+          ))}
+        </div>
+        <span className="ml-2 text-[11px] text-ink-3 tabular-nums">
+          {filtered.length} / {items.length}건
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="lg:col-span-5">
+          <NewsList
+            items={filtered}
+            selected={selected?.title}
+            onSelect={setSelectedTitle}
+            isLoading={isLoading}
+          />
+        </div>
+        <div className="lg:col-span-7">
+          <NewsDetail item={selected} isLoading={isLoading} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+function NewsList({
+  items,
+  selected,
+  onSelect,
+  isLoading,
+}: {
+  items: NewsItem[];
+  selected: string | undefined;
+  onSelect: (title: string) => void;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <section className="bg-panel border border-line-1 rounded-2xl h-[680px] flex items-center justify-center text-[12px] text-ink-3">
+        불러오는 중...
+      </section>
+    );
+  }
+  return (
+    <section className="bg-panel border border-line-1 rounded-2xl flex flex-col h-[680px]">
+      <header className="px-4 py-3 border-b border-line-1">
+        <h2 className="text-[13px] font-semibold text-ink-1 tracking-tight">
+          GDELT 주요 보도{" "}
+          <span className="text-ink-3 tabular-nums font-normal">({items.length})</span>
+        </h2>
+        <p className="text-[10.5px] text-ink-3 mt-1 leading-snug">
+          importance ≥ 60 · 최근 7일 · A·B tier 신뢰 source
+        </p>
+      </header>
+      <div className="flex-1 overflow-y-auto py-1">
+        {items.length === 0 ? (
+          <div className="px-4 py-10 text-center text-[12px] text-ink-3">조건 일치 보도 없음</div>
+        ) : (
+          items.map((n, i) => (
+            <NewsRow
+              key={`${n.title}-${i}`}
+              item={n}
+              selected={n.title === selected}
+              onSelect={() => onSelect(n.title)}
+            />
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function NewsRow({
+  item,
+  selected,
+  onSelect,
+}: {
+  item: NewsItem;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const dirLabel =
+    item.direction === "bullish" ? "위험" : item.direction === "bearish" ? "안정" : "중립";
+  const dirTone =
+    item.direction === "bullish"
+      ? "bg-crisis-50 text-crisis-700"
+      : item.direction === "bearish"
+        ? "bg-opportunity-50 text-opportunity-700"
+        : "bg-line-1 text-ink-3";
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      title={item.title}
+      className={cn(
+        "w-full px-2.5 py-2 flex items-start gap-2.5 text-left transition-colors border-l-2",
+        selected
+          ? "bg-line-1 border-ink-1"
+          : "border-transparent hover:bg-line-1/60",
+      )}
+    >
+      <span className="flex-1 min-w-0">
+        <span className="block text-[12.5px] text-ink-1 leading-snug line-clamp-2">
+          {item.title}
+        </span>
+        <span className="mt-1 flex items-center gap-2 text-[10.5px] text-ink-3 tabular-nums">
+          <span>{item.source ?? "—"}</span>
+          {item.tier && (
+            <>
+              <span aria-hidden>·</span>
+              <span>{item.tier} tier</span>
+            </>
+          )}
+          <span aria-hidden>·</span>
+          <span>{item.event_date}</span>
+          <span
+            className={cn(
+              "ml-auto inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-semibold",
+              dirTone,
+            )}
+          >
+            {dirLabel} {item.importance ?? "—"}
+          </span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function NewsDetail({ item, isLoading }: { item: NewsItem | undefined; isLoading: boolean }) {
+  if (isLoading) {
+    return (
+      <div className="bg-white border border-line-2 rounded-2xl p-8 flex items-center text-sm text-ink-3 h-[680px] shadow-sm">
+        불러오는 중...
+      </div>
+    );
+  }
+  if (!item) {
+    return (
+      <div className="bg-white border border-line-2 rounded-2xl p-6 h-[680px] flex flex-col justify-center shadow-sm">
+        <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-2">보도</div>
+        <div className="text-base text-ink-1">선택된 보도 없음</div>
+      </div>
+    );
+  }
+
+  const dirLabel =
+    item.direction === "bullish" ? "위험 신호" : item.direction === "bearish" ? "안정 신호" : "중립";
+  const dirTone =
+    item.direction === "bullish"
+      ? "bg-crisis-50 text-crisis-700 border-crisis-200"
+      : item.direction === "bearish"
+        ? "bg-opportunity-50 text-opportunity-700 border-opportunity-200"
+        : "bg-line-1 text-ink-3 border-line-2";
+
+  return (
+    <div className="bg-white border border-line-2 rounded-2xl p-6 flex flex-col h-[680px] overflow-y-auto shadow-sm">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10px] tracking-wider border font-medium", dirTone)}>
+          {dirLabel}
+        </span>
+        {item.category && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] tracking-wider border font-medium bg-transparent text-ink-3 border-line-2">
+            {item.category}
+          </span>
+        )}
+        <span className="ml-auto text-[10px] text-ink-3 tabular-nums">
+          {item.event_date}
+        </span>
+      </div>
+
+      <h3 className="font-display text-[17px] font-semibold text-ink-1 leading-snug mb-4">
+        {item.title}
+      </h3>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        <Stat label="중요도" value={item.importance?.toString()} unit="/100" />
+        <Stat label="GDELT tone" value={item.raw_tone?.toFixed(2)} unit="" />
+        <Stat label="언급 횟수" value={item.mention_count?.toString()} unit="" />
+      </div>
+
+      <div className="rounded-md border border-line-1 bg-paper px-4 py-3 mb-4 text-[12.5px] text-ink-2 leading-relaxed">
+        <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">source</div>
+        <div className="text-ink-1 font-medium">
+          {item.source ?? "—"}
+          {item.tier && (
+            <span className="ml-2 text-[10px] uppercase tracking-wider text-ink-3 font-normal">
+              · {item.tier} tier (신뢰도 등급)
+            </span>
+          )}
+        </div>
+      </div>
+
+      {item.url && (
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-[12px] font-medium border border-line-2 bg-white text-ink-1 hover:bg-line-1 transition-colors self-start"
+        >
+          원문 보기 <ExternalLink className="w-3 h-3" />
+        </a>
+      )}
+
+      <div className="mt-auto pt-4 text-[10.5px] text-ink-3 italic">
+        GDELT DOC API · 15분 cron 적재 · bronze.news_articles
+      </div>
+    </div>
+  );
+}

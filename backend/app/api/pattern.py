@@ -499,6 +499,46 @@ async def opec_latest() -> dict:
 
 
 # ────────────────────────────────────────────────────────────────────────
+# /api/market/opec-history — 자료실 (D-1 reports model)
+# 월별 OPEC MOMR list — 사우디 production delta로 변화점 표시
+# ────────────────────────────────────────────────────────────────────────
+@router.get("/market/opec-history")
+async def opec_history(limit: int = 24) -> dict:
+    """OPEC MOMR 월별 history (default 24개월). TTL 3600s."""
+    lim = min(limit, 120)
+    def _fetch():
+        rows = _q(f"""
+            SELECT report_month, saudi_production_kbbl_d, iran_production_kbbl_d,
+                   opec_total_kbbl_d, forecast_demand_kbbl_d,
+                   supply_demand_gap_kbbl_d, market_balance
+            FROM crude_compass.gold.opec_demand_gap
+            ORDER BY report_month DESC
+            LIMIT {lim}
+        """)
+        # row 단위 dict + 직전월 대비 사우디 delta
+        items = []
+        for i, r in enumerate(rows):
+            saudi = float(r[1]) if r[1] is not None else None
+            prev_saudi = float(rows[i + 1][1]) if i + 1 < len(rows) and rows[i + 1][1] is not None else None
+            delta = round(saudi - prev_saudi, 2) if (saudi is not None and prev_saudi is not None) else None
+            items.append({
+                "report_month": r[0],
+                "saudi_kbbl_d": saudi,
+                "iran_kbbl_d": float(r[2]) if r[2] is not None else None,
+                "opec_total_kbbl_d": float(r[3]) if r[3] is not None else None,
+                "forecast_demand_kbbl_d": float(r[4]) if r[4] is not None else None,
+                "supply_demand_gap_kbbl_d": float(r[5]) if r[5] is not None else None,
+                "market_balance": r[6],
+                "saudi_delta_vs_prev": delta,
+            })
+        return {"items": items, "count": len(items)}
+    try:
+        return _cached(f"opec_history_{lim}", 3600, _fetch)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"code": "DATA_FETCH_FAILED", "message": str(e)})
+
+
+# ────────────────────────────────────────────────────────────────────────
 # /api/signals/contribution — gold.signal_contribution_30d view (D-3 추가)
 # 시나리오 §6.3 #2 "오늘 점수 82는 호르무즈 35%, 두바이 28% ..." anchor
 # ────────────────────────────────────────────────────────────────────────

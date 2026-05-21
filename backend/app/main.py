@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__
-from app.api import admin as admin_api, decision_room as decision_room_api, demo as demo_api, genie as genie_api, jobs as jobs_api, missions, pattern, pulse as pulse_api, reactive as reactive_api, signals as signals_api, slack as slack_api, supervisor as supervisor_api
+from app.api import admin as admin_api, daily_reports as daily_reports_api, decision_room as decision_room_api, demo as demo_api, genie as genie_api, jobs as jobs_api, missions, pattern, pulse as pulse_api, reactive as reactive_api, reports as reports_api, signals as signals_api, slack as slack_api, supervisor as supervisor_api
 from app.core.config import get_settings
 from app.services.slack_bus_subscriber import run_slack_subscriber
 from app.services.slack_notify import get_notifier
@@ -40,6 +40,13 @@ async def lifespan(app: FastAPI):
         await asyncio.to_thread(migrate_decision_room)
     except Exception as e:
         logger.warning("Lakebase migrate_decision_room wrapper error: %s", e)
+
+    # Reports model (2026-05-21) — reports + daily_reports tables
+    try:
+        from app.db.lakebase import migrate_reports
+        await asyncio.to_thread(migrate_reports)
+    except Exception as e:
+        logger.warning("Lakebase migrate_reports wrapper error: %s", e)
 
     # Startup — Slack subscriber task (dry-run 모드여도 log 검증용으로 띄움)
     settings = get_settings()
@@ -100,6 +107,8 @@ def create_app() -> FastAPI:
     app.include_router(signals_api.router)
     app.include_router(jobs_api.router)
     app.include_router(decision_room_api.router)
+    app.include_router(reports_api.router)
+    app.include_router(daily_reports_api.router)
     app.include_router(ws_missions.router)
     app.include_router(ws_pulse.router)
 

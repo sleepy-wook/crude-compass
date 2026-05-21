@@ -3,13 +3,16 @@
  * Backend: http://localhost:8000 (dev), Apps deploy URL (prod).
  */
 import type {
-  BacktestPredictionsResponse,
   BacktestResults,
+  DailyReport,
   DeltaEvent,
   GenieQueryResponse,
   Mission,
   PatternHistory,
   PatternScoreCurrent,
+  Report,
+  ReportStatus,
+  ReportThreadResponse,
   SupervisorQueryResponse,
 } from "./types";
 
@@ -199,6 +202,21 @@ export const api = {
       source: string;
     }>("/api/market/opec-latest"),
 
+  opecHistory: (limit = 24) =>
+    request<{
+      count: number;
+      items: {
+        report_month: string;
+        saudi_kbbl_d: number | null;
+        iran_kbbl_d: number | null;
+        opec_total_kbbl_d: number | null;
+        forecast_demand_kbbl_d: number | null;
+        supply_demand_gap_kbbl_d: number | null;
+        market_balance: "oversupply" | "undersupply" | "balanced" | null;
+        saudi_delta_vs_prev: number | null;
+      }[];
+    }>(`/api/market/opec-history?limit=${limit}`),
+
   signalContribution: () =>
     request<{
       items: {
@@ -242,8 +260,6 @@ export const api = {
 
   // backtest
   backtestResults: () => request<BacktestResults>("/api/backtest/results"),
-  backtestPredictions: (limit = 50) =>
-    request<BacktestPredictionsResponse>(`/api/backtest/predictions?limit=${limit}`),
 
   // genie 자연어 질의
   genieQuery: (question: string, conversationId?: string | null) =>
@@ -397,7 +413,129 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Reports model (D-1, 2026-05-21) — docs/api_contract.md §8.8
+  // ──────────────────────────────────────────────────────────────────────
+  reportsInbox: (limit = 10) =>
+    request<{ count: number; items: Report[] }>(
+      `/api/reports/inbox?limit=${limit}`
+    ),
+
+  reportDetail: (reportId: string) =>
+    request<ReportThreadResponse>(`/api/reports/${reportId}`),
+
+  reportsArchive: (status: ReportStatus = "kept", limit = 50) =>
+    request<{ status: string; count: number; items: Report[] }>(
+      `/api/reports/archive?status=${status}&limit=${limit}`
+    ),
+
+  reportKeep: (reportId: string) =>
+    request<{
+      ok: boolean;
+      report_id: string;
+      new_status?: ReportStatus;
+      no_change?: boolean;
+      current_status?: ReportStatus;
+    }>(`/api/reports/${reportId}/keep`, { method: "POST" }),
+
+  reportDrop: (reportId: string) =>
+    request<{
+      ok: boolean;
+      report_id: string;
+      new_status?: ReportStatus;
+      no_change?: boolean;
+      current_status?: ReportStatus;
+    }>(`/api/reports/${reportId}/drop`, { method: "POST" }),
+
+  reportInvestigate: (reportId: string) =>
+    request<{
+      ok: boolean;
+      status: string;
+      new_report_id?: string;
+      tools_used?: string[];
+      answer?: string;
+      note?: string;
+    }>(`/api/reports/${reportId}/investigate`, { method: "POST" }),
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Daily Reports — docs/api_contract.md §8.9
+  // ──────────────────────────────────────────────────────────────────────
+  dailyReportToday: () =>
+    request<{ daily_report: DailyReport | null }>("/api/daily-reports/today"),
+
+  dailyReportsRecent: (limit = 7) =>
+    request<{ count: number; items: DailyReport[] }>(
+      `/api/daily-reports/recent?limit=${limit}`
+    ),
+
+  dailyReportByDate: (reportDate: string) =>
+    request<{ daily_report: DailyReport }>(`/api/daily-reports/${reportDate}`),
 };
+
+// ──────────────────────────────────────────────────────────────────────
+// SSE stream — Supervisor query (D-1, 2026-05-21)
+// ──────────────────────────────────────────────────────────────────────
+export type SupervisorStreamEvent =
+  | { type: "delta"; text: string }
+  | { type: "tool_call"; name: string }
+  | { type: "done"; answer: string; tools_used: Array<{ name: string; arguments?: string | null; result_preview?: string | null }> }
+  | { type: "error"; message: string }
+  | { type: "fallback"; reason: string };
+
+/**
+ * Supervisor streaming — fetch + ReadableStream parser.
+ * `onEvent`가 각 SSE 이벤트마다 호출됨. AbortController로 cancel 가능.
+ */
+export async function supervisorQueryStream(
+  question: string,
+  options: {
+    missionId?: string;
+    onEvent: (e: SupervisorStreamEvent) => void;
+    signal?: AbortSignal;
+  },
+): Promise<void> {
+  const resp = await fetch(`${API_BASE}/api/supervisor/query/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+    },
+    credentials: "include",
+    signal: options.signal,
+    body: JSON.stringify({ question, mission_id: options.missionId ?? null }),
+  });
+  if (!resp.ok || !resp.body) {
+    throw new ApiError(resp.status, "STREAM_FAILED", resp.statusText || "stream failed");
+  }
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    // SSE 라인 단위 parse: "data: {...}\n\n"
+    let idx;
+    while ((idx = buf.indexOf("\n\n")) !== -1) {
+      const chunk = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+      const line = chunk.trim();
+      if (!line.startsWith("data:")) continue;
+      const payload = line.slice(5).trim();
+      if (!payload) continue;
+      try {
+        const ev = JSON.parse(payload) as SupervisorStreamEvent;
+        options.onEvent(ev);
+        if (ev.type === "done" || ev.type === "error" || ev.type === "fallback") {
+          return;
+        }
+      } catch {
+        // ignore malformed chunk
+      }
+    }
+  }
+}
 
 export { ApiError };
 export const API_BASE_URL = API_BASE;

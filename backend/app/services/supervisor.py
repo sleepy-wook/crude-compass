@@ -35,12 +35,20 @@ def _clean_answer(text: str) -> str:
         return text
     # <name>genie-xxxx</name>, <name>crude-compass-supervisor</name>
     text = re.sub(r"<name>[^<]*</name>", "", text)
-    # leaked SQL/table data row patterns ("|0|17|None|None|None|None|")
-    text = re.sub(r"\|+(?:\d+(?:\.\d+)?|None|null)(?:\|(?:\d+(?:\.\d+)?|None|null))+\|+", "", text)
-    # leaked table header row ("||n_cases|avg_dubai_price_change_30d|...|")
-    text = re.sub(r"\|+[a-zA-Z_][\w_]*(?:\|[a-zA-Z_][\w_]*)+\|+", "", text)
-    # leaked table separator ("|-|-|-|-|-|")
-    text = re.sub(r"\|+(?:-+\|)+", "", text)
+    # Markdown table 보호 — 정상 GFM table은 `|---|---|` separator line이 있음.
+    # 있으면 pipe cleanup 전부 스킵 (LLM이 의도해서 만든 표). 없으면 SQL leak로 간주.
+    has_md_table = bool(re.search(r"^\s*\|[\s\-:|]+\|\s*$", text, flags=re.MULTILINE))
+    if not has_md_table:
+        # Mid-line: 한 줄 안에 '||' (table header signal) 등장 시 거기서 end-of-line까지 제거.
+        text = re.sub(r"\|\|[^\n]*", "", text)
+        # Mid-line: 3개 이상 pipe-delimited 필드 → SQL row leak.
+        text = re.sub(r"\|[^|\n]{0,80}\|[^|\n]{0,80}\|[^|\n]{0,80}(\|[^|\n]{0,80})*", "", text)
+        # Line-based: 줄 시작이 '|' 인 line 전체 제거.
+        text = re.sub(r"^[ \t]*\|[^\n]*\n?", "", text, flags=re.MULTILINE)
+    # Markdown heading inline fix:
+    # LLM이 종종 "문장.## heading" 처럼 토큰을 붙여 emit (특히 streaming).
+    # ATX heading은 줄 시작에서만 인식되므로 parser가 plain text로 처리됨.
+    text = re.sub(r"(?<=[^\n#])(#{1,6}\s)", r"\n\n\1", text)
     # collapse multiple blank lines
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
@@ -201,3 +209,127 @@ async def query_supervisor(question: str) -> SupervisorResponse:
     except Exception as e:
         logger.warning("supervisor call failed: %s", e)
         raise
+
+
+# ════════════════════════════════════════════════════════════════════════
+# Streaming — Responses API stream=True (2026-05-21)
+# ════════════════════════════════════════════════════════════════════════
+def _stream_call_supervisor(endpoint_name: str, question: str):
+    """Synchronous generator yielding incremental events from Supervisor.
+
+    Yields dicts:
+      {"type": "delta", "text": "..."}          답변 토큰 append
+      {"type": "tool_call", "name": "genie-..."}  sub-agent 호출됨
+      {"type": "done", "tools_used": [...]}     완료 (전체 trace 합산)
+      {"type": "error", "message": "..."}       실패
+
+    Responses API event 종류 (참조):
+      response.created
+      response.output_item.added (item.type == 'function_call' → tool start)
+      response.output_text.delta (delta text)
+      response.completed
+    """
+    from databricks.sdk import WorkspaceClient
+
+    profile = os.getenv("DATABRICKS_CONFIG_PROFILE", "crude-compass")
+    try:
+        w = WorkspaceClient(profile=profile)
+    except Exception:
+        w = WorkspaceClient()
+
+    client = w.serving_endpoints.get_open_ai_client()
+    tools_used: list[SubAgentCall] = []
+    accumulated_text = ""
+
+    try:
+        stream = client.responses.create(
+            model=endpoint_name,
+            input=[{"role": "user", "content": question}],
+            extra_body={"databricks_options": {"return_trace": True}},
+            stream=True,
+        )
+        seen_tool_names: set[str] = set()
+        # Agent Bricks Multi-Agent Supervisor는 한 응답에 여러 message item을 emit함
+        # (예: "조회하겠습니다" → tool call → "## 결과..." 두 번째 message).
+        # text.delta는 같은 stream에 평탄하게 와서 boundary가 사라짐.
+        # 직전 event가 text.delta가 아니었으면 = step 사이 → 다음 첫 delta 앞에 \n\n 삽입.
+        last_was_text_delta = False
+        for event in stream:
+            etype = getattr(event, "type", None) or ""
+            # Debug: log all event types — Databricks Responses stream API 정확한 schema 확인용
+            logger.debug("supervisor stream event: %s", etype)
+
+            # 1. text delta
+            if etype == "response.output_text.delta":
+                delta_text = getattr(event, "delta", "") or ""
+                if delta_text:
+                    # step boundary 직후 첫 delta — 새 message 시작이므로 separator 삽입
+                    if not last_was_text_delta and accumulated_text and not accumulated_text.endswith("\n\n"):
+                        sep = "\n" if accumulated_text.endswith("\n") else "\n\n"
+                        accumulated_text += sep
+                        yield {"type": "delta", "text": sep}
+                    accumulated_text += delta_text
+                    yield {"type": "delta", "text": delta_text}
+                    last_was_text_delta = True
+                continue
+
+            # 2. completion
+            if etype == "response.completed":
+                last_was_text_delta = False
+                # response 객체에 trace가 들어있을 수 있음 — 최종 확인
+                resp_obj = getattr(event, "response", None)
+                if resp_obj:
+                    out_items = getattr(resp_obj, "output", None) or []
+                    for it in out_items:
+                        it_type = getattr(it, "type", None)
+                        if it_type in ("function_call", "tool_call", "tool_use"):
+                            tname = getattr(it, "name", None) or getattr(it, "tool_name", None)
+                            if tname and str(tname) not in seen_tool_names:
+                                seen_tool_names.add(str(tname))
+                                tools_used.append(SubAgentCall(
+                                    name=str(tname),
+                                    arguments=str(getattr(it, "arguments", ""))[:200] or None,
+                                ))
+                                yield {"type": "tool_call", "name": str(tname)}
+                cleaned = _clean_answer(accumulated_text) if accumulated_text else ""
+                yield {
+                    "type": "done",
+                    "answer": cleaned,
+                    "tools_used": [
+                        {"name": t.name, "arguments": t.arguments, "result_preview": t.result_preview}
+                        for t in tools_used
+                    ],
+                }
+                return
+
+            # 3. tool call broad detection (response.output_item.added/done 등)
+            # message boundary signal — 직전 stream을 종료시키고 separator 다음에 다시 시작.
+            last_was_text_delta = False
+            if "tool" in etype.lower() or "function_call" in etype.lower() or "output_item" in etype:
+                name = getattr(event, "name", None) or getattr(event, "tool_name", None)
+                item = getattr(event, "item", None)
+                if item and not name:
+                    name = getattr(item, "name", None) or getattr(item, "tool_name", None)
+                if name and str(name) not in seen_tool_names:
+                    seen_tool_names.add(str(name))
+                    args_val = getattr(event, "arguments", None) or (getattr(item, "arguments", None) if item else None)
+                    tools_used.append(SubAgentCall(
+                        name=str(name),
+                        arguments=str(args_val)[:200] if args_val else None,
+                    ))
+                    yield {"type": "tool_call", "name": str(name)}
+
+        # 스트림이 'completed' 없이 끝났을 때 fallback
+        cleaned = _clean_answer(accumulated_text) if accumulated_text else ""
+        yield {
+            "type": "done",
+            "answer": cleaned or "(응답 비어있음)",
+            "tools_used": [
+                {"name": t.name, "arguments": t.arguments, "result_preview": t.result_preview}
+                for t in tools_used
+            ],
+        }
+    except Exception as e:
+        import traceback
+        logger.warning("supervisor stream failed: %s\n%s", e, traceback.format_exc())
+        yield {"type": "error", "message": f"{type(e).__name__}: {e}"}

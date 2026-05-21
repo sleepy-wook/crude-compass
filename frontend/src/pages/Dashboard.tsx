@@ -1,56 +1,52 @@
 /**
- * Dashboard — Decision Room (/).
+ * Dashboard — Decision Room (/) (reports model 2026-05-21).
  *
- * Phase 2 재배치:
- *   [Header — eyebrow | OSP D-N | spike?]
- *   [DeltaStrip — events>0 일 때만]
- *   [Hero grid 12-col — 5 ActionQueue | 7 SelectedCaseDetail]
- *   [Bidirectional3Zone — full width]
- *   [MonitoringStrip — 1-line each, dense]
- *   [Market Memory]
+ * Layout:
+ *   [Header — Decision Room | OSP D-N | spike alert?]
+ *   [DailyReportHero — 오늘 비중 제안 (참고용, read-only)]
+ *   [Grid 5/12: ReportsInbox | 7/12: SelectedReportDetail]
+ *   [Signal Strength — Bidirectional3Zone (유지)]
+ *   [Market Memory (유지)]
  *
- * AI 활동 section 제거. (LivePulseStrip / DailyLoopClock / AgentActivityTimeline 컴포넌트
- * 자체는 다른 페이지가 쓸 수 있으므로 삭제 X — Dashboard에서만 import 제거.)
+ * 기존 ActionQueue/SelectedCaseDetail/MonitoringStrip/DeltaStrip 제거.
+ * (컴포넌트 자체는 다른 페이지가 쓸 수 있으니 삭제 X — Dashboard에서만 import 제거.)
  */
 import { useEffect, useMemo, useState } from "react";
-import { useDecisionQueue, usePatternCurrent } from "../lib/queries";
+import { useNavigate } from "react-router-dom";
+import { usePatternCurrent, useReportsInbox } from "../lib/queries";
 import { useMissionsWebSocket } from "../lib/ws";
 import { Bidirectional3Zone } from "../components/Bidirectional3Zone";
+import { DailyReportHero } from "../components/DailyReportHero";
+import { ReportsInbox } from "../components/ReportsInbox";
+import { SelectedReportDetail } from "../components/SelectedReportDetail";
 import { SimilarPastWidget } from "../components/SimilarPastWidget";
-import { ActionQueue } from "../components/ActionQueue";
-import { SelectedCaseDetail } from "../components/SelectedCaseDetail";
-import { MonitoringStrip } from "../components/MonitoringStrip";
 
 export function Dashboard() {
-  const queue = useDecisionQueue();
+  const navigate = useNavigate();
+  const inbox = useReportsInbox(10);
   const pattern = usePatternCurrent();
-  const [selectedCaseId, setSelectedCaseId] = useState<string | undefined>(undefined);
+  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
 
   const cur = pattern.data?.current ?? null;
-  const needsYou = queue.data?.needs_you ?? [];
-  const monitoring = queue.data?.monitoring ?? [];
+  const reports = inbox.data?.items ?? [];
 
-  const selectedCase = useMemo(() => {
-    const all = [...needsYou, ...monitoring];
-    if (selectedCaseId) {
-      const found = all.find((m) => m.mission_id === selectedCaseId);
-      if (found) return found;
+  const selectedReportId = useMemo(() => {
+    if (selectedId && reports.some((r) => r.report_id === selectedId)) {
+      return selectedId;
     }
-    return needsYou[0] ?? monitoring[0] ?? null;
-  }, [needsYou, monitoring, selectedCaseId]);
+    return reports[0]?.report_id;
+  }, [reports, selectedId]);
 
-  // 현재 운영 중인 mission — split bar baseline 산출에 사용 (자기 자신 제외)
-  const operatingMission = useMemo(() => {
-    return (
-      monitoring.find(
-        (m) =>
-          m.mission_id !== selectedCase?.mission_id &&
-          (m.status === "active" || m.status === "on_track"),
-      ) ?? null
-    );
-  }, [monitoring, selectedCase?.mission_id]);
+  // thread 자식 클릭 시: inbox에 있으면 선택만 변경, 아니면 archive로 navigate
+  const handleSelectThread = (id: string) => {
+    if (reports.some((r) => r.report_id === id)) {
+      setSelectedId(id);
+    } else {
+      navigate(`/archive?focus=${id}`);
+    }
+  };
 
-  // Reactive trigger flash (위기 spike alert)
+  // Reactive trigger flash (위기 spike alert) — pulse_bus WS 그대로 활용
   const [spikeFlash, setSpikeFlash] = useState(false);
   const { lastEvent, lastEventAt } = useMissionsWebSocket();
   useEffect(() => {
@@ -67,7 +63,7 @@ export function Dashboard() {
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {/* PAGE HEADER                                                  */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <header className="mb-6 flex items-baseline justify-between flex-wrap gap-3">
+      <header className="mb-5 flex items-baseline justify-between flex-wrap gap-3">
         <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3">
           Decision Room
         </div>
@@ -82,35 +78,36 @@ export function Dashboard() {
       </header>
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {/* HERO grid — 5 ActionQueue | 7 SelectedCaseDetail            */}
+      {/* DAILY REPORT HERO — 06:30 KST 종합 보고서 (참고용)            */}
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      <div className="mb-6">
+        <DailyReportHero />
+      </div>
+
+      {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {/* INBOX + DETAIL — 5/12 + 7/12                                 */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-10">
         <div className="lg:col-span-5">
-          <ActionQueue
-            cases={needsYou}
-            selectedId={selectedCase?.mission_id}
-            onSelect={setSelectedCaseId}
+          <ReportsInbox
+            reports={reports}
+            selectedId={selectedReportId}
+            onSelect={setSelectedId}
           />
         </div>
         <div className="lg:col-span-7">
-          <SelectedCaseDetail
-            mission={selectedCase}
-            operatingMission={operatingMission}
-            isLoading={queue.data === undefined}
+          <SelectedReportDetail
+            reportId={selectedReportId}
+            isLoading={inbox.isLoading}
+            onSelectThread={handleSelectThread}
           />
         </div>
       </div>
 
-      {/* SIGNAL STRENGTH — Bidirectional full width supporting context */}
-      <SectionHeader title="Signal Strength" subtitle="위기 ↔ 기회 (0–100, 90일)" />
-      <Bidirectional3Zone cur={cur} topMission={selectedCase} />
-
-      {/* MONITORING — active/on_track/paused */}
-      <SectionHeader
-        title="진행 중인 작업"
-        subtitle={`승인 후 운영 중인 case ${monitoring.length}건`}
-      />
-      <MonitoringStrip cases={monitoring} />
+      {/* SIGNAL STRENGTH — Bidirectional (자체 header 보유) */}
+      <div className="mt-12">
+        <Bidirectional3Zone cur={cur} topMission={null} />
+      </div>
 
       {/* MARKET MEMORY */}
       <SectionHeader title="Market Memory" subtitle="7년 backtest analog" />

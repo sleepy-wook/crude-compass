@@ -108,31 +108,9 @@ CREATE TABLE IF NOT EXISTS pivot_history (
 );
 
 -- ────────────────────────────────────────────────────────────────────
--- 4. discovery_feed_items
--- ────────────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS discovery_feed_items (
-    item_id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    feed_date          DATE         NOT NULL,
-    item_type          VARCHAR(30)  NOT NULL,
-    title              TEXT         NOT NULL,
-    body               TEXT,
-    related_mission_id UUID         REFERENCES missions(mission_id) ON DELETE SET NULL,
-    metadata           JSONB        NOT NULL DEFAULT '{}'::jsonb,
-    created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    dismissed_at       TIMESTAMPTZ,
-
-    CONSTRAINT chk_item_type CHECK (item_type IN (
-        'mission_proposal', 'reactive', 'osp', 'mission_checkpoint'
-    ))
-);
-
-CREATE INDEX IF NOT EXISTS idx_discovery_date
-    ON discovery_feed_items (feed_date DESC);
-
--- ────────────────────────────────────────────────────────────────────
 -- 5. backtest_predictions — LLM backtest output (AI-generated → OLTP)
 -- ────────────────────────────────────────────────────────────────────
--- Read: WhatIf 페이지 300 rows fetch (ms latency).
+-- Read: market memory (find_similar_patterns) — Investigation/의사결정 "비슷한 시그널" 참고.
 -- Write: job_backtest_llm batch (1 run = ~300 INSERT via psycopg executemany).
 CREATE TABLE IF NOT EXISTS backtest_predictions (
     id                BIGSERIAL    PRIMARY KEY,
@@ -164,6 +142,82 @@ CREATE INDEX IF NOT EXISTS idx_backtest_run_date
 
 CREATE INDEX IF NOT EXISTS idx_backtest_as_of
     ON backtest_predictions (as_of_date DESC);
+
+-- ────────────────────────────────────────────────────────────────────
+-- 6. reports — Event-driven AI report inbox (2026-05-21 reports model)
+-- ────────────────────────────────────────────────────────────────────
+-- Replaces `missions` for daily AI workflow. missions table은 backtest용 read-only로 유지.
+-- 매 trigger (gdelt_signal / price_spike / pattern_drift)마다 1 row 생성.
+-- status flow: pending → kept | dropped | ai_dropped
+--   keep:        manager만 (UI/Slack click)
+--   drop:        manager (UI/Slack click)
+--   ai_drop:     AI가 stale 판정시 (Phase 9)
+-- thread:       parent_id 로 연결 (continuation report)
+-- revisit:      revisits_id 로 과거 archive 참조 (재발 시그널)
+CREATE TABLE IF NOT EXISTS reports (
+    report_id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    parent_id          UUID         REFERENCES reports(report_id),
+
+    trigger_type       TEXT         NOT NULL,
+    trigger_meta       JSONB        NOT NULL DEFAULT '{}'::jsonb,
+
+    status             TEXT         NOT NULL DEFAULT 'pending',
+    status_changed_at  TIMESTAMPTZ,
+    status_changed_by  TEXT,
+
+    headline           TEXT         NOT NULL,
+    summary            TEXT         NOT NULL,
+    reasoning          JSONB        NOT NULL DEFAULT '{}'::jsonb,
+    recommendation     TEXT,
+    related_signals    JSONB        NOT NULL DEFAULT '[]'::jsonb,
+
+    revisits_id        UUID         REFERENCES reports(report_id),
+    ai_drop_reason     TEXT,
+
+    version            INT          NOT NULL DEFAULT 1,
+    created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT chk_trigger CHECK (trigger_type IN ('gdelt_signal', 'price_spike', 'pattern_drift')),
+    CONSTRAINT chk_status  CHECK (status IN ('pending', 'kept', 'dropped', 'ai_dropped', 'archived')),
+    CONSTRAINT chk_changed_by CHECK (status_changed_by IS NULL OR status_changed_by IN ('manager', 'ai'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_status_created
+    ON reports (status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_reports_parent
+    ON reports (parent_id, created_at);
+
+-- pending inbox 빠른 lookup (보통 < 10 rows 유지)
+CREATE INDEX IF NOT EXISTS idx_reports_pending
+    ON reports (created_at DESC) WHERE status = 'pending';
+
+-- ────────────────────────────────────────────────────────────────────
+-- 7. daily_reports — 매일 06:30 KST cron 종합 보고서 + 비중 제안
+-- ────────────────────────────────────────────────────────────────────
+-- input: 어제 kept reports + 어제 daily_report
+-- output: 시장 종합 + ratio_suggestion (reference only — 실제 OSP 결재는 매니저)
+-- report_date UNIQUE — 하루 1 row guarantee. 재생성 시 manual DELETE 필요.
+CREATE TABLE IF NOT EXISTS daily_reports (
+    daily_id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    report_date        DATE         UNIQUE NOT NULL,
+    prev_daily_id      UUID         REFERENCES daily_reports(daily_id),
+
+    kept_report_ids    UUID[]       NOT NULL DEFAULT ARRAY[]::uuid[],
+    kept_count         INT          NOT NULL DEFAULT 0,
+    kept_summary       TEXT,
+    prev_daily_summary TEXT,
+    market_context     TEXT,
+
+    ratio_suggestion   JSONB        NOT NULL DEFAULT '{}'::jsonb,
+    reasoning          TEXT,
+    confidence         NUMERIC(5,2),
+
+    created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_daily_reports_date
+    ON daily_reports (report_date DESC);
 
 -- ────────────────────────────────────────────────────────────────────
 -- Smoke test (DDL apply 후 dialect 검증)

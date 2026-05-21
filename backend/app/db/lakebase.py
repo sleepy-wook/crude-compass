@@ -400,6 +400,103 @@ def migrate_d4() -> bool:
         return False
 
 
+def migrate_reports() -> bool:
+    """Reports model — reports + daily_reports tables (2026-05-21).
+
+    Event-driven AI report inbox + 06:30 daily summary.
+    Replaces missions table for daily workflow (missions remains read-only for backtest).
+
+    Idempotent. Lakebase 미연동 환경에서는 silent skip.
+    """
+    import logging
+    import traceback
+    logger = logging.getLogger(__name__)
+
+    reports_ddl = """
+        CREATE TABLE IF NOT EXISTS reports (
+            report_id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+            parent_id          UUID         REFERENCES reports(report_id),
+
+            trigger_type       TEXT         NOT NULL,
+            trigger_meta       JSONB        NOT NULL DEFAULT '{}'::jsonb,
+
+            status             TEXT         NOT NULL DEFAULT 'pending',
+            status_changed_at  TIMESTAMPTZ,
+            status_changed_by  TEXT,
+
+            headline           TEXT         NOT NULL,
+            summary            TEXT         NOT NULL,
+            reasoning          JSONB        NOT NULL DEFAULT '{}'::jsonb,
+            recommendation     TEXT,
+            related_signals    JSONB        NOT NULL DEFAULT '[]'::jsonb,
+
+            revisits_id        UUID         REFERENCES reports(report_id),
+            ai_drop_reason     TEXT,
+
+            version            INT          NOT NULL DEFAULT 1,
+            created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+            CONSTRAINT chk_trigger CHECK (trigger_type IN ('gdelt_signal', 'price_spike', 'pattern_drift')),
+            CONSTRAINT chk_status  CHECK (status IN ('pending', 'kept', 'dropped', 'ai_dropped')),
+            CONSTRAINT chk_changed_by CHECK (status_changed_by IS NULL OR status_changed_by IN ('manager', 'ai'))
+        )
+    """
+
+    daily_reports_ddl = """
+        CREATE TABLE IF NOT EXISTS daily_reports (
+            daily_id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+            report_date        DATE         UNIQUE NOT NULL,
+            prev_daily_id      UUID         REFERENCES daily_reports(daily_id),
+
+            kept_report_ids    UUID[]       NOT NULL DEFAULT ARRAY[]::uuid[],
+            kept_count         INT          NOT NULL DEFAULT 0,
+            kept_summary       TEXT,
+            prev_daily_summary TEXT,
+            market_context     TEXT,
+
+            ratio_suggestion   JSONB        NOT NULL DEFAULT '{}'::jsonb,
+            reasoning          TEXT,
+            confidence         NUMERIC(5,2),
+
+            created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        )
+    """
+
+    indexes = [
+        "CREATE INDEX IF NOT EXISTS idx_reports_status_created ON reports (status, created_at DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_reports_parent ON reports (parent_id, created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_reports_pending ON reports (created_at DESC) WHERE status = 'pending'",
+        "CREATE INDEX IF NOT EXISTS idx_daily_reports_date ON daily_reports (report_date DESC)",
+    ]
+
+    # 2026-05-21: 'archived' status 추가 (kept → daily report input 사용 후 자동 transition).
+    # CHECK constraint는 ALTER가 불가하므로 DROP + ADD. 기존 데이터는 영향 없음
+    # (4 status → 5 status 확장이라 위반 row 없음).
+    constraint_migration_sql = [
+        "ALTER TABLE reports DROP CONSTRAINT IF EXISTS chk_status",
+        """ALTER TABLE reports ADD CONSTRAINT chk_status
+           CHECK (status IN ('pending', 'kept', 'dropped', 'ai_dropped', 'archived'))""",
+    ]
+
+    try:
+        with acquire() as conn:
+            with conn.cursor() as cur:
+                cur.execute(reports_ddl)
+                cur.execute(daily_reports_ddl)
+                for idx_sql in indexes:
+                    cur.execute(idx_sql)
+                for sql in constraint_migration_sql:
+                    cur.execute(sql)
+            conn.commit()
+        logger.info("Lakebase migrate_reports OK (reports + daily_reports + archived status)")
+        return True
+    except Exception as e:
+        logger.warning(
+            "Lakebase migrate_reports failed: %s\n%s", e, traceback.format_exc()
+        )
+        return False
+
+
 def migrate_decision_room() -> bool:
     """Decision Room refactor — user_last_seen table.
 

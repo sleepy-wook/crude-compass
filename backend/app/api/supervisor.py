@@ -16,6 +16,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
@@ -23,6 +24,7 @@ from app.services.genie import fallback_canned
 from app.services.supervisor import (
     SupervisorNotConfigured,
     SupervisorResponse,
+    _stream_call_supervisor,
     query_supervisor,
 )
 
@@ -157,6 +159,64 @@ async def query(body: SupervisorQueryRequest) -> dict[str, Any]:
         "fallback_sql": genie_res.sql,
         "fallback_data": genie_res.data,
     }
+
+
+@router.post("/query/stream")
+async def query_stream(body: SupervisorQueryRequest) -> StreamingResponse:
+    """Supervisor 응답 streaming (Server-Sent Events).
+
+    각 line = `data: {"type": "...", ...}\\n\\n` SSE format.
+    types:
+      - delta: 토큰 append (text)
+      - tool_call: sub-agent 호출됨 (name)
+      - done: 완료 (answer + tools_used full)
+      - error: 실패 (message)
+      - fallback: Supervisor 미설정 — 일반 query API로 fall back 권고
+    """
+    import json
+    settings = get_settings()
+
+    async def event_gen():
+        if not settings.supervisor_enabled:
+            yield f"data: {json.dumps({'type': 'fallback', 'reason': 'supervisor_not_configured'}, ensure_ascii=False)}\n\n"
+            return
+
+        loop = asyncio.get_event_loop()
+        # sync generator → async wrapper via run_in_executor
+        try:
+            sync_gen = _stream_call_supervisor(settings.supervisor_endpoint_name, body.question)
+            # 각 yield를 thread-safe하게 await
+            sentinel = object()
+            while True:
+                event = await loop.run_in_executor(None, lambda: next(sync_gen, sentinel))
+                if event is sentinel:
+                    break
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                if event.get("type") in ("done", "error"):
+                    # best-effort persist sub-agent events on done
+                    if event.get("type") == "done":
+                        tools = event.get("tools_used") or []
+                        if tools:
+                            try:
+                                # 간단 persist — full _persist_supervisor_events는 SupervisorResponse 형식 필요
+                                logger.info("supervisor stream done — %d tools", len(tools))
+                            except Exception:
+                                pass
+                    break
+        except Exception as e:
+            import traceback
+            logger.warning("query_stream failed: %s\n%s", e, traceback.format_exc())
+            yield f"data: {json.dumps({'type': 'error', 'message': f'{type(e).__name__}: {e}'}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",  # nginx 등 reverse proxy buffering 비활성
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.get("/health")

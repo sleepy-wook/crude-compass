@@ -248,16 +248,37 @@ def _format_price_summary(rows: list[dict[str, Any]]) -> tuple[str, str]:
 
 
 def _exec_sql(sql: str) -> list[dict[str, Any]] | None:
-    """Lakebase pool에 직접 SQL 실행. 실패 시 None."""
-    try:
-        from app.db.lakebase import acquire
+    """Databricks SQL Warehouse에 직접 SQL 실행. UC tables (bronze/silver/gold) 대상.
 
-        with acquire() as conn:
-            with conn.cursor() as cur:
-                cur.execute(sql)
-                cols = [d.name for d in cur.description] if cur.description else []
-                rows = cur.fetchall()
-                return [dict(zip(cols, row)) for row in rows]
+    2026-05-21 fix: 기존 Lakebase psycopg connection 사용 → cross-database error.
+    UC Delta tables는 Postgres에 없고 Warehouse에서만 query 가능.
+    `trigger_detector._q()` 패턴 (WorkspaceClient.statement_execution) 재사용.
+    """
+    try:
+        from app.services.trigger_detector import _client, _warehouse_id
+
+        w = _client()
+        r = w.statement_execution.execute_statement(
+            statement=sql.strip(),
+            warehouse_id=_warehouse_id(),
+            wait_timeout="20s",
+        )
+        if r.status and r.status.error:
+            logger.warning("fallback SQL warehouse error: %s", r.status.error.message)
+            return None
+        if not (r.result and r.result.data_array):
+            return []
+        # column names from manifest
+        cols: list[str] = []
+        if r.manifest and r.manifest.schema and r.manifest.schema.columns:
+            cols = [c.name for c in r.manifest.schema.columns]
+        rows: list[dict[str, Any]] = []
+        for row in r.result.data_array:
+            if cols and len(row) == len(cols):
+                rows.append({cols[i]: row[i] for i in range(len(cols))})
+            else:
+                rows.append({str(i): v for i, v in enumerate(row)})
+        return rows
     except Exception as e:
         logger.warning("fallback SQL failed: %s", e)
         return None

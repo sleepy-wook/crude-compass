@@ -180,6 +180,137 @@ async def clear_active_missions() -> dict:
         )
 
 
+@router.post("/reports/trigger-now")
+async def trigger_now(
+    force: bool = False,
+    trigger_type: str | None = None,
+) -> dict[str, Any]:
+    """매뉴얼 trigger — detector 돌려서 잡힌 거 LLM emit + Lakebase insert.
+
+    Query:
+      force=true: 0건이면 dummy event 1개 합성 (UI smoke).
+      trigger_type: None (전체) | 'gdelt_signal' | 'price_spike' | 'pattern_drift'.
+        notebook이 자기 trigger만 emit할 때 사용.
+
+    notebook (15분 / daily 06:30 cron) + UI 둘 다 호출.
+    """
+    from app.db.lakebase import acquire
+    from app.db.repositories import agent_activity
+    from app.db.repositories import reports as reports_repo
+    from app.services.report_generator import generate_report, last_llm_error
+    from app.services.trigger_detector import (
+        TriggerEvent,
+        detect_all,
+        detect_gdelt_signal,
+        detect_pattern_drift,
+        detect_price_spike,
+    )
+    from app.schemas.report import TriggerType
+    from datetime import datetime, timezone
+
+    # 선택적 detector 실행
+    events: list[TriggerEvent] = []
+    if trigger_type is None:
+        events = detect_all()
+    elif trigger_type == "gdelt_signal":
+        events = detect_gdelt_signal()
+    elif trigger_type == "price_spike":
+        spike = detect_price_spike()
+        if spike:
+            events.append(spike)
+    elif trigger_type == "pattern_drift":
+        drift = detect_pattern_drift()
+        if drift:
+            events.append(drift)
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "INVALID_TRIGGER_TYPE", "message": trigger_type},
+        )
+
+    if not events and force:
+        # 합성 dummy event — UI smoke용. 실제 trigger 안 잡혀도 1건 만들어줌.
+        dummy_type = TriggerType(trigger_type) if trigger_type else TriggerType.PATTERN_DRIFT
+        events.append(
+            TriggerEvent(
+                trigger_type=dummy_type,
+                fingerprint=f"manual:{datetime.now(timezone.utc).isoformat()}",
+                headline_hint=f"수동 trigger ({dummy_type.value}) — smoke 목적",
+                meta={"forced": True, "note": "trigger-now endpoint forced=true"},
+            )
+        )
+
+    results: list[dict[str, Any]] = []
+    for ev in events:
+        try:
+            report = generate_report(ev)
+            if report is None:
+                results.append({
+                    "fingerprint": ev.fingerprint,
+                    "ok": False,
+                    "error": last_llm_error(),
+                })
+                continue
+            with acquire() as conn:
+                rid = reports_repo.insert_report(conn, report)
+                conn.commit()
+                agent_activity.insert_event_autocommit(
+                    conn, mission_id=None, actor="report_generator", action="report_created",
+                    result_preview=f"{report.headline[:120]}",
+                    metadata={
+                        "report_id": str(rid),
+                        "trigger_type": ev.trigger_type.value,
+                        "fingerprint": ev.fingerprint,
+                    },
+                )
+            results.append({
+                "fingerprint": ev.fingerprint,
+                "ok": True,
+                "report_id": str(rid),
+                "headline": report.headline,
+                "recommendation": report.recommendation.value if report.recommendation else None,
+            })
+        except Exception as e:
+            logger.warning("trigger-now per-event failed: %s", e)
+            results.append({"fingerprint": ev.fingerprint, "ok": False, "error": str(e)})
+
+    return {
+        "events_detected": len(events),
+        "results": results,
+    }
+
+
+@router.post("/daily-report/generate-now")
+async def generate_daily_now(
+    target_date: str | None = None,
+    overwrite: bool = False,
+) -> dict[str, Any]:
+    """매뉴얼 daily_report 생성 — 06:30 cron 흐름을 그대로 실행.
+
+    Query:
+      target_date: ISO YYYY-MM-DD. 생략시 KST 오늘.
+      overwrite: 기존 row 있으면 삭제 후 새로 생성. default False (skip).
+    """
+    from datetime import date as date_type
+    from app.services.daily_report import generate_daily_report, last_llm_error
+
+    parsed_date: date_type | None = None
+    if target_date:
+        try:
+            parsed_date = date_type.fromisoformat(target_date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail={"code": "INVALID_DATE", "message": target_date})
+
+    daily_id = generate_daily_report(target_date=parsed_date, overwrite=overwrite)
+    if daily_id is None:
+        return {
+            "ok": False,
+            "error": last_llm_error() or "unknown",
+            "note": "이미 존재할 경우 overwrite=true로 재시도",
+        }
+    return {"ok": True, "daily_id": str(daily_id)}
+
+
 @router.get("/curation-status")
 async def curation_status() -> dict:
     """gold.daily_risk_score latest date 반환. Frontend가 stale 여부 판단용."""

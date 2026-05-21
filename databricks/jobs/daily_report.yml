@@ -1,0 +1,21 @@
+resources:
+  jobs:
+    daily_report:
+      name: ${bundle.name}-daily-report-${bundle.target}
+      description: "06:30 KST 종합 보고서 cron — 어제 kept reports + 어제 daily_report + 시장 snapshot → Haiku 종합 + ratio_suggestion"
+      schedule:
+        # 06:35 KST — daily_curation (06:30)이 gold.daily_risk_score 갱신한 직후
+        quartz_cron_expression: "0 35 6 * * ?"
+        timezone_id: Asia/Seoul
+        pause_status: UNPAUSED
+      tasks:
+        - task_key: daily_report
+          notebook_task:
+            notebook_path: ../notebooks/job_daily_report.py
+            source: WORKSPACE
+          timeout_seconds: 300
+      max_concurrent_runs: 1
+      tags:
+        project: crude-compass
+        layer: lakebase
+        purpose: daily_summary_ratio_suggestion

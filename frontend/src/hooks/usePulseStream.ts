@@ -16,9 +16,13 @@ import { useRecentPulse } from "../lib/queries";
 const MAX_BUFFER = 200;
 
 export function usePulseStream(initialLimit = 50) {
-  const { data, refetch } = useRecentPulse(initialLimit);
-  const [wsEvents, setWsEvents] = useState<ActivityEvent[]>([]);
   const [connected, setConnected] = useState(false);
+  // WS 연결되면 REST polling 끔 (Lakebase scale-to-zero 보존).
+  // 미연결 시에만 60s fallback polling — WS 실패해도 데이터는 갱신.
+  const { data, refetch } = useRecentPulse(initialLimit, {
+    refetchMs: connected ? false : 60_000,
+  });
+  const [wsEvents, setWsEvents] = useState<ActivityEvent[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {

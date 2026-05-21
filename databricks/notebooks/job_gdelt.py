@@ -413,6 +413,17 @@ if all_rows:
             )
     except Exception as e:
         print(f"gdelt emit failed: {e}")  # fail silent
+
+    # === Reports trigger emit (D-1 reports model) ===
+    # backend가 직접 detect_gdelt_signal() 돌려서 importance>=80 article 잡아 LLM 보고서 생성.
+    # notebook은 trigger 알리기만 — 실제 condition 검사는 backend에서.
+    try:
+        from _report_emit import emit_trigger
+        result = emit_trigger("gdelt_signal")
+        evts = result.get("events_detected", 0)
+        print(f"reports trigger emitted (gdelt_signal) — events={evts}")
+    except Exception as e:
+        print(f"reports trigger emit failed: {e}")  # fail silent
 else:
     print("No rows to write (all queries below importance threshold)")
 

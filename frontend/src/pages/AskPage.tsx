@@ -1,83 +1,27 @@
 /**
- * AskPage — /ask
+ * AskPage — /ask (Investigation, ChatGPT-style, 2026-05-21 redesign).
  *
- * AI에게 묻기 (Multi-Agent + Genie). Cursor / Databricks Genie 풍.
- * 자연어 질의 → Supervisor → 3 sub-agent → 응답 trace.
- * 하단 collapsible: 과거 권고 검증 (Backtest slider).
+ * Layout:
+ *   ┌─ Sidebar 256px ──┐ ┌─ Main ────────────┐
+ *   │ [+ 새 대화]       │ │ Header             │
+ *   │ conversation list │ │ Messages / Empty   │
+ *   └───────────────────┘ │ Sticky composer    │
+ *                         └────────────────────┘
+ *
+ * 대화 기록: localStorage (`crude-compass:chats:v1`), 최대 50개.
+ * Multi-Agent backend: /api/supervisor/query → Agent Bricks Supervisor.
+ * Auto-inject: market memory (★ wow), case context (?case_id).
  */
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
-import { api } from "../lib/api";
-import type { SubAgentCall, SupervisorQueryResponse } from "../lib/types";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { ArrowUp, Network } from "lucide-react";
+import { api, supervisorQueryStream } from "../lib/api";
 import { useMission, usePatternCurrent } from "../lib/queries";
-import { SignalLifecycle } from "../components/SignalLifecycle";
+import { useChatHistory } from "../lib/useChatHistory";
+import { ChatHistorySidebar } from "../components/ChatHistorySidebar";
+import { ChatMessage } from "../components/ChatMessage";
 import { cn } from "../lib/utils";
-
-// 각 sample 질문에 어떤 sub-agent 주로 호출되는지 hint (평가위원/매니저 demo).
-interface SampleQuery {
-  text: string;
-  routes: ("genie" | "knowledge" | "mission_plan")[];
-  preview: string; // cached one-line example response
-}
-
-// 일반 (case_id 없음) 모드 — 시장 전반 조사 질문
-const EXAMPLES_GENERIC: SampleQuery[] = [
-  {
-    text: "지금 같은 시장 상황은 과거에 어떻게 됐어?",
-    routes: ["genie", "mission_plan"],
-    preview: "지난 7년 비슷한 패턴 4건 — 평균 0.09% 절감, 적중률 75%",
-  },
-  {
-    text: "호르무즈 긴장 누적될 때 평균 가격 반영은?",
-    routes: ["genie", "knowledge"],
-    preview: "호르무즈 봉쇄 우려 시기 두바이 평균 +8~12% (30일), Term 비중 75%로 방어한 case 절감 효과 유의",
-  },
-  {
-    text: "OPEC 사우디 최근 공급 추세 알려줘",
-    routes: ["knowledge", "genie"],
-    preview: "MOMR 2026-03 사우디 10.1M b/d (+24 kb/d M/M), 공급 부족 (-77M b/d)",
-  },
-  {
-    text: "지금 추세에서 30일 후 가격 예측은?",
-    routes: ["mission_plan", "genie"],
-    preview: "위기 강도 10/10 + 호르무즈 신호 누적 → Brent 130 시나리오 580억 절감 가능 (보수적)",
-  },
-];
-
-// case_id 있을 때 — codex docs Investigation 8.3 case-bound 조사 질문 set
-const EXAMPLES_CASE_BOUND: SampleQuery[] = [
-  {
-    text: "왜 이 case가 열렸지?",
-    routes: ["genie", "knowledge", "mission_plan"],
-    preview: "위기 강도 + 핵심 시그널 + 구조화 데이터 + 문서 근거 종합 — Supervisor가 case 개시한 이유",
-  },
-  {
-    text: "OPEC 근거만 보여줘 (사우디 공급 + 수요 전망)",
-    routes: ["knowledge"],
-    preview: "Knowledge Assistant가 MOMR PDF에서 사우디 production / demand forecast / market balance citation",
-  },
-  {
-    text: "구조화 데이터와 문서 근거가 충돌하나?",
-    routes: ["genie", "knowledge"],
-    preview: "Genie (가격/재고/환율) vs Knowledge Assistant (OPEC 보고 톤) 일치 / 불일치 분석",
-  },
-  {
-    text: "유사 과거 사례와 비교해줘",
-    routes: ["genie", "mission_plan"],
-    preview: "위기 강도 ±1 zone 7년 backtest analog 4-7건 + 그때 Supervisor 권고 적중률",
-  },
-  {
-    text: "지금 채택하기보다 모니터링이 더 나은 이유는?",
-    routes: ["mission_plan", "knowledge"],
-    preview: "현재 confidence + 모니터링 트리거 조건 + 다음 발표 D-N 비교",
-  },
-  {
-    text: "다음 review에서 무엇을 기다리는 중이지?",
-    routes: ["knowledge", "genie"],
-    preview: "다음 OPEC MOMR / EIA 주간 재고 / Aramco OSP 발표 일정 + 그게 case 결정에 미치는 영향",
-  },
-];
+import type { SubAgentCall } from "../lib/types";
 
 interface SimilarContext {
   n: number;
@@ -86,88 +30,107 @@ interface SimilarContext {
   hit_rate_pct: number | null;
 }
 
-const AGENT_LABEL: Record<string, string> = {
-  genie: "데이터 조회",
-  knowledge: "뉴스 분석",
-  ka: "뉴스 분석",
-  haiku: "권고 산출",
-  claude: "권고 산출",
-};
+const SAMPLE_QUERIES: string[] = [
+  "지금 같은 시장 상황은 과거에 어떻게 됐어?",
+  "호르무즈 긴장 누적될 때 평균 가격 반영은?",
+  "OPEC 사우디 최근 공급 추세 알려줘",
+  "지금 추세에서 30일 후 가격 예측은?",
+];
 
-function labelAgent(name: string): string {
-  const lower = name.toLowerCase();
-  for (const [key, val] of Object.entries(AGENT_LABEL)) {
-    if (lower.includes(key)) return val;
-  }
-  return name;
-}
-
-interface ChatTurn {
-  question: string;            // 원본 매니저 질문
-  enriched_question: string;   // backend로 보낸 enriched (context prepended)
-  similar_context: SimilarContext | null;  // 응답 카드에 "참조한 과거 N건" 표시
-  response: SupervisorQueryResponse | null;
-  pending: boolean;
-  error: boolean;
-}
+const CASE_BOUND_SAMPLES: string[] = [
+  "왜 이 보고서가 만들어졌지?",
+  "OPEC 근거만 보여줘 (사우디 공급 + 수요 전망)",
+  "구조화 데이터와 문서 근거가 충돌하나?",
+  "유사 과거 사례와 비교해줘",
+];
 
 export function AskPage() {
-  const [question, setQuestion] = useState("");
-  const [turns, setTurns] = useState<ChatTurn[]>([]);
-  const pattern = usePatternCurrent();
-
-  // URL `?case_id=...` — case-bound Investigation 모드
-  // URL `?signal_id=...` — Trace-a-Signal 모드 (4-stage forensic view)
   const [searchParams] = useSearchParams();
   const caseId = searchParams.get("case_id") ?? undefined;
-  const signalId = searchParams.get("signal_id") ?? undefined;
   const caseQuery = useMission(caseId);
   const currentCase = caseQuery.data ?? null;
+  const pattern = usePatternCurrent();
 
-  // Tab mode: chat | signal. signal_id query param 있으면 자동 signal mode 진입.
-  const [mode, setMode] = useState<"chat" | "signal">(signalId ? "signal" : "chat");
+  const history = useChatHistory();
+  const turns = history.active?.turns ?? [];
+
+  const [question, setQuestion] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll on new message
   useEffect(() => {
-    if (signalId) setMode("signal");
-  }, [signalId]);
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [turns.length]);
 
-  // case_id 있으면 case-bound EXAMPLES, 없으면 generic
-  const examples = useMemo(
-    () => (caseId ? EXAMPLES_CASE_BOUND : EXAMPLES_GENERIC),
-    [caseId],
-  );
+  // streaming state — pending 동안 ChatMessage가 점진 갱신됨
+  const [streaming, setStreaming] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const mut = useMutation({
-    mutationFn: ({ enriched }: { original: string; enriched: string }) =>
-      api.supervisorQuery(enriched, caseId),  // caseId → agent_activity_events 연결
-    onSuccess: (data, { original }) => {
-      setTurns((prev) => updateTurn(prev, original, { response: data, pending: false, error: false }));
-    },
-    onError: (_err, { original }) => {
-      setTurns((prev) => updateTurn(prev, original, { response: null, pending: false, error: true }));
-    },
-  });
-
-  function updateTurn(prev: ChatTurn[], q: string, patch: Partial<ChatTurn>): ChatTurn[] {
-    const next = [...prev];
-    const idx = next.findIndex((t) => t.question === q && t.pending);
-    if (idx >= 0) next[idx] = { ...next[idx], ...patch };
-    return next;
+  async function runStream(enriched: string) {
+    setStreaming(true);
+    const abort = new AbortController();
+    abortRef.current = abort;
+    let accumulated = "";
+    const tools: SubAgentCall[] = [];
+    try {
+      // 1차 시도: streaming
+      await supervisorQueryStream(enriched, {
+        missionId: caseId,
+        signal: abort.signal,
+        onEvent: (ev) => {
+          if (ev.type === "delta") {
+            accumulated += ev.text;
+            history.updateLastTurn({ content: accumulated, pending: true });
+          } else if (ev.type === "tool_call") {
+            tools.push({ name: ev.name, arguments: null, result_preview: null });
+            history.updateLastTurn({ toolsUsed: [...tools], pending: true });
+          } else if (ev.type === "done") {
+            const finalTools: SubAgentCall[] = ev.tools_used.map((t) => ({
+              name: t.name,
+              arguments: t.arguments ?? null,
+              result_preview: t.result_preview ?? null,
+            }));
+            history.updateLastTurn({
+              content: ev.answer || accumulated || "(응답 비어있음)",
+              toolsUsed: finalTools,
+              source: "live",
+              pending: false,
+              error: false,
+            });
+          } else if (ev.type === "error") {
+            history.updateLastTurn({ pending: false, error: true });
+          } else if (ev.type === "fallback") {
+            // Supervisor 미설정 → 일반 query API로 fallback
+            api.supervisorQuery(enriched, caseId).then((data) => {
+              history.updateLastTurn({
+                content: data.answer || "(응답 비어있음)",
+                toolsUsed: data.tools_used,
+                source: data.source,
+                pending: false,
+                error: false,
+              });
+            }).catch(() => history.updateLastTurn({ pending: false, error: true }));
+          }
+        },
+      });
+    } catch (e) {
+      if (!abort.signal.aborted) {
+        history.updateLastTurn({ pending: false, error: true });
+      }
+    } finally {
+      setStreaming(false);
+      abortRef.current = null;
+    }
   }
 
   async function submit(text?: string) {
     const q = (text ?? question).trim();
-    if (q.length < 2 || mut.isPending) return;
+    if (q.length < 2 || streaming) return;
 
-    // Auto-inject similar market memory context (★ wow)
+    // Market memory auto-inject
     const score = pattern.data?.current?.pattern_score ?? null;
     const missionType =
-      score == null
-        ? null
-        : score >= 70
-          ? "HEDGE"
-          : score <= 30
-            ? "OPPORTUNITY"
-            : null;
+      score == null ? null : score >= 70 ? "HEDGE" : score <= 30 ? "OPPORTUNITY" : null;
 
     let similarCtx: SimilarContext | null = null;
     let contextPrefix = "";
@@ -189,472 +152,210 @@ export function AskPage() {
           contextPrefix =
             `[참고 컨텍스트 — 시장 메모리]\n` +
             `현재 위기 점수 ${score.toFixed(0)} (${missionType ?? "관망"} zone).\n` +
-            `지난 7년 비슷한 시그널 조합이 ${sim.summary.n}건 발견됨.\n` +
+            `지난 7년 비슷한 시그널 조합 ${sim.summary.n}건 발견됨.\n` +
             `평균 30일 후 두바이 가격 변동 ${(sim.summary.avg_dubai_change_30d_pct ?? 0).toFixed(1)}%, ` +
             `Supervisor 권고 적중률 ${(sim.summary.hit_rate_pct ?? 0).toFixed(0)}%, ` +
-            `평균 절감 ${(sim.summary.avg_saving_30d_pct ?? 0).toFixed(2)}%.\n\n` +
-            `[매니저 질문]\n`;
+            `평균 절감 ${(sim.summary.avg_saving_30d_pct ?? 0).toFixed(2)}%.\n\n[매니저 질문]\n`;
         }
       } catch {
-        // similar fetch 실패 시 context 없이 진행 (graceful)
+        // silent
       }
     }
 
-    // case-bound 모드면 case context도 prefix에 주입 (Supervisor가 어느 case인지 인지)
     let caseContextPrefix = "";
     if (currentCase) {
       const typeKr = currentCase.mission_type === "HEDGE" ? "위험방어" : "기회포착";
       caseContextPrefix =
         `[현재 조사 중인 case]\n` +
-        `mission_id: ${currentCase.mission_id}\n` +
         `direction: ${typeKr} (${currentCase.mission_type})\n` +
         `Pattern Score: ${currentCase.pattern_score.toFixed(0)} · 긴급도 ${currentCase.urgency}\n` +
-        `권고: target ${currentCase.target_pct}% / ${currentCase.duration_days}일\n` +
         `상태: ${currentCase.status}\n\n`;
     }
 
     const enriched = caseContextPrefix + contextPrefix + q;
 
-    setTurns((prev) => [
-      ...prev,
-      {
-        question: q,
-        enriched_question: enriched,
-        similar_context: similarCtx,
-        response: null,
+    // history에 append (active 없으면 자동 새 conversation)
+    history.appendTurn({
+      question: q,
+      enriched,
+      similarCtx,
+      message: {
+        role: "assistant",
+        content: "",
+        similarContext: similarCtx,
         pending: true,
-        error: false,
       },
-    ]);
+    });
     setQuestion("");
-    mut.mutate({ original: q, enriched });
+    void runStream(enriched);
   }
 
+  const samples = currentCase ? CASE_BOUND_SAMPLES : SAMPLE_QUERIES;
+  const isEmpty = turns.length === 0;
+
   return (
-    <div className="max-w-4xl mx-auto px-8 py-10">
-      {/* Page intro */}
-      <header className="mb-8">
-        <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1.5">Investigation</div>
-        <h1 className="font-display text-[28px] md:text-[32px] font-semibold tracking-tight text-ink-1 leading-tight">
-          {mode === "signal"
-            ? "Trace a Signal"
-            : currentCase
-              ? "이 case 조사"
-              : "Agent Bricks Supervisor 조사 콘솔"}
-        </h1>
-        <p className="text-[13px] text-ink-3 mt-1.5 leading-relaxed">
-          {mode === "signal"
-            ? "단일 시그널(article)의 4-stage forensic view — bronze.news_articles → silver.signal_events_decayed → gold.signal_contribution_30d."
-            : "Supervisor가 Genie (Crude Oil Market) · Knowledge Assistant (OPEC MOMR) · mission_plan_advice (UC Function)를 자동 라우팅. 응답 + 호출된 tool trace를 Lakebase activity에 기록."}
-        </p>
+    <div className="flex h-full max-h-[calc(100vh-3.5rem)]">
+      <ChatHistorySidebar
+        conversations={history.conversations}
+        activeId={history.activeId}
+        onSelect={history.select}
+        onNew={history.startNew}
+        onRemove={history.remove}
+      />
 
-        {/* Tab — Chat / Trace a Signal */}
-        <div className="flex gap-2 mt-4">
-          <button
-            type="button"
-            onClick={() => setMode("chat")}
-            className={cn(
-              "text-[12px] px-3 py-1 rounded transition-colors",
-              mode === "chat" ? "bg-ink-1 text-paper" : "bg-line-1 text-ink-2 hover:bg-line-2",
-            )}
-          >
-            Chat
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("signal")}
-            className={cn(
-              "text-[12px] px-3 py-1 rounded transition-colors",
-              mode === "signal" ? "bg-ink-1 text-paper" : "bg-line-1 text-ink-2 hover:bg-line-2",
-            )}
-          >
-            Trace a Signal
-          </button>
-        </div>
-      </header>
-
-      {/* Signal mode — 4-stage SignalLifecycle */}
-      {mode === "signal" && (
-        <div className="mb-6">
-          <SignalLifecycle signalId={signalId} />
-        </div>
-      )}
-
-      {/* Chat mode — 기존 Supervisor 조사 콘솔 */}
-      {mode === "chat" && (<>
-      {/* Case context badge — case-bound mode */}
-      {caseId && currentCase && (
-        <div className="mb-6 px-4 py-3 rounded-lg bg-line-1/40 border border-line-2 flex items-baseline justify-between flex-wrap gap-2">
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <header className="px-8 pt-8 pb-4 border-b border-line-1 flex items-baseline justify-between flex-wrap gap-3">
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-0.5">현재 조사 중 case</div>
-            <div className="text-[13px] text-ink-1">
-              <span className="font-medium">
-                {currentCase.mission_type === "HEDGE" ? "위험방어" : "기회포착"}
-              </span>
-              {" · "}
-              <span className="text-ink-2">
-                위기 강도 {Math.round(currentCase.pattern_score / 10)}/10 · 긴급도 {currentCase.urgency} · {currentCase.status}
-              </span>
+            <div className="text-[11px] uppercase tracking-[0.2em] text-ink-3 mb-1">
+              Investigation
             </div>
+            <h1 className="font-display text-xl font-semibold text-ink-1 tracking-tight">
+              AI에게 묻기
+            </h1>
+            <p className="text-[12px] text-ink-3 mt-1">
+              Agent Bricks Supervisor — Genie (데이터) · Knowledge Assistant (문서) · 권고 sub-agent
+            </p>
           </div>
-          <Link
-            to={`/missions/${currentCase.mission_id}`}
-            className="text-[11px] text-ink-2 hover:text-ink-1"
-          >
-            Case File로 이동 →
-          </Link>
-        </div>
-      )}
-      {caseId && !currentCase && !caseQuery.isLoading && (
-        <div className="mb-6 px-4 py-3 rounded-lg bg-crisis-50 border border-crisis-100 text-[12px] text-crisis-700">
-          case_id={caseId} 를 찾을 수 없습니다 — 일반 조사 모드로 진행됩니다.
-        </div>
-      )}
+          {currentCase && <CaseChip mission={currentCase} />}
+        </header>
 
-      {/* Orchestration diagram chip — always visible at top (collapsible) */}
-      <EmptyStateGuide examples={[]} onPick={() => undefined} caseBound={!!caseId} />
-
-      {/* Chat turns OR empty welcome */}
-      {turns.length === 0 ? (
-        <div className="py-12 text-center">
-          <div className="font-display text-lg text-ink-2 mb-2">
-            {caseId ? "이 case 조사 시작" : "자연어로 시장 시그널 묻기"}
-          </div>
-          <p className="text-[13px] text-ink-3 max-w-md mx-auto leading-relaxed">
-            아래 입력창에 질문을 쓰거나 예시 chip을 누르세요.
-            Supervisor가 자동으로 sub-agent를 라우팅합니다.
-          </p>
-        </div>
-      ) : (
-        turns.map((t, i) => <ChatTurnView key={i} turn={t} />)
-      )}
-
-      {/* Sample chips — 채팅방 형식 input 바로 위 (ChatGPT 풍) */}
-      {turns.length === 0 && (
-        <div className="mb-3">
-          <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-2">
-            {caseId ? "이 case에 대한 조사 질문" : "예시 질문"}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {examples.map((ex) => (
-              <button
-                key={ex.text}
-                type="button"
-                onClick={() => submit(ex.text)}
-                className="px-3 py-1.5 text-[12px] text-ink-2 bg-panel border border-line-2 rounded-full hover:border-ink-3 hover:bg-line-1 transition-colors text-left"
-                title={ex.preview}
-              >
-                {ex.text}
-              </button>
-            ))}
+        {/* Body */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto">
+          <div className="max-w-3xl mx-auto px-8 py-6">
+            {isEmpty ? (
+              <EmptyState
+                samples={samples}
+                caseBound={!!currentCase}
+                onPick={(s) => submit(s)}
+              />
+            ) : (
+              turns.map((t, i) => (
+                <div key={i}>
+                  <ChatMessage msg={{ role: "user", content: t.question }} />
+                  <ChatMessage msg={t.message} />
+                </div>
+              ))
+            )}
           </div>
         </div>
-      )}
 
-      {/* Input — sticky bottom */}
-      <div className="sticky bottom-4 mt-3">
-        <div className="bg-panel border border-line-1 rounded-xl shadow-sm p-3">
-          <textarea
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                submit();
-              }
-            }}
-            placeholder="질문을 입력하고 Enter (Shift+Enter는 줄바꿈)"
-            rows={2}
-            className="w-full text-sm p-2 focus:outline-none resize-none placeholder:text-ink-3"
-          />
-          <div className="flex items-center justify-between mt-1 pt-2 border-t border-line-1">
-            <div className="text-[11px] text-ink-3">자연어 질의는 Agent Bricks Supervisor가 sub-agent를 라우팅해 응답합니다</div>
-            <button
-              type="button"
-              onClick={() => submit()}
-              disabled={mut.isPending || question.trim().length < 2}
-              className="px-3.5 py-1.5 rounded-md bg-ink-1 text-paper text-[12px] font-medium hover:bg-ink-2 disabled:opacity-50 transition-colors"
-            >
-              {mut.isPending ? "응답 생성 중..." : "보내기"}
-            </button>
+        {/* Composer */}
+        <div className="border-t border-line-1 bg-paper">
+          <div className="max-w-3xl mx-auto px-8 py-4">
+            <Composer
+              value={question}
+              onChange={setQuestion}
+              onSubmit={() => submit()}
+              disabled={streaming}
+            />
           </div>
         </div>
       </div>
-
-      {/* Backtest link — D-2 별도 페이지로 분리 (이전엔 inline collapsible) */}
-      <div className="mt-12 pt-6 border-t border-line-1 text-[12px] text-ink-3 flex items-center justify-between">
-        <span>과거 권고가 어떻게 됐는지 검증하고 싶으면 →</span>
-        <Link
-          to="/backtest"
-          className="text-ink-2 hover:text-ink-1 underline underline-offset-2 decoration-line-2 hover:decoration-ink-2"
-        >
-          과거 권고 검증 페이지 보기 →
-        </Link>
-      </div>
-      </>)}
-
-      <div className="h-20" />
     </div>
   );
 }
 
-// ────────────────────────────────────────────────────────────────────────
-// EmptyStateGuide — Multi-Agent flow diagram + Sample chip (dynamic).
-//
-// Hover/click 시 chip의 routes에 해당하는 sub-agent 노드가 active 색으로 강조.
-// 평가위원 demo: "Supervisor가 어떤 sub-agent 호출하는지 자동" 5초에 인지.
-// ────────────────────────────────────────────────────────────────────────
-type AgentKey = "genie" | "knowledge" | "mission_plan";
-
-const AGENT_META: Record<
-  AgentKey,
-  { name: string; role: string; source: string; icon: string }
-> = {
-  genie: {
-    name: "Genie",
-    role: "structured market specialist",
-    source: "Crude Oil Market Analysis · gold/silver UC tables",
-    icon: "▤",
-  },
-  knowledge: {
-    name: "Knowledge Assistant",
-    role: "document evidence agent",
-    source: "crude-compass-ka · OPEC MOMR PDF 2019~2026",
-    icon: "✦",
-  },
-  mission_plan: {
-    name: "Mission Plan",
-    role: "decision advisor (UC Function)",
-    source: "mission_plan_advice · ai_query(claude-haiku-4-5)",
-    icon: "◇",
-  },
-};
-
-function EmptyStateGuide({
-  examples,
+function EmptyState({
+  samples,
+  caseBound,
   onPick,
-  caseBound = false,
 }: {
-  examples: SampleQuery[];
-  onPick: (q: string) => void;
-  caseBound?: boolean;
+  samples: string[];
+  caseBound: boolean;
+  onPick: (s: string) => void;
 }) {
-  const [hoveredRoutes, setHoveredRoutes] = useState<AgentKey[] | null>(null);
-  // D-2: 다이어그램 default collapsed (ChatGPT 풍 focus). Agent Bricks narrative는 헤더 chip + 펼치기로 access.
-  const [showDiagram, setShowDiagram] = useState(false);
-
   return (
-    <>
-      {/* Multi-Agent flow diagram — collapsed default, click to expand */}
-      {!showDiagram && (
-        <button
-          type="button"
-          onClick={() => setShowDiagram(true)}
-          className="w-full mb-4 px-4 py-2.5 bg-line-1/30 hover:bg-line-1/60 border border-line-2 rounded-lg flex items-center justify-between text-left transition-colors group"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase tracking-wider text-ink-3">Agent Bricks Supervisor</span>
-            <span className="text-[12px] text-ink-2">매니저 질문 → Genie · Knowledge Assistant · Mission Plan 자동 라우팅</span>
-          </div>
-          <span className="text-[10px] text-ink-3 group-hover:text-ink-1">오케스트레이션 펼치기 ▾</span>
-        </button>
-      )}
-      {showDiagram && (
-      <div className="bg-panel border border-line-1 rounded-xl p-6 mb-6">
-        <div className="flex items-baseline justify-between mb-4">
-          <div className="text-[11px] uppercase tracking-wider text-ink-3">Agent Bricks Supervisor orchestration</div>
-          <span className="text-[10px] text-ink-3">예시 hover로 routing 확인</span>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-[110px_24px_1fr] gap-3 md:gap-4 items-stretch">
-          {/* 매니저 노드 */}
-          <div className="rounded-md border border-line-2 bg-line-1/40 p-3 text-center flex flex-col justify-center">
-            <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">매니저</div>
-            <div className="text-[12px] text-ink-1 font-medium">자연어 질문</div>
-          </div>
-          {/* arrow */}
-          <div className="hidden md:flex items-center justify-center text-ink-3 text-lg">→</div>
-          {/* Supervisor + sub-agents */}
-          <div>
-            <div className="rounded-md border border-ink-1 bg-ink-1 text-paper p-3 mb-3">
-              <div className="flex items-baseline gap-2">
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider opacity-70">Supervisor</div>
-                  <div className="text-[12px] font-medium">자동 라우팅 — 질문 분석 후 sub-agent 선택</div>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {(Object.keys(AGENT_META) as AgentKey[]).map((key) => {
-                const a = AGENT_META[key];
-                const active = hoveredRoutes?.includes(key) ?? false;
-                return (
-                  <div
-                    key={key}
-                    className={`rounded-md p-2.5 transition-all border ${
-                      active
-                        ? "border-ink-1 bg-ink-1/5 shadow-sm"
-                        : "border-line-1 bg-panel opacity-80"
-                    }`}
-                  >
-                    <div className="flex items-baseline gap-1.5 mb-1">
-                      <span
-                        className={`text-[12px] ${active ? "text-ink-1" : "text-ink-3"}`}
-                        aria-hidden
-                      >
-                        {a.icon}
-                      </span>
-                      <div className="text-[10px] uppercase tracking-wider text-ink-3">
-                        {a.name}
-                      </div>
-                      {active && (
-                        <span className="ml-auto text-[9px] uppercase tracking-wider bg-crisis-500 text-white px-1.5 py-0.5 rounded">
-                          호출 예정
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-ink-2 leading-snug">{a.role}</div>
-                    <div className="text-[10px] text-ink-3 mt-1 leading-snug italic">
-                      {a.source}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+    <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+      <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-line-1 mb-4">
+        <Network className="w-5 h-5 text-ink-2" />
       </div>
-      )}
-
-      {/* Sample chip section — examples.length === 0 면 hide (sample은 input 위로 이동) */}
-      {examples.length > 0 && (
-      <div className="bg-panel border border-line-1 rounded-xl p-6 mb-6">
-        <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-4">
-          {caseBound ? "이 case에 대한 조사 질문" : "예시 질문"}
-        </div>
-        <div className="space-y-2.5">
-          {examples.map((ex) => (
-            <button
-              key={ex.text}
-              type="button"
-              onMouseEnter={() => setHoveredRoutes(ex.routes as AgentKey[])}
-              onMouseLeave={() => setHoveredRoutes(null)}
-              onFocus={() => setHoveredRoutes(ex.routes as AgentKey[])}
-              onBlur={() => setHoveredRoutes(null)}
-              onClick={() => onPick(ex.text)}
-              className="w-full text-left rounded-lg border border-line-1 hover:border-ink-3 hover:bg-line-1/30 transition-colors p-3"
-            >
-              <div className="flex items-baseline justify-between gap-3 mb-1.5">
-                <span className="text-[13px] text-ink-1 font-medium">{ex.text}</span>
-                <div className="flex items-center gap-1 shrink-0">
-                  {ex.routes.map((r) => (
-                    <span
-                      key={r}
-                      className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-line-1 text-ink-2 font-mono"
-                    >
-                      {AGENT_META[r as AgentKey]?.name ?? r}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div className="text-[11px] text-ink-3 leading-relaxed italic">
-                예상 응답: {ex.preview}
-              </div>
-            </button>
-          ))}
-        </div>
+      <h2 className="font-display text-2xl font-semibold text-ink-1 tracking-tight mb-2">
+        무엇이 궁금하세요?
+      </h2>
+      <p className="text-[13px] text-ink-3 mb-8">
+        {caseBound
+          ? "이 보고서를 깊이 파헤치기"
+          : "시장·뉴스·과거 사례 — 자연어로 질문"}
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-2xl">
+        {samples.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => onPick(s)}
+            className="px-4 py-2.5 text-[12.5px] text-ink-2 text-left bg-white border border-line-2 rounded-lg hover:bg-line-1 hover:text-ink-1 transition-colors"
+          >
+            {s}
+          </button>
+        ))}
       </div>
-      )}
-    </>
-  );
-}
-
-function ChatTurnView({ turn }: { turn: ChatTurn }) {
-  return (
-    <div className="mb-8">
-      {/* Similar context badge — ★ wow: AI가 자동으로 시장 메모리 참조 */}
-      {turn.similar_context && (
-        <div className="mb-2 text-[11px] text-ink-3 flex items-center gap-2 flex-wrap">
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-line-1 text-ink-2">
-            시장 메모리 자동 참조
-          </span>
-          <span>
-            지난 7년 비슷한 패턴{" "}
-            <span className="text-ink-1 font-medium">{turn.similar_context.n}건</span>{" "}
-            · 30일 평균{" "}
-            <span className="text-ink-1 font-medium">
-              {(turn.similar_context.avg_dubai_change_30d_pct ?? 0).toFixed(1)}%
-            </span>{" "}
-            · 적중률{" "}
-            <span className="text-ink-1 font-medium">
-              {(turn.similar_context.hit_rate_pct ?? 0).toFixed(0)}%
-            </span>
-          </span>
-        </div>
-      )}
-
-      {/* Question */}
-      <div className="bg-line-1/60 rounded-lg px-5 py-3 mb-3 ml-auto max-w-xl">
-        <div className="text-[11px] uppercase tracking-wider text-ink-3 mb-1">질문</div>
-        <p className="text-sm text-ink-1 leading-relaxed">{turn.question}</p>
-      </div>
-
-      {/* Response */}
-      {turn.pending && (
-        <div className="bg-panel border border-line-1 rounded-lg px-5 py-4">
-          <div className="flex items-center gap-2 text-sm text-ink-3">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-crisis-500 animate-pulse" />
-            <span>Supervisor가 sub-agent 호출 중...</span>
-          </div>
-        </div>
-      )}
-
-      {turn.error && (
-        <div className="bg-panel border border-line-1 rounded-lg px-5 py-4">
-          <div className="text-sm text-crisis-700">요청 처리 중 오류가 발생했습니다.</div>
-        </div>
-      )}
-
-      {turn.response && <ResponseCard response={turn.response} />}
     </div>
   );
 }
 
-function ResponseCard({ response }: { response: SupervisorQueryResponse }) {
-  const tools = response.tools_used || [];
+function Composer({
+  value,
+  onChange,
+  onSubmit,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit: () => void;
+  disabled: boolean;
+}) {
+  function onKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      onSubmit();
+    }
+  }
+  const canSubmit = !disabled && value.trim().length >= 2;
+
   return (
-    <div className="bg-panel border border-line-1 rounded-lg px-5 py-4">
-      <div className="flex items-center gap-2 mb-3">
-        <span
-          className={`inline-flex items-center gap-1.5 text-[11px] ${
-            response.source === "live" ? "text-opportunity-700" : "text-ink-3"
-          }`}
-        >
-          <span
-            className={`inline-block w-1.5 h-1.5 rounded-full ${
-              response.source === "live" ? "bg-opportunity-500" : "bg-ink-3/50"
-            }`}
-          />
-          {response.source === "live" ? "실시간 응답" : "캐시된 응답"}
-        </span>
-      </div>
-      <p className="text-[14px] text-ink-1 leading-relaxed whitespace-pre-wrap mb-4">
-        {response.answer}
-      </p>
-      {tools.length > 0 && (
-        <div className="pt-3 border-t border-line-1">
-          <div className="text-[11px] text-ink-3 mb-2">참고 도구</div>
-          <div className="flex flex-wrap gap-1.5">
-            {tools.map((t: SubAgentCall, i: number) => (
-              <span
-                key={`${t.name}-${i}`}
-                className="text-[11px] px-2 py-0.5 rounded-full bg-line-1 text-ink-2 border border-line-2"
-              >
-                {labelAgent(t.name)}
-              </span>
-            ))}
-          </div>
-        </div>
+    <div className="relative">
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={onKey}
+        placeholder="질문을 입력하세요... (Enter = 전송, Shift+Enter = 줄바꿈)"
+        rows={2}
+        className="w-full pr-12 pl-4 py-3 text-[13px] border border-line-2 rounded-xl bg-white text-ink-1 placeholder:text-ink-3 focus:outline-none focus:border-ink-3 resize-none leading-relaxed"
+      />
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={!canSubmit}
+        className={cn(
+          "absolute right-2 bottom-2.5 w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+          canSubmit
+            ? "bg-ink-1 text-paper hover:bg-ink-2"
+            : "bg-line-1 text-ink-3 cursor-not-allowed",
+        )}
+        aria-label="전송"
+      >
+        <ArrowUp className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+function CaseChip({ mission }: { mission: NonNullable<ReturnType<typeof useMission>["data"]> }) {
+  const typeKr = mission.mission_type === "HEDGE" ? "위험방어" : "기회포착";
+  const tone =
+    mission.mission_type === "HEDGE"
+      ? "bg-crisis-50 text-crisis-700 border-crisis-200"
+      : "bg-opportunity-50 text-opportunity-700 border-opportunity-200";
+  return (
+    <div
+      className={cn(
+        "inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-[11px]",
+        tone,
       )}
+    >
+      <span className="font-medium">{typeKr} case 조사 중</span>
+      <span className="text-ink-3 font-mono">#{mission.mission_id.slice(0, 6)}</span>
     </div>
   );
 }

@@ -390,6 +390,17 @@ try:
 except Exception as e:
     print(f"curation score emit failed: {e}")
 
+# === Reports trigger emit (D-1 reports model) ===
+# backend가 직접 detect_pattern_drift() 돌려서 7d MA ±10pt 잡아 LLM 보고서 생성.
+# 매일 06:30 curation 직후 한 번만 호출 (daily_report 06:35보다 먼저).
+try:
+    from _report_emit import emit_trigger
+    result = emit_trigger("pattern_drift")
+    evts = result.get("events_detected", 0)
+    print(f"reports trigger emitted (pattern_drift) — events={evts}")
+except Exception as e:
+    print(f"reports trigger emit failed: {e}")
+
 # COMMAND ----------
 
 dbutils.notebook.exit(json.dumps({

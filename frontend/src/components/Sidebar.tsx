@@ -16,10 +16,11 @@ import { queryKeys } from "../lib/queries";
 import { SidebarPulseDot } from "./SidebarPulseDot";
 
 const navItems = [
-  { to: "/", label: "Decision Room", desc: "오늘 운영 case + Agent" },
-  { to: "/market", label: "Market Watch", desc: "가격 · 환율 · 뉴스 근거" },
-  { to: "/ask", label: "Investigation", desc: "Supervisor 조사 콘솔" },
-  { to: "/missions", label: "Case File", desc: "결정 기록 + 재편" },
+  { to: "/", label: "의사결정", desc: "오늘 보고서 + 비중 제안" },
+  { to: "/archive", label: "보관함", desc: "보관 · Drop 보고서 history" },
+  { to: "/market", label: "시황", desc: "유가 · 환율 · 추세" },
+  { to: "/library", label: "자료실", desc: "OPEC 월간 보고서 · 주요 보도" },
+  { to: "/ask", label: "조사", desc: "Supervisor 조사 콘솔" },
 ];
 
 // Prefetch on hover — tab 클릭 전 미리 fetch → tab switch instant.
@@ -38,8 +39,6 @@ function prefetchForRoute(qc: QueryClient, to: string): void {
     prefetch(queryKeys.fxHistory(90), () => api.fxHistory(90), 300_000);
   } else if (to === "/ask") {
     prefetch(queryKeys.patternCurrent, () => api.patternCurrent(), 300_000);
-  } else if (to === "/missions") {
-    prefetch(queryKeys.missionsActive, () => api.missionsActive());
   }
 }
 
