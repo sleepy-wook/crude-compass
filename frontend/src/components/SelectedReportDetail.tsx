@@ -279,7 +279,18 @@ function DetailBody({
             {selected.related_signals.slice(0, 4).map((s, i) => (
               <li key={i} className="flex items-baseline gap-2 text-ink-2">
                 <span className="text-ink-3 shrink-0 text-[10.5px]">·</span>
-                <span className="truncate">{s.title || "—"}</span>
+                {s.url ? (
+                  <a
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="truncate text-info-700 hover:underline"
+                  >
+                    {s.title || "—"}
+                  </a>
+                ) : (
+                  <span className="truncate">{s.title || "—"}</span>
+                )}
                 {s.direction && (
                   <span className={cn(
                     "shrink-0 text-[10px] px-1 py-0.5 rounded",

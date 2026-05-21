@@ -226,6 +226,7 @@ export interface RelatedSignal {
   category?: string;
   direction?: string;
   importance?: number;
+  url?: string | null;
 }
 
 export interface Report {

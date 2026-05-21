@@ -128,7 +128,7 @@ def _fetch_recent_signals(limit: int = 5) -> list[dict[str, Any]]:
     try:
         rows = _q(
             f"""
-            SELECT title, source, category, direction, importance
+            SELECT title, source, category, direction, importance, url
               FROM crude_compass.bronze.news_articles
              WHERE published_at >= CURRENT_TIMESTAMP() - INTERVAL 24 HOURS
                AND direction IN ('bullish', 'bearish')
@@ -148,6 +148,7 @@ def _fetch_recent_signals(limit: int = 5) -> list[dict[str, Any]]:
             "category": str(r[2] or ""),
             "direction": str(r[3] or ""),
             "importance": int(r[4]) if r[4] is not None else None,
+            "url": str(r[5]) if len(r) > 5 and r[5] else None,
         })
     return out
 
@@ -349,6 +350,7 @@ Term 60% / Spot 40%
                     "source": s.get("source"),
                     "direction": s.get("direction"),
                     "importance": s.get("importance"),
+                    "url": s.get("url"),
                 }
                 for s in recent_signals
             ],
