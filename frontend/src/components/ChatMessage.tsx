@@ -92,16 +92,6 @@ function AssistantMessage({ msg }: { msg: ChatMessageData }) {
   return (
     <div className="flex justify-start mb-4">
       <div className="max-w-[85%] bg-paper border border-line-1 rounded-2xl rounded-tl-md px-4 py-3 text-[13px] text-ink-1 leading-relaxed">
-        {/* similar context (silent market memory) */}
-        {msg.similarContext && msg.similarContext.n > 0 && (
-          <div className="text-[10.5px] text-ink-3 mb-2 pb-2 border-b border-line-1">
-            참고: 지난 7년 비슷한 시그널 조합 {msg.similarContext.n}건 발견
-            {msg.similarContext.hit_rate_pct != null && (
-              <span> · 적중률 {msg.similarContext.hit_rate_pct.toFixed(0)}%</span>
-            )}
-          </div>
-        )}
-
         {/* main answer — Markdown 렌더링 (### bold list 등) */}
         <MarkdownBody content={msg.content} />
         {isStreaming && (

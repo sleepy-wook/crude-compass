@@ -16,19 +16,12 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ArrowUp, Network } from "lucide-react";
 import { api, supervisorQueryStream } from "../lib/api";
-import { useMission, usePatternCurrent } from "../lib/queries";
+import { useMission } from "../lib/queries";
 import { useChatHistory } from "../lib/useChatHistory";
 import { ChatHistorySidebar } from "../components/ChatHistorySidebar";
 import { ChatMessage } from "../components/ChatMessage";
 import { cn } from "../lib/utils";
 import type { SubAgentCall } from "../lib/types";
-
-interface SimilarContext {
-  n: number;
-  avg_saving_30d_pct: number | null;
-  avg_dubai_change_30d_pct: number | null;
-  hit_rate_pct: number | null;
-}
 
 const SAMPLE_QUERIES: string[] = [
   "지금 같은 시장 상황은 과거에 어떻게 됐어?",
@@ -49,7 +42,6 @@ export function AskPage() {
   const caseId = searchParams.get("case_id") ?? undefined;
   const caseQuery = useMission(caseId);
   const currentCase = caseQuery.data ?? null;
-  const pattern = usePatternCurrent();
 
   const history = useChatHistory();
   const turns = history.active?.turns ?? [];
@@ -127,41 +119,6 @@ export function AskPage() {
     const q = (text ?? question).trim();
     if (q.length < 2 || streaming) return;
 
-    // Market memory auto-inject
-    const score = pattern.data?.current?.pattern_score ?? null;
-    const missionType =
-      score == null ? null : score >= 70 ? "HEDGE" : score <= 30 ? "OPPORTUNITY" : null;
-
-    let similarCtx: SimilarContext | null = null;
-    let contextPrefix = "";
-    if (score != null) {
-      try {
-        const sim = await api.marketMemorySimilar({
-          pattern_score: score,
-          mission_type: missionType,
-          limit: 5,
-          score_range: 10,
-        });
-        if (sim.lakebase_available && sim.summary?.n && sim.summary.n > 0) {
-          similarCtx = {
-            n: sim.summary.n,
-            avg_saving_30d_pct: sim.summary.avg_saving_30d_pct ?? null,
-            avg_dubai_change_30d_pct: sim.summary.avg_dubai_change_30d_pct ?? null,
-            hit_rate_pct: sim.summary.hit_rate_pct ?? null,
-          };
-          contextPrefix =
-            `[참고 컨텍스트 — 시장 메모리]\n` +
-            `현재 위기 점수 ${score.toFixed(0)} (${missionType ?? "관망"} zone).\n` +
-            `지난 7년 비슷한 시그널 조합 ${sim.summary.n}건 발견됨.\n` +
-            `평균 30일 후 두바이 가격 변동 ${(sim.summary.avg_dubai_change_30d_pct ?? 0).toFixed(1)}%, ` +
-            `Supervisor 권고 적중률 ${(sim.summary.hit_rate_pct ?? 0).toFixed(0)}%, ` +
-            `평균 절감 ${(sim.summary.avg_saving_30d_pct ?? 0).toFixed(2)}%.\n\n[매니저 질문]\n`;
-        }
-      } catch {
-        // silent
-      }
-    }
-
     let caseContextPrefix = "";
     if (currentCase) {
       const typeKr = currentCase.mission_type === "HEDGE" ? "위험방어" : "기회포착";
@@ -172,17 +129,16 @@ export function AskPage() {
         `상태: ${currentCase.status}\n\n`;
     }
 
-    const enriched = caseContextPrefix + contextPrefix + q;
+    const enriched = caseContextPrefix + q;
 
     // history에 append (active 없으면 자동 새 conversation)
     history.appendTurn({
       question: q,
       enriched,
-      similarCtx,
+      similarCtx: null,
       message: {
         role: "assistant",
         content: "",
-        similarContext: similarCtx,
         pending: true,
       },
     });
