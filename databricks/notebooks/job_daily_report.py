@@ -78,13 +78,20 @@ print(f"TARGET_DATE (KST): {TARGET_DATE}")
 
 # COMMAND ----------
 
+import base64
 from databricks.sdk import WorkspaceClient
 
-w = WorkspaceClient()
+# Databricks Apps는 OAuth JWT만 수락 — ambient 토큰은 401.
+# 앱 SP(secret scope 'crude': sp_client_id/sp_client_secret)로 M2M(client_credentials) 토큰 발급.
+# SP에 앱 CAN_USE 권한 필요.
+_amb = WorkspaceClient()  # ambient (run_as) — secret 읽기용
+_cid = base64.b64decode(_amb.secrets.get_secret("crude", "sp_client_id").value).decode()
+_csec = base64.b64decode(_amb.secrets.get_secret("crude", "sp_client_secret").value).decode()
+w = WorkspaceClient(host=_amb.config.host, client_id=_cid, client_secret=_csec)
 auth = w.config.authenticate()
 auth_token = auth.get("Authorization", "")
 if not auth_token:
-    raise RuntimeError("SP authenticate() returned no Authorization header")
+    raise RuntimeError("SP M2M authenticate() returned no Authorization header")
 print(f"auth token prefix: {auth_token[:20]}...")
 
 # COMMAND ----------

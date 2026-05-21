@@ -30,16 +30,24 @@ def _apps_url() -> str:
 
 
 def _auth_header() -> dict[str, str]:
-    """Databricks SDK SP OAuth token."""
+    """Databricks App-valid OAuth token (M2M, client_credentials).
+
+    Databricks Apps는 OAuth JWT만 수락 — notebook ambient 토큰은 401.
+    앱 SP(secret scope 'crude': sp_client_id/sp_client_secret)로 M2M 토큰 발급.
+    SP에 앱 CAN_USE 권한 부여돼 있어야 함.
+    """
+    import base64
+    from databricks.sdk import WorkspaceClient
     try:
-        from databricks.sdk import WorkspaceClient
-        w = WorkspaceClient()
-        auth = w.config.authenticate()
-        token = auth.get("Authorization", "")
+        amb = WorkspaceClient()  # ambient (run_as) — secret 읽기용
+        cid = base64.b64decode(amb.secrets.get_secret("crude", "sp_client_id").value).decode()
+        csec = base64.b64decode(amb.secrets.get_secret("crude", "sp_client_secret").value).decode()
+        w = WorkspaceClient(host=amb.config.host, client_id=cid, client_secret=csec)
+        token = w.config.authenticate().get("Authorization", "")
         if token:
             return {"Authorization": token}
     except Exception as e:
-        logger.warning("_report_emit auth failed: %s", e)
+        logger.warning("_report_emit M2M auth failed: %s", e)
     return {}
 
 
