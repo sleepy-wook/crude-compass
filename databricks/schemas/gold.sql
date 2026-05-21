@@ -1,8 +1,7 @@
 -- ====================================================================
 -- Crude Compass · Gold layer (Delta, analytics)
 -- ====================================================================
--- 적재: daily_curation (daily_risk_score) + backtest_compute (backtest_results)
--- + Lakehouse Sync (missions_history mirror).
+-- 적재: daily_curation (daily_risk_score).
 -- 보존: infinite.
 -- ====================================================================
 
@@ -43,11 +42,8 @@ USING DELTA;
 -- bronze.ais_positions 제거 → 의존 view 동반 제거. AIS Stream narrative 폐지.
 DROP VIEW IF EXISTS crude_compass.gold.fleet_current_state;
 
--- ────────────────────────────────────────────────────────────────────
--- 3. missions_history (Lakehouse Sync target — Databricks UI에서 자동 생성)
--- ────────────────────────────────────────────────────────────────────
--- Lakebase missions 테이블의 CDC append-only mirror.
--- Schema: Lakebase missions + (cdc_op, cdc_ts, cdc_seq).
+-- 2026-05-21 정리: missions / decisions / pivot_history (Lakebase) +
+-- gold.missions_history mirror DROP. reports 모델 전환으로 mission 모델 제거.
 
 -- ════════════════════════════════════════════════════════════════════
 -- ANALYTICS VIEWS (D-3 추가, Genie / AI-BI Dashboard / Apps consumption)
