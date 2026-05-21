@@ -89,7 +89,7 @@ class SlackNotifier:
                         report_id or getattr(report, "report_id", "?"), report.headline)
             return fake_ts
 
-        blocks = build_report_card(report, report_id=report_id)
+        blocks = build_report_card(report, report_id=report_id, apps_url=get_settings().apps_url)
         text = build_report_text_fallback(report)
         resp = await self._call_with_retry(
             "chat_postMessage", channel=channel, blocks=blocks, text=text
@@ -110,7 +110,7 @@ class SlackNotifier:
             logger.info("slack[dry-run] post_daily_card date=%s", getattr(daily, "report_date", "?"))
             return fake_ts
 
-        blocks = build_daily_card(daily)
+        blocks = build_daily_card(daily, apps_url=get_settings().apps_url)
         text = build_daily_text_fallback(daily)
         resp = await self._call_with_retry(
             "chat_postMessage", channel=channel, blocks=blocks, text=text

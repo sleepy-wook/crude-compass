@@ -77,6 +77,10 @@ env:
   - name: EIA_API_KEY
     valueFrom: eia_api_key
 
+  # Slack 카드 "앱에서 열기" 버튼 → 배포본 공개 URL (미설정 시 localhost)
+  - name: APP_BASE_URL
+    value: "https://crude-compass-7474656526809380.aws.databricksapps.com"
+
   # Behavior flags
   - name: USE_LAKEBASE
     value: "true"     # production = Lakebase persistence

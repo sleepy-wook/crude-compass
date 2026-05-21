@@ -52,6 +52,10 @@ class Settings(BaseModel):
     slack_app_token: str = Field(
         default_factory=lambda: os.getenv("SLACK_APP_TOKEN", "")
     )
+    # Slack 카드 "앱에서 열기" 버튼 URL — 배포본 공개 URL. 미설정 시 로컬 dev.
+    apps_url: str = Field(
+        default_factory=lambda: os.getenv("APP_BASE_URL", "http://localhost:5173")
+    )
 
     # Demo mode (production X, 데모용 endpoint enable)
     demo_mode: bool = Field(default_factory=lambda: os.getenv("DEMO_MODE", "false").lower() == "true")
