@@ -76,7 +76,7 @@ export function PriceLineChart({ days: initialDays = 90 }: { days?: number }) {
           <h3 className="font-display text-[13px] font-semibold text-ink-1">
             유종별 가격
           </h3>
-          <span className="text-[10px] text-ink-3">두바이 기준 · USD/bbl</span>
+          <span className="text-[10px] text-ink-3">두바이 기준 · 한국석유공사 OPINET 공식 종가</span>
         </div>
         <div className="flex items-center gap-0.5 rounded-md border border-line-2 bg-white p-0.5">
           {DAY_OPTIONS.map((d) => (

@@ -49,7 +49,9 @@ function relTime(iso: string | null | undefined): string {
 export function IntradaySection({ hours = 24 }: Props) {
   const summary = useIntradaySummary();
   const prices = useIntradayPrices(hours);
-  const tickers = summary.data?.tickers ?? [];
+  // Dubai 라이브 시세는 유료(Platts)라 공개 API에 없음 → 실시간 strip은 Brent/WTI만.
+  // Dubai는 OPINET 공식 일별 종가(아래 유종별 가격 차트)로 노출.
+  const tickers = (summary.data?.tickers ?? []).filter((t) => t.ticker !== "dubai");
 
   // 데이터 모두 비어있을 때 (cron 미작동) → null hide
   const summaryEmpty = !summary.isLoading && (summary.isError || tickers.length === 0);
@@ -76,13 +78,13 @@ export function IntradaySection({ hours = 24 }: Props) {
         </div>
 
         {summary.isLoading ? (
-          <div className="grid grid-cols-3 gap-3">
-            {[0, 1, 2].map((i) => (
+          <div className="grid grid-cols-2 gap-3">
+            {[0, 1].map((i) => (
               <div key={i} className="h-14 rounded bg-line-1/40 animate-pulse" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {tickers.map((t) => (
               <div
                 key={t.ticker}
@@ -111,6 +113,11 @@ export function IntradaySection({ hours = 24 }: Props) {
             ))}
           </div>
         )}
+
+        <p className="mt-2.5 text-[10px] text-ink-3 leading-relaxed">
+          Dubai 실시간 시세는 유료(Platts)라 공개 데이터에 없어, 한국 정유사 기준인
+          한국석유공사 OPINET 공식 일별 종가로 아래 차트에 표시합니다.
+        </p>
       </header>
 
       {/* Body — 24h 차트 */}

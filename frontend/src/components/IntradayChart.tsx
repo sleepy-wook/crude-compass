@@ -1,10 +1,9 @@
 /**
- * IntradayChart — 5분 단위 raw 시계열 (Recharts).
+ * IntradayChart — 30분 단위 raw 시계열 (Recharts).
  *
- * Dubai / Brent / WTI 3 ticker overlay. 최근 24h default.
- * 2026-05-21: SVG hand-rolled → Recharts.
- *  - hover crosshair + tooltip (3 가격 한 번에)
- *  - 시간 X-axis (HH:MM)
+ * Brent / WTI 2 ticker overlay (실시간). 최근 24h default.
+ * Dubai는 라이브 시세가 유료(Platts)라 공개 API에 없음 → 한국석유공사 OPINET
+ * 공식 일별 종가(PriceLineChart)로 별도 노출. 여기선 실시간 가능한 2종만.
  */
 import { useMemo } from "react";
 import {
@@ -22,8 +21,7 @@ interface Props {
   hours?: number;
 }
 
-const TICKER_META: Record<string, { label: string; color: string; key: "dubai" | "brent" | "wti" }> = {
-  dubai: { label: "Dubai", color: "#1B3139", key: "dubai" },
+const TICKER_META: Record<string, { label: string; color: string; key: "brent" | "wti" }> = {
   brent: { label: "Brent", color: "#E0A30E", key: "brent" },
   wti: { label: "WTI", color: "#0E8F5E", key: "wti" },
 };
@@ -31,7 +29,6 @@ const TICKER_META: Record<string, { label: string; color: string; key: "dubai" |
 interface ChartPoint {
   ts: number; // unix ms
   label: string; // HH:MM
-  dubai?: number;
   brent?: number;
   wti?: number;
 }
@@ -47,7 +44,7 @@ export function IntradayChart({ hours = 24 }: Props) {
   const { data, isLoading, isError } = useIntradayPrices(hours);
   const series = data?.series ?? [];
 
-  // Merge 3 ticker series → unified [{ts, dubai, brent, wti}, ...]
+  // Merge ticker series → unified [{ts, brent, wti}, ...]
   const chartData = useMemo<ChartPoint[]>(() => {
     const byTs = new Map<number, ChartPoint>();
     for (const s of series) {
@@ -72,7 +69,7 @@ export function IntradayChart({ hours = 24 }: Props) {
   const { yMin, yMax } = useMemo(() => {
     const all: number[] = [];
     for (const p of chartData) {
-      for (const v of [p.dubai, p.brent, p.wti]) {
+      for (const v of [p.brent, p.wti]) {
         if (v != null) all.push(v);
       }
     }
@@ -111,14 +108,14 @@ export function IntradayChart({ hours = 24 }: Props) {
               width={52}
             />
             <Tooltip content={<IntradayTooltip decimals={decimals} />} />
-            {(["dubai", "brent", "wti"] as const).map((k) => (
+            {(["brent", "wti"] as const).map((k) => (
               <Line
                 key={k}
                 type="monotone"
                 dataKey={k}
                 name={TICKER_META[k].label}
                 stroke={TICKER_META[k].color}
-                strokeWidth={k === "dubai" ? 1.8 : 1.2}
+                strokeWidth={1.4}
                 dot={false}
                 activeDot={{ r: 3 }}
                 connectNulls
