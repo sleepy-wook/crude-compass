@@ -15,7 +15,22 @@ import type { ReactNode } from "react";
 import type { ComponentType } from "react";
 import { cn } from "../lib/utils";
 import { useDropReport, useInvestigateReport, useKeepReport, useReportDetail } from "../lib/queries";
+import { MarkdownBody, labelTool } from "./ChatMessage";
 import type { Report, TriggerType } from "../lib/types";
+
+/**
+ * AI 응답에 새는 raw markup 정리 — footnote([^x]), pipe leak(|0|..|HEDGE|),
+ * <name> 태그, 과다 공백. (Supervisor 응답이 한글 prose에 SQL/citation 잔재를 섞는 경우 대응)
+ */
+function cleanReportText(s: string | null | undefined): string {
+  if (!s) return "";
+  return s
+    .replace(/<name>[^<]*<\/name>/g, "")
+    .replace(/\[\^[^\]]+\]/g, "")
+    .replace(/\|[^\n|]{0,40}(?:\|[^\n|]{0,40}){2,}/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 interface Props {
   reportId: string | undefined;
@@ -114,6 +129,19 @@ function DetailBody({
   const investigateMut = useInvestigateReport();
   const [showReasoning, setShowReasoning] = useState(true);
 
+  // 판단 논리가 본문(summary)과 동일하면 중복이므로 숨김 (investigate child report 케이스).
+  const r = selected.reasoning;
+  const logicShown =
+    !!r?.logic && cleanReportText(r.logic) !== cleanReportText(selected.summary);
+  const hasReasoning = !!(
+    r &&
+    (logicShown ||
+      (r.key_signals?.length ?? 0) > 0 ||
+      (r.risk_factors?.length ?? 0) > 0 ||
+      r.recommendation_text ||
+      (r.agent_bricks_tools?.length ?? 0) > 0)
+  );
+
   return (
     <div className="bg-white border border-line-2 rounded-2xl p-6 flex flex-col h-[680px] overflow-y-auto shadow-sm">
       {/* Pills row */}
@@ -150,11 +178,13 @@ function DetailBody({
         {selected.headline}
       </h3>
 
-      {/* Summary */}
-      <p className="text-[13px] text-ink-2 leading-relaxed mb-4">{selected.summary}</p>
+      {/* Summary — markdown 렌더 + raw markup 정제 */}
+      <div className="text-[13px] text-ink-2 mb-4">
+        <MarkdownBody content={cleanReportText(selected.summary)} />
+      </div>
 
       {/* Reasoning collapsible */}
-      {selected.reasoning && (selected.reasoning.logic || (selected.reasoning.key_signals?.length ?? 0) > 0) && (
+      {hasReasoning && (
         <div className="border-t border-line-1 pt-3 mb-4">
           <button
             type="button"
@@ -178,13 +208,15 @@ function DetailBody({
                   </ul>
                 </ReasoningBlock>
               )}
-              {selected.reasoning.logic && (
+              {logicShown && (
                 <ReasoningBlock
                   icon={<Lightbulb className="w-3 h-3" />}
                   label="판단 논리"
                   tone="ink"
                 >
-                  <p className="leading-relaxed">{selected.reasoning.logic}</p>
+                  <div className="text-[12.5px]">
+                    <MarkdownBody content={cleanReportText(selected.reasoning.logic)} />
+                  </div>
                 </ReasoningBlock>
               )}
               {selected.reasoning.risk_factors && selected.reasoning.risk_factors.length > 0 && (
@@ -222,7 +254,7 @@ function DetailBody({
                     {selected.reasoning.agent_bricks_tools.map((t, i) => (
                       <li key={`${t.name}-${i}`} className="flex items-baseline gap-2 text-[12px]">
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-semibold uppercase tracking-wider bg-info-100 text-info-700 shrink-0">
-                          {t.name}
+                          {labelTool(t.name)}
                         </span>
                         {t.preview && (
                           <span className="text-ink-3 truncate">{t.preview}</span>

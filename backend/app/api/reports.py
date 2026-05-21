@@ -196,9 +196,9 @@ async def investigate_report(report_id: UUID = Path(...)) -> dict[str, Any]:
                     "parent_headline": existing.headline,
                 },
                 headline=f"[추가 조사] {existing.headline[:100]}",
-                summary=(sup.answer or "")[:500],
+                summary=(sup.answer or "")[:800],
                 reasoning={
-                    "logic": (sup.answer or "")[:1000],
+                    # logic은 summary와 중복이므로 저장 안 함 (sub-agent trace만 유지)
                     "agent_bricks_tools": [
                         {"name": t.name, "preview": (t.result_preview or "")[:120]}
                         for t in sup.tools_used

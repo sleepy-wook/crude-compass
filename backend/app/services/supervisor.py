@@ -45,6 +45,8 @@ def _clean_answer(text: str) -> str:
         text = re.sub(r"\|[^|\n]{0,80}\|[^|\n]{0,80}\|[^|\n]{0,80}(\|[^|\n]{0,80})*", "", text)
         # Line-based: 줄 시작이 '|' 인 line 전체 제거.
         text = re.sub(r"^[ \t]*\|[^\n]*\n?", "", text, flags=re.MULTILINE)
+    # Citation footnote([^Pq2d-1] 등) 제거 — KA RAG 인용 잔재.
+    text = re.sub(r"\[\^[^\]]+\]", "", text)
     # Markdown heading inline fix:
     # LLM이 종종 "문장.## heading" 처럼 토큰을 붙여 emit (특히 streaming).
     # ATX heading은 줄 시작에서만 인식되므로 parser가 plain text로 처리됨.

@@ -160,7 +160,7 @@ function AssistantMessage({ msg }: { msg: ChatMessageData }) {
   );
 }
 
-function labelTool(name: string): string {
+export function labelTool(name: string): string {
   const n = name.toLowerCase();
   if (n.includes("genie")) return "Genie";
   if (n.includes("ka-") || n.includes("knowledge")) return "Knowledge Assistant";
@@ -174,7 +174,7 @@ function labelTool(name: string): string {
  * remark-gfm으로 GFM (tables, strikethrough 등) 지원.
  * 작은 chat bubble 안에서 자연스럽게 보이도록 size/spacing override.
  */
-function MarkdownBody({ content }: { content: string }) {
+export function MarkdownBody({ content }: { content: string }) {
   return (
     <div className="markdown-body text-[13px] leading-relaxed">
       <ReactMarkdown
