@@ -513,8 +513,6 @@ function DailyRow({
 }) {
   const dir = daily.ratio_suggestion?.direction || "neutral";
   const meta = DIRECTION_CHIP[dir] ?? DIRECTION_CHIP.neutral;
-  const term = daily.ratio_suggestion?.term_delta_pct || "0";
-  const spot = daily.ratio_suggestion?.spot_delta_pct || "0";
 
   return (
     <button
@@ -543,8 +541,6 @@ function DailyRow({
         </span>
         <span className="mt-1 flex items-center gap-2 text-[10.5px] text-ink-3 tabular-nums">
           <span>보관 {daily.kept_count}건</span>
-          <span aria-hidden>·</span>
-          <span>Term {term} / Spot {spot}</span>
           {daily.confidence !== null && (
             <>
               <span aria-hidden>·</span>

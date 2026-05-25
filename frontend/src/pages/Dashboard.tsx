@@ -3,7 +3,7 @@
  *
  * Layout:
  *   [Header — Decision Room]
- *   [DailyReportHero — 오늘 비중 제안 (참고용, read-only)]
+ *   [DailyReportHero — 오늘 조달 권고 (참고용, read-only)]
  *   [Grid 5/12: ReportsInbox | 7/12: SelectedReportDetail]
  *   [Signal Strength — Bidirectional3Zone]
  *   [Market Memory]

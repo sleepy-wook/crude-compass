@@ -21,10 +21,28 @@ interface Props {
   onSelectKeptReport?: (reportId: string) => void;
 }
 
-const DIRECTION_META: Record<string, { label: string; tone: string }> = {
-  lean_hedge: { label: "위험방어 쪽으로 소폭 이동", tone: "text-crisis-700 bg-crisis-50 border-crisis-200" },
-  neutral: { label: "중립 유지", tone: "text-ink-2 bg-line-1 border-line-2" },
-  lean_opportunity: { label: "기회포착 쪽으로 소폭 이동", tone: "text-opportunity-700 bg-opportunity-50 border-opportunity-200" },
+const DIRECTION_META: Record<
+  string,
+  { label: string; tone: string; alert: string; action: string }
+> = {
+  lean_hedge: {
+    label: "중기 · 위험방어 쪽",
+    tone: "text-crisis-700 bg-crisis-50 border-crisis-200",
+    alert: "위험 경보",
+    action: "현물 발주 보류 · 헤지 확대 검토",
+  },
+  neutral: {
+    label: "중기 · 중립",
+    tone: "text-ink-2 bg-line-1 border-line-2",
+    alert: "안정 구간",
+    action: "현 운영 유지 · 모니터링",
+  },
+  lean_opportunity: {
+    label: "중기 · 기회포착 쪽",
+    tone: "text-opportunity-700 bg-opportunity-50 border-opportunity-200",
+    alert: "기회 구간",
+    action: "현물 발주 앞당김 검토",
+  },
 };
 
 export function DailyReportDetail({ daily, isLoading, onSelectKeptReport }: Props) {
@@ -51,12 +69,9 @@ export function DailyReportDetail({ daily, isLoading, onSelectKeptReport }: Prop
   const rs = daily.ratio_suggestion || {};
   const dir = rs.direction || "neutral";
   const meta = DIRECTION_META[dir] ?? DIRECTION_META.neutral;
-  const termDelta = rs.term_delta_pct || "0";
-  const spotDelta = rs.spot_delta_pct || "0";
+  const tactical = rs.qualitative?.trim() || meta.action;
   const baseTerm = 60;
   const baseSpot = 40;
-  const newTerm = baseTerm + parseInt(termDelta, 10);
-  const newSpot = baseSpot + parseInt(spotDelta, 10);
   const scenarios = rs.scenarios || [];
 
   return (
@@ -84,58 +99,39 @@ export function DailyReportDetail({ daily, isLoading, onSelectKeptReport }: Prop
         </span>
       </div>
 
-      {/* Ratio + confidence */}
-      <div className="flex items-baseline gap-5 mb-4 tabular-nums">
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">Term</div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="font-display text-3xl font-semibold text-ink-1">{newTerm}</span>
-            <span className="text-[12px] text-ink-3">%</span>
-            {termDelta !== "0" && (
-              <span className={cn(
-                "text-[12px] font-semibold ml-1.5",
-                termDelta.startsWith("+") ? "text-crisis-700" : "text-opportunity-700",
-              )}>
-                {termDelta}
-              </span>
-            )}
-          </div>
-          <div className="text-[10px] text-ink-3 mt-0.5">기준 {baseTerm}%</div>
-        </div>
-        <div className="text-ink-3 text-[14px] self-center">·</div>
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">Spot</div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="font-display text-3xl font-semibold text-ink-1">{newSpot}</span>
-            <span className="text-[12px] text-ink-3">%</span>
-            {spotDelta !== "0" && (
-              <span className={cn(
-                "text-[12px] font-semibold ml-1.5",
-                spotDelta.startsWith("+") ? "text-opportunity-700" : "text-crisis-700",
-              )}>
-                {spotDelta}
-              </span>
-            )}
-          </div>
-          <div className="text-[10px] text-ink-3 mt-0.5">기준 {baseSpot}%</div>
-        </div>
+      {/* 오늘의 전술 */}
+      <div className="mb-4">
+        <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1.5">오늘의 전술</div>
+        <p className="font-display text-xl font-semibold text-ink-1 leading-snug tracking-tight">
+          {tactical}
+        </p>
+      </div>
+
+      {/* 신뢰도 + 위험 경보 + 표준 비중 */}
+      <div className="flex items-baseline gap-6 mb-4 tabular-nums">
         {daily.confidence !== null && (
-          <div className="ml-auto text-right">
+          <div>
             <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">신뢰도</div>
-            <div className="font-display text-3xl font-semibold text-ink-1 tabular-nums leading-none">
+            <div className="font-display text-3xl font-semibold text-ink-1 leading-none">
               {Math.round(daily.confidence)}
               <span className="text-[11px] text-ink-3 ml-1 font-normal">/100</span>
             </div>
           </div>
         )}
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">위험 경보</div>
+          <div className={cn("font-display text-xl font-semibold leading-none mt-0.5", meta.tone.split(" ")[0])}>
+            {meta.alert}
+          </div>
+        </div>
+        <div className="ml-auto text-right">
+          <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">표준 비중 · 분기</div>
+          <div className="text-[13px] text-ink-2 tabular-nums">
+            Term <span className="font-semibold text-ink-1">{baseTerm}</span>% · Spot{" "}
+            <span className="font-semibold text-ink-1">{baseSpot}</span>%
+          </div>
+        </div>
       </div>
-
-      {/* qualitative */}
-      {rs.qualitative && (
-        <p className="text-[13px] text-ink-2 leading-relaxed mb-4 pt-3 border-t border-line-1">
-          {rs.qualitative}
-        </p>
-      )}
 
       {/* scenarios */}
       {scenarios.length > 0 && (

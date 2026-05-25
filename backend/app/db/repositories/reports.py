@@ -364,3 +364,33 @@ def list_kept_for_date(
     except Exception as e:
         logger.warning("list_kept_for_date failed (date=%s): %s", target_date, e)
         return []
+
+
+def list_created_for_date(
+    conn: psycopg.Connection,
+    target_date,
+    *,
+    limit: int = 50,
+) -> list[Report]:
+    """target_date에 생성된 reports (status 무관, ai_dropped 제외).
+
+    매니저가 아무것도 활성화하지 않은 날(예: 휴가) daily_report가 kept=0이 되는데,
+    그래도 시스템이 그날 자동 발행한 신호로 자율 종합하기 위한 폴백 입력.
+    """
+    try:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                """
+                SELECT * FROM reports
+                 WHERE DATE(created_at) = %s
+                   AND status <> 'ai_dropped'
+                 ORDER BY created_at ASC
+                 LIMIT %s
+                """,
+                (target_date, limit),
+            )
+            rows = cur.fetchall()
+        return [_row_to_report(r) for r in rows]
+    except Exception as e:
+        logger.warning("list_created_for_date failed (date=%s): %s", target_date, e)
+        return []

@@ -1,37 +1,33 @@
 # Scripts — Crude Compass
 
-Sprint 별 실행 스크립트 모음. backend uv 환경 사용.
+운영·데모용 보조 스크립트. `databricks --profile crude-compass` 인증 + secret scope `crude` 사용.
 
-## 실행 방법
-
-```powershell
-# backend uv 환경 진입
-cd backend
-
-# 환경변수 (Lakebase + API key)
-$env:LAKEBASE_HOST = "ep-lucky-star-d1rlmmrr-pooler.database.us-west-2.cloud.databricks.com"
-$env:LAKEBASE_DATABASE = "databricks_postgres"
-$env:LAKEBASE_ENDPOINT_PATH = "projects/crude-compass-pg/branches/production/endpoints/primary"
-$env:LAKEBASE_USER = "hyeongwook.lee@lginnotek.com"
-$env:OILPRICE_API_KEY = "<key>"
-$env:DATABRICKS_CONFIG_PROFILE = "crude-compass"
-
-# 실행
-uv run python ../scripts/<script_name>.py
+```bash
+PYTHONIOENCODING=utf-8 python scripts/<name>.py
 ```
 
-> ⚠️ 실제 운영에서는 `dbutils.secrets.get(scope='crude', ...)` 사용. 로컬 테스트용으로만 환경변수.
+> `_`로 시작하는 스크립트는 로컬 보조용(커밋 제외 대상). 나머지는 인프라/검증용.
 
-## Sprint 1 검증 스크립트
+## 데모 데이터
+| 파일 | 목적 |
+|---|---|
+| `_backfill_reports.py` | **실데이터 point-in-time 재생성** — 트리거·일일 보고서를 5/15~오늘까지 실제 수집 데이터로 LLM 생성(미래 미지, 시계열). `run` = DELETE 후 재생성, `preview <YYYY-MM-DD>` = 1일 미리보기(미기록). **데모 데이터 표준.** |
+| `_post_pending_to_slack.py` | pending 트리거 보고서를 Slack으로 전송(양방향 데모) |
+| `_post_daily_to_slack.py` | 오늘 일일 종합 보고서를 Slack으로 전송 |
+| `_seed_demo_reports.py` | (구) 손-큐레이션 시드 — `_backfill_reports.py`로 **대체됨**. 폴백용으로만 잔존 |
 
-| 파일 | 목적 | DoD |
-|---|---|---|
-| `oilpriceapi_endpoint_check.py` | OilPriceAPI batch (3 ticker 1 call) 가능 여부 | "batch OK" 또는 "1-by-1 only" 출력 |
-| `lakebase_dialect_test.py` | Lakebase Postgres dialect — JSONB / UUID / version optimistic concurrency | INSERT 1건 + version conflict 시뮬 + 정리 |
-| `seed_mock_backtest.py` | RSS archive 5개월 (2025-12 ~ 2026-04) fetch — Mock backtest 78%/71% 산출용 | sample 10건 fetch 성공 (Sprint 3 본격 사용) |
+## 인프라 · 검증
+| 파일 | 목적 |
+|---|---|
+| `apply_schemas.py` | Unity Catalog bronze/silver/gold DDL 일괄 적용 (하드코딩 DDL). **`databricks/schemas/config.sql`(gdelt_queries)은 미포함 — 별도 적용 필요** |
+| `setup_agent_activity_events.sql` | Lakebase `agent_activity` 이벤트 테이블 셋업 |
+| `verify_data_quality.py` | 수집 데이터 품질 점검 |
+| `_trigger_ingest_jobs.py` | 수집 잡(gdelt/price 등) 수동 트리거 |
+| `dev_local.bat` | 로컬 dev(백엔드+프론트) 실행기 |
 
-## Sprint 2-3 추가 예정
-
-- `inject_demo_signals.py` — 데모 평가위원 inject 트리거
-- `run_lakebase_ddl.py` — `databricks/schemas/lakebase.sql` 자동 적용
-- `backtest_signals.py` ⭐ — 5개월 RSS archive backtest, HEDGE 78% / OPP 71% 산출 (Sprint 3 ⭐ critical)
+## 데모 전 데이터 리셋 순서
+```bash
+PYTHONIOENCODING=utf-8 python scripts/_backfill_reports.py run   # 실데이터 재생성
+python scripts/_post_pending_to_slack.py
+python scripts/_post_daily_to_slack.py
+```

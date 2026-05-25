@@ -70,7 +70,7 @@
 
 ### 녹화 직전 리셋 (테스트 클릭으로 pending 소비됐을 때)
 ```
-python scripts/_seed_demo_reports.py        # 9 reports + daily 2 재시드
+python scripts/_backfill_reports.py run     # 실데이터 point-in-time 재생성 (트리거+일일)
 python scripts/_post_pending_to_slack.py    # 트리거 3 Slack 재전송
 python scripts/_post_daily_to_slack.py      # 일일 카드 재전송
 ```

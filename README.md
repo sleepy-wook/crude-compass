@@ -50,8 +50,9 @@ crude-compass/
 │       ├── hooks/
 │       └── lib/
 └── scripts/
-    ├── seed_mock_backtest.py
-    └── inject_demo_signals.py
+    ├── _backfill_reports.py    ← 실데이터 보고서 재생성(데모)
+    ├── apply_schemas.py        ← UC 스키마 적용
+    └── verify_data_quality.py  ← 데이터 품질 점검
 ```
 
 ## Quick Start (Sprint 1 진입 후)

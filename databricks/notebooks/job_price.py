@@ -183,17 +183,16 @@ except Exception as e:
     print(f"price spike emit failed: {e}")
 
 # === Reports trigger emit (D-1 reports model) ===
-# backend가 직접 detect_price_spike() 돌려서 Dubai 24h ±2% 잡아 LLM 보고서 생성.
-# 5min spike != detect_price_spike (24h)이지만 notebook이 trigger 호출만 보내고
-# backend가 자체 condition 검사 — 안전.
-if spikes:
-    try:
-        from _report_emit import emit_trigger
-        result = emit_trigger("price_spike")
-        evts = result.get("events_detected", 0)
-        print(f"reports trigger emitted (price_spike) — events={evts}")
-    except Exception as e:
-        print(f"reports trigger emit failed: {e}")
+# backend가 detect_price_spike()로 OilPriceAPI Dubai 24h ±2%를 검사해 LLM 보고서 생성.
+# 일별 급락은 5min spike로 안 잡히므로 매 cron마다 호출 — backend가 ±2% 여부 +
+# 일(日) 1회 dedup을 자체 판단. 스파이크 없으면 no-op(LLM 미호출).
+try:
+    from _report_emit import emit_trigger
+    result = emit_trigger("price_spike")
+    evts = result.get("events_detected", 0)
+    print(f"reports trigger checked (price_spike) — events={evts}")
+except Exception as e:
+    print(f"reports trigger emit failed: {e}")
 
 # COMMAND ----------
 

@@ -116,6 +116,41 @@ QUERY_META = {
 
 # COMMAND ----------
 
+# Config 외부화 — watchlist를 crude_compass.config.gdelt_queries에서 로드(있으면).
+# 테이블 없거나 실패 시 위 하드코딩 default 사용 → 수집 안 끊김.
+# horizon 컬럼이 단기(short)/장기(long) 분리를 담고, category='broad'가 광역 catch-all.
+def _load_queries_from_table():
+    try:
+        rows = (
+            spark.read.table("crude_compass.config.gdelt_queries")
+            .filter("active = true")
+            .collect()
+        )
+        if not rows:
+            return None
+        q, base, meta = [], {}, {}
+        for r in rows:
+            q.append({"label": r["label"], "query": r["query"], "tier": r["tier"]})
+            base[r["label"]] = int(r["baseline"])
+            meta[r["label"]] = {
+                "category": r["category"],
+                "horizon": r["horizon"],
+                "confidence": r["confidence"],
+                "default_direction": r["default_direction"],
+            }
+        print(f"watchlist: config.gdelt_queries에서 {len(q)}개 active 로드")
+        return q, base, meta
+    except Exception as e:
+        print(f"watchlist: config 테이블 로드 실패({e}) — 하드코딩 default 사용")
+        return None
+
+
+_loaded = _load_queries_from_table()
+if _loaded:
+    QUERIES, QUERY_BASELINE, QUERY_META = _loaded
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC ## GDELT API helpers
 

@@ -16,7 +16,7 @@ import { queryKeys } from "../lib/queries";
 import { SidebarPulseDot } from "./SidebarPulseDot";
 
 const navItems = [
-  { to: "/", label: "의사결정", desc: "오늘 보고서 + 비중 제안" },
+  { to: "/", label: "의사결정", desc: "오늘 보고서 + 조달 권고" },
   { to: "/archive", label: "보관함", desc: "보관 · Drop 보고서 history" },
   { to: "/market", label: "시황", desc: "유가 · 환율 · 추세" },
   { to: "/library", label: "자료실", desc: "OPEC 월간 보고서 · 주요 보도" },

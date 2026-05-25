@@ -54,7 +54,8 @@ SYSTEM_PROMPT = """You are **Crude Compass Daily Report Agent** — Korean refin
 ## 핵심 원칙
 - 비중 제안은 **±5%p 이내**, **방향성** (lean_hedge / neutral / lean_opportunity) 우선.
 - 비중 변경을 자주 권하지 말 것 — 실제 Term 비중 변경은 수주~몇 달 걸림.
-- kept_count 0이면 → 시장 큰 변화 없음 → neutral 권고 + 모니터링.
+- **kept_count 0이어도 위험이 낮다는 뜻이 아님** — pattern_score·가격 등 시장 지표로 판단.
+  위험 지수가 높으면(예: 70+) neutral 금지, "위험 지속 · 방어 유지"로 권고 (매니저 휴가 등 미개입 대비).
 - 어제와 직전 daily_report의 일관성 확인 — 갑자기 반대로 바꾸지 말 것.
 
 ## Output STRICT JSON ONLY
@@ -93,7 +94,7 @@ SYSTEM_PROMPT = """You are **Crude Compass Daily Report Agent** — Korean refin
 - kept_count 5+ + 일관된 방향 = 75+
 - kept_count 3-4 + 일관 = 60-70
 - kept_count 1-2 = 50-60
-- kept_count 0 = 40-50
+- kept_count 0 (매니저 미개입): 자동 신호·pattern_score 강도로 판단 — 위험 지수 높으면 55-70도 가능.
 
 ## 작성 규칙 (가장 중요 — 위반 시 보고서 reject)
 
@@ -283,6 +284,12 @@ def generate_daily_report(
 
             kept_yesterday = reports_repo.list_kept_for_date(conn, yesterday, limit=50)
             prev_daily = daily_repo.get_prev(conn, target_date)
+            # 매니저 미개입(휴가 등)으로 kept=0이면 그날 자동 발행 신호로 자율 종합 (폴백)
+            unattended = not kept_yesterday
+            agg_reports = (
+                reports_repo.list_created_for_date(conn, yesterday, limit=50)
+                if unattended else kept_yesterday
+            )
     except Exception as e:
         logger.warning("daily_report prep failed: %s", e)
         _LAST_ERROR = f"prep: {e}"
@@ -325,7 +332,19 @@ def generate_daily_report(
         logger.warning("daily_report supervisor synth failed (non-fatal): %s", e)
 
     # 3. Prompt
-    kept_block = _format_kept_reports(kept_yesterday)
+    kept_block = _format_kept_reports(agg_reports)
+    if unattended:
+        kept_header = (
+            f"## 어제 ({yesterday}) 매니저 활성화 0건 — 시스템 자동 발행 신호로 자율 종합 "
+            f"(감지 {len(agg_reports)}건)\n{kept_block}\n"
+            "(주의: 매니저 미개입 상태. pattern_score·가격 등 시장 지표를 1차 근거로 판단. "
+            "활성화 0건이 위험 낮음을 뜻하지 않음.)"
+        )
+    else:
+        kept_header = (
+            f"## 어제 ({yesterday}) 매니저가 활성화한 보고서들 (kept_count={len(kept_yesterday)})\n"
+            f"{kept_block}"
+        )
     market_block = _format_market(market)
     prev_block = (
         f"날짜: {prev_daily.report_date}\n"
@@ -345,8 +364,7 @@ def generate_daily_report(
 
     user_msg = f"""## Target date: {target_date} (06:30 KST 기준)
 
-## 어제 ({yesterday}) 매니저가 보관한 보고서들 (kept_count={len(kept_yesterday)})
-{kept_block}
+{kept_header}
 
 ## 직전 daily_report (어제 또는 그 이전 가장 최근)
 {prev_block}
@@ -359,7 +377,7 @@ def generate_daily_report(
 Term 60% / Spot 40%
 
 → 위 input 종합해서 오늘 daily_report 작성. ratio 권고는 reference only.
-   비중을 자주 바꾸지 말 것. 대부분 neutral 또는 small lean."""
+   비중을 자주 바꾸지 말 것 — 단, 위험 지수가 높으면 활성화 0건이라도 neutral 금지(위험 지속·방어 유지)."""
 
     # 4. LLM call
     w = _client()

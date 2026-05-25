@@ -2,7 +2,7 @@
 
 시나리오 §0 (reports model 2026-05-21):
 1. gdelt_signal   — bronze.news_articles importance >= 80, 최근 N분
-2. price_spike    — gold.oil_prices_wide Dubai 24h ±2%
+2. price_spike    — bronze.oil_prices (OilPriceAPI) Brent/WTI/Dubai 최대 24h ±2% (OPINET 일별은 지연 → 미사용)
 3. pattern_drift  — gold.daily_risk_score 오늘 vs 7일 MA ±10pt
 
 Query: Databricks SQL Warehouse via WorkspaceClient (UC tables).
@@ -156,10 +156,23 @@ def detect_gdelt_signal(
 
 
 # ────────────────────────────────────────────────────────────────────
-# 2. detect_price_spike — Dubai 24h ±N%
+# 2. detect_price_spike — Brent/WTI/Dubai 24h ±N% (최대 변동 기준)
 # ────────────────────────────────────────────────────────────────────
+_BENCHMARKS = {
+    "DUBAI_CRUDE_USD": "Dubai",
+    "BRENT_CRUDE_USD": "Brent",
+    "WTI_USD": "WTI",
+}
+
+
 def detect_price_spike(*, threshold_pct: float | None = None) -> TriggerEvent | None:
-    """Dubai 가장 최근 가격 vs 24h 전 (= 1 trading day) 변동률 ±N%.
+    """Brent·WTI·Dubai 3개 벤치마크의 최신 시세 vs ~24h 전 변동률 — 최대 변동이 ±N% 돌파 시 트리거.
+
+    소스 = bronze.oil_prices (OilPriceAPI, ~30분 실시간 적재). OPINET 일별(gold)은
+    1일 지연이라 트리거엔 부적합 → 시황 차트·공식 일별 표시 전용.
+    중동 공급 충격 땐 Brent-Dubai 스프레드가 벌어지므로 셋을 함께 보고, 가장 크게
+    움직인 벤치마크로 발행하되 보고서는 일(日)·방향당 1건으로 묶음(롤링 24h를 30분마다
+    검사하되 스팸 방지).
 
     None 반환: 스파이크 없음 (정상).
     """
@@ -168,23 +181,28 @@ def detect_price_spike(*, threshold_pct: float | None = None) -> TriggerEvent | 
     try:
         rows = _q(
             """
-            WITH latest AS (
-                SELECT trade_date, dubai_usd
-                  FROM crude_compass.gold.oil_prices_wide
-                 WHERE dubai_usd IS NOT NULL
-                 ORDER BY trade_date DESC
-                 LIMIT 1
+            WITH base AS (
+                SELECT ticker, fetched_at, price_usd
+                  FROM crude_compass.bronze.oil_prices
+                 WHERE ticker IN ('BRENT_CRUDE_USD', 'WTI_USD', 'DUBAI_CRUDE_USD')
+                   AND price_usd IS NOT NULL
             ),
-            prev AS (
-                SELECT dubai_usd AS dubai_prev
-                  FROM crude_compass.gold.oil_prices_wide
-                 WHERE dubai_usd IS NOT NULL
-                   AND trade_date < (SELECT trade_date FROM latest)
-                 ORDER BY trade_date DESC
-                 LIMIT 1
+            ranked AS (
+                SELECT ticker, fetched_at, price_usd,
+                       ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY fetched_at DESC) AS rn
+                  FROM base
+            ),
+            lt AS (SELECT ticker, fetched_at AS now_at, price_usd AS now_px FROM ranked WHERE rn = 1),
+            prevr AS (
+                SELECT b.ticker, b.fetched_at, b.price_usd,
+                       ROW_NUMBER() OVER (PARTITION BY b.ticker ORDER BY b.fetched_at DESC) AS rn
+                  FROM base b JOIN lt ON b.ticker = lt.ticker
+                 WHERE b.fetched_at <= lt.now_at - INTERVAL 24 HOURS
             )
-            SELECT latest.trade_date, latest.dubai_usd, prev.dubai_prev
-              FROM latest CROSS JOIN prev
+            SELECT lt.ticker, lt.now_at, lt.now_px, p.price_usd AS prev_px
+              FROM lt
+              LEFT JOIN (SELECT ticker, price_usd FROM prevr WHERE rn = 1) p
+                ON lt.ticker = p.ticker
             """,
             timeout="15s",
         )
@@ -192,33 +210,48 @@ def detect_price_spike(*, threshold_pct: float | None = None) -> TriggerEvent | 
         logger.warning("detect_price_spike query failed: %s", e)
         return None
 
-    if not rows or len(rows[0]) < 3:
+    if not rows:
         return None
 
-    r = rows[0]
-    trade_date = str(r[0])
-    dubai_now = float(r[1]) if r[1] is not None else None
-    dubai_prev = float(r[2]) if r[2] is not None else None
-    if dubai_now is None or dubai_prev is None or dubai_prev == 0:
+    moves: list[tuple[str, float, float, float]] = []  # (label, now, prev, pct)
+    latest_at = ""
+    for r in rows:
+        label = _BENCHMARKS.get(str(r[0]), str(r[0]))
+        now_at = str(r[1])
+        now_px = float(r[2]) if r[2] is not None else None
+        prev_px = float(r[3]) if r[3] is not None else None
+        if now_at > latest_at:
+            latest_at = now_at
+        if now_px is None or prev_px is None or prev_px == 0:
+            continue
+        pct = (now_px - prev_px) / prev_px * 100.0
+        moves.append((label, now_px, prev_px, pct))
+
+    if not moves:
         return None
 
-    delta_pct = (dubai_now - dubai_prev) / dubai_prev * 100.0
-    if abs(delta_pct) < thr:
+    # 가장 크게 움직인 벤치마크
+    label, now_px, prev_px, pct = max(moves, key=lambda m: abs(m[3]))
+    if abs(pct) < thr:
         return None
 
-    direction = "up" if delta_pct > 0 else "down"
-    headline = f"Dubai {dubai_prev:.2f} → {dubai_now:.2f} USD ({delta_pct:+.2f}%, 24h)"
+    direction = "up" if pct > 0 else "down"
+    day = latest_at[:10]  # YYYY-MM-DD — 하루·방향당 1회 dedup
+    all_moves = ", ".join(f"{m[0]} {m[3]:+.2f}%" for m in moves)
+    headline = f"{label} {prev_px:.2f} → {now_px:.2f} USD ({pct:+.2f}%, 24h)"
     return TriggerEvent(
         trigger_type=TriggerType.PRICE_SPIKE,
-        fingerprint=f"price:{trade_date}:{direction}",
+        fingerprint=f"price:{day}:{direction}",
         headline_hint=headline,
         meta={
-            "trade_date": trade_date,
-            "dubai_usd": dubai_now,
-            "dubai_prev_usd": dubai_prev,
-            "delta_pct": round(delta_pct, 3),
+            "lead_benchmark": label,
+            "lead_pct": round(pct, 3),
+            "now_usd": now_px,
+            "prev_usd": prev_px,
+            "all_moves": all_moves,
             "direction": direction,
             "threshold_pct": thr,
+            "source": "OilPriceAPI",
         },
     )
 
